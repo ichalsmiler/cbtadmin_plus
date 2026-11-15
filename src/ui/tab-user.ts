@@ -5,7 +5,7 @@
 import templateUrl from '../assets/template-cbtadmin.xlsx?url';
 import { GalatFormat, type PesertaCBT, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { urutTingkat } from '../core/jadwal';
-import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, nomorSesi, tingkatPeserta, tulisCbtCsv, tulisCbtXlsx, type SesiPerTingkat } from '../core/user';
+import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, nomorSesi, tingkatDariSheet, tingkatPeserta, tulisCbtCsv, tulisCbtXlsx, type SesiPerTingkat } from '../core/user';
 import { ambilHasilMapel, catatPeserta, muatSesi, saatHasilMapelBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
 import { daftarPesan, el, tabel } from './tabel';
 
@@ -19,12 +19,17 @@ interface Status {
   galat: Peringatan[];
   sheet: string[];
   /** '' = semua sheet. */
-  sheetDipilih: string;
+  /** Filter angkatan (tingkat X/XI/XII); '' = semua. Berlaku untuk pratinjau dan file unduhan. */
+  angkatan: string;
+  /** Filter kelas (nilai kolom KELAS); '' = semua. Berlaku untuk pratinjau dan file unduhan. */
+  kelas: string;
   tampilkanPassword: boolean;
   /** Kata kunci pencarian di pratinjau (tidak memengaruhi file unduhan). */
   cari: string;
   /** Kel. Sesi per tingkat; diingat di browser. */
   sesi: SesiPerTingkat;
+  /** Isian di kartu Pengaturan sesi yang belum disimpan. */
+  sesiDraf: SesiPerTingkat;
 }
 
 const BATAS_PRATINJAU = 200;
@@ -65,18 +70,21 @@ export function pasangTabUser(akar: HTMLElement): void {
     peringatan: [],
     galat: [],
     sheet: [],
-    sheetDipilih: SEMUA,
+    angkatan: SEMUA,
+    kelas: SEMUA,
     tampilkanPassword: false,
     cari: '',
     sesi: muatSesi(),
+    sesiDraf: {},
   };
+  s.sesiDraf = { ...s.sesi };
 
   saatHasilMapelBerubah(() => {
     if (s.peserta.some((p) => p.course.length)) gambar();
   });
 
   async function pilihFile(f: File): Promise<void> {
-    Object.assign(s, { namaFile: f.name, asli: [], peserta: [], peringatan: [], galat: [], sheet: [], sheetDipilih: SEMUA, tampilkanPassword: false, cari: '' });
+    Object.assign(s, { namaFile: f.name, asli: [], peserta: [], peringatan: [], galat: [], sheet: [], angkatan: SEMUA, kelas: SEMUA, tampilkanPassword: false, cari: '' });
     try {
       const hasil = await bacaUser(await f.arrayBuffer(), f.name);
       s.asli = hasil.peserta;
@@ -93,7 +101,19 @@ export function pasangTabUser(akar: HTMLElement): void {
   }
 
   function terpilih(): PesertaMasuk[] {
-    return s.sheetDipilih === SEMUA ? s.peserta : s.peserta.filter((p) => p.sheet === s.sheetDipilih);
+    return s.peserta.filter((p) => (!s.angkatan || tingkatPeserta(p) === s.angkatan) && (!s.kelas || p.department.trim() === s.kelas));
+  }
+
+  /** Nilai kolom KELAS yang ada di angkatan terpilih, urut alami (XI-2 sebelum XI-10). */
+  function daftarKelas(): string[] {
+    const dalam = s.peserta.filter((p) => !s.angkatan || tingkatPeserta(p) === s.angkatan);
+    return [...new Set(dalam.map((p) => p.department.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id', { numeric: true }));
+  }
+
+  /** Sesi tersimpan dan isian draf sama (tingkat yang tidak diisi = 1). */
+  function sesiTersimpan(): boolean {
+    const kunci = new Set([...Object.keys(s.sesi), ...Object.keys(s.sesiDraf)]);
+    return [...kunci].every((t) => (s.sesi[t] ?? 1) === (s.sesiDraf[t] ?? 1));
   }
 
   function kartuUpload(): HTMLElement {
@@ -128,55 +148,48 @@ export function pasangTabUser(akar: HTMLElement): void {
     );
   }
 
-  function kartuPilihSheet(): HTMLElement | null {
-    if (s.sheet.length <= 1) return null;
-    const jumlah = (nama: string) => s.peserta.filter((p) => p.sheet === nama).length;
-    const sel = el(
-      'select',
-      { id: 'pilih-sheet-user' },
-      el('option', { value: SEMUA, selected: s.sheetDipilih === SEMUA }, `Semua sheet (${s.peserta.length} peserta)`),
-      ...s.sheet.map((n) => el('option', { value: n, selected: n === s.sheetDipilih }, `${n} (${jumlah(n)} peserta)`)),
-    );
-    sel.addEventListener('change', () => {
-      s.sheetDipilih = sel.value;
-      gambar();
-    });
-    return el(
-      'div',
-      { class: 'kartu' },
-      el('h2', {}, el('span', { class: 'langkah' }, '2'), 'Pilih sheet'),
-      el('div', { class: 'baris-kontrol' }, el('label', { for: 'pilih-sheet-user' }, 'Peserta dari:'), sel),
-    );
-  }
-
   function kartuSesi(langkah: string): HTMLElement {
     const tingkat = urutTingkat([...new Set(s.peserta.map(tingkatPeserta).filter(Boolean))]);
     const tanpaTingkat = s.peserta.filter((p) => !tingkatPeserta(p)).length;
     const baris = tingkat.map((t) => {
       const id = `sesi-${t}`;
-      const input = el('input', { type: 'number', id, min: '1', step: '1', class: 'sel-edit angka', value: String(s.sesi[t] ?? 1), 'aria-label': `Kel. Sesi kelas ${t}` });
+      const input = el('input', { type: 'number', id, min: '1', step: '1', class: 'sel-edit angka', value: String(s.sesiDraf[t] ?? 1), 'aria-label': `Kel. Sesi kelas ${t}` });
       const galat = el('span', { class: 'bantu', role: 'alert' });
       input.addEventListener('change', () => {
         const n = nomorSesi(input.value);
         if (n === null) {
           galat.textContent = 'Isi angka bulat 1 atau lebih.';
-          input.value = String(s.sesi[t] ?? 1);
+          input.value = String(s.sesiDraf[t] ?? 1);
           return;
         }
-        s.sesi = { ...s.sesi, [t]: n };
-        if (n === 1) delete s.sesi[t]; // 1 = bawaan
-        simpanSesi(s.sesi);
+        s.sesiDraf = { ...s.sesiDraf, [t]: n };
+        if (n === 1) delete s.sesiDraf[t]; // 1 = bawaan
         setTimeout(gambar, 0); // setelah fokus pindah, agar fokus ikut dipulihkan
       });
       const jumlah = s.peserta.filter((p) => tingkatPeserta(p) === t).length;
+      if ((s.sesi[t] ?? 1) !== (s.sesiDraf[t] ?? 1)) input.classList.add('diedit');
       return { sel: [`Kelas ${t}`, jumlah, el('span', { class: 'baris-kontrol' }, input, galat)] };
+    });
+    const tersimpan = sesiTersimpan();
+    const simpan = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-simpan-sesi', disabled: tersimpan }, 'Simpan');
+    simpan.addEventListener('click', () => {
+      s.sesi = { ...s.sesiDraf };
+      simpanSesi(s.sesi);
+      gambar();
+      document.getElementById('kartu-user')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    const batal = el('button', { class: 'tombol', type: 'button', id: 'tombol-batal-sesi', hidden: tersimpan }, 'Batal');
+    batal.addEventListener('click', () => {
+      s.sesiDraf = { ...s.sesi };
+      gambar();
     });
     return el(
       'div',
       { class: 'kartu', id: 'kartu-sesi' },
       el('h2', {}, el('span', { class: 'langkah' }, langkah), 'Pengaturan sesi'),
-      el('p', { class: 'bantu' }, 'Nomor Kel. Sesi untuk setiap tingkat. Dipakai di pratinjau dan file unduhan, dan diingat di browser ini.'),
+      el('p', { class: 'bantu' }, 'Isi nomor Kel. Sesi untuk setiap tingkat, lalu klik Simpan. Pratinjau dan file unduhan memakai sesi yang sudah disimpan; pengaturan diingat di browser ini.'),
       tabel([{ judul: 'Tingkat' }, { judul: 'Peserta', angka: true }, { judul: 'Kel. Sesi' }], baris, 'Kel. Sesi per tingkat'),
+      el('div', { class: 'baris-kontrol' }, simpan, batal, el('span', { class: 'bantu', role: 'status' }, tersimpan ? 'Tersimpan.' : 'Ada perubahan yang belum disimpan.')),
       tanpaTingkat ? el('p', { class: 'bantu' }, `${tanpaTingkat} peserta tidak diketahui tingkatnya, jadi memakai sesi 1.`) : null,
     );
   }
@@ -289,8 +302,9 @@ export function pasangTabUser(akar: HTMLElement): void {
       gambar();
     });
 
-    const namaFile = `USER CBTADMIN${s.sheetDipilih ? ` ${s.sheetDipilih}` : ''} ${tanggalHariIni()}.xlsx`;
-    const unduh = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-unduh-user' }, `Unduh ${namaFile}`);
+    const namaFile = `USER CBTADMIN${s.angkatan ? ` ${s.angkatan}` : ''}${s.kelas ? ` ${s.kelas}` : ''} ${tanggalHariIni()}.xlsx`;
+    const sesiBelum = !sesiTersimpan();
+    const unduh = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-unduh-user', disabled: sesiBelum || cbt.length === 0 }, `Unduh ${namaFile}`);
     const galatUnduh = el('span', { class: 'bantu', role: 'alert' });
     unduh.addEventListener('click', async () => {
       unduh.disabled = true;
@@ -305,19 +319,54 @@ export function pasangTabUser(akar: HTMLElement): void {
     });
 
     const namaCsv = namaFile.replace(/\.xlsx$/, '.csv');
-    const unduhCsvTombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-user-csv' }, `Unduh ${namaCsv}`);
+    const unduhCsvTombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-user-csv', disabled: unduh.disabled }, `Unduh ${namaCsv}`);
     unduhCsvTombol.addEventListener('click', () => unduhCsv(namaCsv, tulisCbtCsv(cbt)));
 
-    const langkah = s.sheet.length > 1 ? '4' : '3';
+    // Filter angkatan & kelas: berlaku untuk pratinjau dan file unduhan
+    const tingkatAda = urutTingkat([...new Set(s.peserta.map(tingkatPeserta).filter(Boolean))]);
+    const jumlahAngkatan = (t: string) => s.peserta.filter((p) => tingkatPeserta(p) === t).length;
+    const pilihAngkatan = el(
+      'select',
+      { id: 'filter-angkatan' },
+      el('option', { value: SEMUA, selected: !s.angkatan }, `Semua (${s.peserta.length})`),
+      ...tingkatAda.map((t) => el('option', { value: t, selected: t === s.angkatan }, `Kelas ${t} (${jumlahAngkatan(t)})`)),
+    );
+    pilihAngkatan.addEventListener('change', () => {
+      s.angkatan = pilihAngkatan.value;
+      if (s.kelas && !daftarKelas().includes(s.kelas)) s.kelas = SEMUA;
+      gambar();
+    });
+    const pilihKelas = el(
+      'select',
+      { id: 'filter-kelas' },
+      el('option', { value: SEMUA, selected: !s.kelas }, 'Semua kelas'),
+      ...daftarKelas().map((k) => el('option', { value: k, selected: k === s.kelas }, k)),
+    );
+    pilihKelas.addEventListener('change', () => {
+      s.kelas = pilihKelas.value;
+      gambar();
+    });
+    const tingkatLokasi = (lokasi = '') => tingkatDariSheet(lokasi.replace(/ baris \d+$/, ''));
+
+    const langkah = '3';
     return el(
       'div',
       { class: 'kartu', id: 'kartu-user' },
       el('h2', {}, el('span', { class: 'langkah' }, langkah), 'Pratinjau & unduh'),
       daftarPesan(
         ringkasPesan(
-          s.peringatan.filter((p) => !s.sheetDipilih || p.lokasi === s.sheetDipilih || p.lokasi?.startsWith(`${s.sheetDipilih} baris `)),
+          s.peringatan.filter((p) => !s.angkatan || tingkatLokasi(p.lokasi) === s.angkatan),
         ),
       ),
+      el(
+        'div',
+        { class: 'baris-kontrol', role: 'group', 'aria-label': 'Filter peserta' },
+        el('label', { for: 'filter-angkatan' }, 'Angkatan:'),
+        pilihAngkatan,
+        el('label', { for: 'filter-kelas' }, 'Kelas:'),
+        pilihKelas,
+      ),
+      s.angkatan || s.kelas ? el('p', { class: 'bantu' }, `Filter berlaku juga untuk file unduhan: hanya ${cbt.length} peserta yang dipilih ikut diunduh.`) : null,
       el(
         'div',
         { class: 'baris-kontrol', role: 'search' },
@@ -330,6 +379,7 @@ export function pasangTabUser(akar: HTMLElement): void {
         ? el('p', { class: 'bantu' }, 'Password dibuat acak saat file di-upload. Simpan file hasil unduhan: password yang sama tidak bisa dibuat lagi.')
         : null,
       wadahTabel,
+      sesiBelum ? daftarPesan([{ tingkat: 'peringatan', pesan: 'Pengaturan sesi belum disimpan. Klik Simpan di Pengaturan sesi dulu sebelum mengunduh.' }]) : null,
       el('div', { class: 'baris-kontrol' }, unduh, unduhCsvTombol, galatUnduh),
       el('p', { class: 'bantu' }, 'File CSV berisi baris judul kolom lalu data peserta, tanpa baris petunjuk template.'),
     );
@@ -340,7 +390,7 @@ export function pasangTabUser(akar: HTMLElement): void {
     const ada = s.peserta.length > 0;
     akar.replaceChildren(
       kartuUpload(),
-      ...(ada ? [kartuPilihSheet(), kartuSesi(s.sheet.length > 1 ? '3' : '2'), kartuKodeMapel(), kartuPratinjau(keCbt(terpilih(), s.sesi))] : []).filter(
+      ...(ada ? [kartuSesi('2'), kartuKodeMapel(), kartuPratinjau(keCbt(terpilih(), s.sesi))] : []).filter(
         (x): x is HTMLElement => x !== null,
       ),
     );
