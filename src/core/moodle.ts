@@ -6,7 +6,7 @@
 
 import Papa from 'papaparse';
 import type { PesertaCBT, PesertaMasuk, Peringatan } from './tipe';
-import { tingkatDariRombel, tingkatDariSheet } from './user';
+import { tingkatPeserta } from './user';
 
 export const DOMAIN_EMAIL = 'smada.id';
 const MIN_KOLOM_COURSE = 14;
@@ -42,10 +42,7 @@ export function uraiDaftarShortname(teks: string): string[] {
   return [...new Set(teks.split(/\r?\n|;|,/).map((s) => s.trim().replace(/\s+/g, ' ')).filter(Boolean))];
 }
 
-/** Tingkat siswa: dari nama sheet (KLS. XI) jika ada, selain itu dari kelas (XI-3). */
-export function tingkatPeserta(p: Pick<PesertaMasuk, 'sheet' | 'department'>): string {
-  return (p.sheet && tingkatDariSheet(p.sheet)) || tingkatDariRombel(p.department);
-}
+export { tingkatPeserta };
 
 export interface BarisMoodle {
   username: string;

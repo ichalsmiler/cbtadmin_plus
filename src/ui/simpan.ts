@@ -265,3 +265,28 @@ export function simpanMoving(d: SimpananMoving): void {
     // abaikan (mis. mode privat)
   }
 }
+
+// ---- Kel. Sesi per tingkat untuk file CBTAdmin ----
+
+const KUNCI_SESI = 'web-ujian.sesi-tingkat';
+
+export function muatSesi(): Record<string, number> {
+  try {
+    const d = JSON.parse(localStorage.getItem(KUNCI_SESI) ?? '{}') as unknown;
+    if (d && typeof d === 'object' && !Array.isArray(d)) {
+      return Object.fromEntries(Object.entries(d).filter(([, v]) => Number.isInteger(v) && (v as number) >= 1)) as Record<string, number>;
+    }
+  } catch {
+    // abaikan
+  }
+  return {};
+}
+
+export function simpanSesi(sesi: Record<string, number>): void {
+  try {
+    if (Object.keys(sesi).length) localStorage.setItem(KUNCI_SESI, JSON.stringify(sesi));
+    else localStorage.removeItem(KUNCI_SESI);
+  } catch {
+    // abaikan
+  }
+}

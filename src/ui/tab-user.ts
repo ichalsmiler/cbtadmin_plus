@@ -1,11 +1,12 @@
 // Tab "User → CBTAdmin": upload data peserta → pratinjau → unduh template CBTAdmin terisi.
-// Aturan: Nama Rombel & Kelas / Jurusan = KELAS, Ruang = RG., Kel. Sesi = 1,
+// Aturan: Nama Rombel & Kelas / Jurusan = KELAS, Ruang = RG., Kel. Sesi = per tingkat (bawaan 1),
 // Username = nomor UJIAN, Password = acak 2 huruf + 2 angka + 2 huruf (mis. HJ86KL).
 
 import templateUrl from '../assets/template-cbtadmin.xlsx?url';
 import { GalatFormat, type PesertaCBT, type PesertaMasuk, type Peringatan } from '../core/tipe';
-import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, tulisCbtCsv, tulisCbtXlsx } from '../core/user';
-import { ambilHasilMapel, catatPeserta, saatHasilMapelBerubah, unduhCsv, unduhFile } from './simpan';
+import { urutTingkat } from '../core/jadwal';
+import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, nomorSesi, tingkatPeserta, tulisCbtCsv, tulisCbtXlsx, type SesiPerTingkat } from '../core/user';
+import { ambilHasilMapel, catatPeserta, muatSesi, saatHasilMapelBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
 import { daftarPesan, el, tabel } from './tabel';
 
 interface Status {
@@ -22,6 +23,8 @@ interface Status {
   tampilkanPassword: boolean;
   /** Kata kunci pencarian di pratinjau (tidak memengaruhi file unduhan). */
   cari: string;
+  /** Kel. Sesi per tingkat; diingat di browser. */
+  sesi: SesiPerTingkat;
 }
 
 const BATAS_PRATINJAU = 200;
@@ -65,6 +68,7 @@ export function pasangTabUser(akar: HTMLElement): void {
     sheetDipilih: SEMUA,
     tampilkanPassword: false,
     cari: '',
+    sesi: muatSesi(),
   };
 
   saatHasilMapelBerubah(() => {
@@ -118,7 +122,7 @@ export function pasangTabUser(akar: HTMLElement): void {
       el(
         'p',
         { class: 'bantu' },
-        'Hasil: Nama Rombel dan Kelas / Jurusan = KELAS · Ruang = RG. · Kel. Sesi = 1 · Username = nomor UJIAN · Password = acak, mis. HJ86KL.',
+        'Hasil: Nama Rombel dan Kelas / Jurusan = KELAS · Ruang = RG. · Kel. Sesi = sesuai pengaturan sesi per tingkat · Username = nomor UJIAN · Password = acak, mis. HJ86KL.',
       ),
       daftarPesan(s.galat),
     );
@@ -142,6 +146,38 @@ export function pasangTabUser(akar: HTMLElement): void {
       { class: 'kartu' },
       el('h2', {}, el('span', { class: 'langkah' }, '2'), 'Pilih sheet'),
       el('div', { class: 'baris-kontrol' }, el('label', { for: 'pilih-sheet-user' }, 'Peserta dari:'), sel),
+    );
+  }
+
+  function kartuSesi(langkah: string): HTMLElement {
+    const tingkat = urutTingkat([...new Set(s.peserta.map(tingkatPeserta).filter(Boolean))]);
+    const tanpaTingkat = s.peserta.filter((p) => !tingkatPeserta(p)).length;
+    const baris = tingkat.map((t) => {
+      const id = `sesi-${t}`;
+      const input = el('input', { type: 'number', id, min: '1', step: '1', class: 'sel-edit angka', value: String(s.sesi[t] ?? 1), 'aria-label': `Kel. Sesi kelas ${t}` });
+      const galat = el('span', { class: 'bantu', role: 'alert' });
+      input.addEventListener('change', () => {
+        const n = nomorSesi(input.value);
+        if (n === null) {
+          galat.textContent = 'Isi angka bulat 1 atau lebih.';
+          input.value = String(s.sesi[t] ?? 1);
+          return;
+        }
+        s.sesi = { ...s.sesi, [t]: n };
+        if (n === 1) delete s.sesi[t]; // 1 = bawaan
+        simpanSesi(s.sesi);
+        setTimeout(gambar, 0); // setelah fokus pindah, agar fokus ikut dipulihkan
+      });
+      const jumlah = s.peserta.filter((p) => tingkatPeserta(p) === t).length;
+      return { sel: [`Kelas ${t}`, jumlah, el('span', { class: 'baris-kontrol' }, input, galat)] };
+    });
+    return el(
+      'div',
+      { class: 'kartu', id: 'kartu-sesi' },
+      el('h2', {}, el('span', { class: 'langkah' }, langkah), 'Pengaturan sesi'),
+      el('p', { class: 'bantu' }, 'Nomor Kel. Sesi untuk setiap tingkat. Dipakai di pratinjau dan file unduhan, dan diingat di browser ini.'),
+      tabel([{ judul: 'Tingkat' }, { judul: 'Peserta', angka: true }, { judul: 'Kel. Sesi' }], baris, 'Kel. Sesi per tingkat'),
+      tanpaTingkat ? el('p', { class: 'bantu' }, `${tanpaTingkat} peserta tidak diketahui tingkatnya, jadi memakai sesi 1.`) : null,
     );
   }
 
@@ -272,7 +308,7 @@ export function pasangTabUser(akar: HTMLElement): void {
     const unduhCsvTombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-user-csv' }, `Unduh ${namaCsv}`);
     unduhCsvTombol.addEventListener('click', () => unduhCsv(namaCsv, tulisCbtCsv(cbt)));
 
-    const langkah = s.sheet.length > 1 ? '3' : '2';
+    const langkah = s.sheet.length > 1 ? '4' : '3';
     return el(
       'div',
       { class: 'kartu', id: 'kartu-user' },
@@ -304,7 +340,9 @@ export function pasangTabUser(akar: HTMLElement): void {
     const ada = s.peserta.length > 0;
     akar.replaceChildren(
       kartuUpload(),
-      ...(ada ? [kartuPilihSheet(), kartuKodeMapel(), kartuPratinjau(keCbt(terpilih()))] : []).filter((x): x is HTMLElement => x !== null),
+      ...(ada ? [kartuPilihSheet(), kartuSesi(s.sheet.length > 1 ? '3' : '2'), kartuKodeMapel(), kartuPratinjau(keCbt(terpilih(), s.sesi))] : []).filter(
+        (x): x is HTMLElement => x !== null,
+      ),
     );
     if (fokus) document.getElementById(fokus)?.focus();
   }

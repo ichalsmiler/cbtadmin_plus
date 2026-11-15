@@ -245,11 +245,25 @@ export function isiPassword(peserta: PesertaMasuk[], acak: () => number = acakKr
 
 // ---------- pemetaan ke CBTAdmin ----------
 
+/** Tingkat siswa: dari nama sheet (KLS. XI) jika ada, selain itu dari kelas (XI-3). */
+export function tingkatPeserta(p: Pick<PesertaMasuk, 'sheet' | 'department'>): string {
+  return (p.sheet && tingkatDariSheet(p.sheet)) || tingkatDariRombel(p.department);
+}
+
+/** Kel. Sesi per tingkat (mis. { X: 1, XI: 2, XII: 3 }); tingkat yang tidak diatur = 1. */
+export type SesiPerTingkat = Record<string, number>;
+
+/** Nomor sesi yang sah: bilangan bulat 1 atau lebih; selain itu null. */
+export function nomorSesi(teks: string | number): number | null {
+  const n = typeof teks === 'number' ? teks : Number(String(teks).trim());
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 /**
  * Aturan sekolah: Nama Rombel dan Kelas / Jurusan = kolom KELAS, Ruang = kolom RG.,
- * Kel. Sesi = 1 untuk semua, Username = nomor UJIAN.
+ * Kel. Sesi = sesuai pengaturan per tingkat (bawaan 1), Username = nomor UJIAN.
  */
-export function keCbt(peserta: PesertaMasuk[]): PesertaCBT[] {
+export function keCbt(peserta: PesertaMasuk[], sesi: SesiPerTingkat = {}): PesertaCBT[] {
   return peserta.map((p) => {
     const rombel = p.department.trim();
     const nama = p.firstname.trim().replace(/\s+/g, ' ');
@@ -260,7 +274,7 @@ export function keCbt(peserta: PesertaMasuk[]): PesertaCBT[] {
       namaRombel: rombel,
       kelasJurusan: rombel,
       ruang: /^\d+$/.test(ruang) ? Number(ruang) : null,
-      kelSesi: 1,
+      kelSesi: nomorSesi(sesi[tingkatPeserta(p)] ?? 1) ?? 1,
       username: p.username.trim(),
       password: p.password.trim(),
     };
