@@ -151,45 +151,86 @@ export function pasangTabUser(akar: HTMLElement): void {
   function kartuSesi(langkah: string): HTMLElement {
     const tingkat = urutTingkat([...new Set(s.peserta.map(tingkatPeserta).filter(Boolean))]);
     const tanpaTingkat = s.peserta.filter((p) => !tingkatPeserta(p)).length;
-    const baris = tingkat.map((t) => {
-      const id = `sesi-${t}`;
-      const input = el('input', { type: 'number', id, min: '1', step: '1', class: 'sel-edit angka', value: String(s.sesiDraf[t] ?? 1), 'aria-label': `Kel. Sesi kelas ${t}` });
-      const galat = el('span', { class: 'bantu', role: 'alert' });
-      input.addEventListener('change', () => {
+    const simpan = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-simpan-sesi' }, 'Simpan');
+    const batal = el('button', { class: 'tombol', type: 'button', id: 'tombol-batal-sesi' }, 'Batal');
+    const status = el('span', { class: 'bantu', role: 'status' });
+    const isian: { t: string; input: HTMLInputElement; galat: HTMLElement }[] = [];
+
+    // Diperbarui di tempat (tanpa menggambar ulang kartu): kalau kartu digambar ulang saat kotak
+    // isian kehilangan fokus, klik pertama pada tombol Simpan hilang karena tombolnya sudah diganti.
+    const segarkan = () => {
+      const tersimpan = sesiTersimpan();
+      simpan.disabled = tersimpan;
+      batal.hidden = tersimpan;
+      status.textContent = tersimpan ? 'Tersimpan.' : 'Ada perubahan yang belum disimpan.';
+      for (const { t, input } of isian) input.classList.toggle('diedit', (s.sesi[t] ?? 1) !== (s.sesiDraf[t] ?? 1));
+      for (const id of ['tombol-unduh-user', 'tombol-unduh-user-csv']) {
+        const b = document.getElementById(id) as HTMLButtonElement | null;
+        if (b) b.disabled = !tersimpan || terpilih().length === 0;
+      }
+      const peringatan = document.getElementById('peringatan-sesi');
+      if (peringatan) peringatan.hidden = tersimpan;
+    };
+
+    /** Membaca semua kotak isian ke draf; false jika ada isian yang tidak sah. */
+    const bacaIsian = (): boolean => {
+      let sah = true;
+      const draf: SesiPerTingkat = {};
+      for (const { t, input, galat } of isian) {
         const n = nomorSesi(input.value);
-        if (n === null) {
-          galat.textContent = 'Isi angka bulat 1 atau lebih.';
-          input.value = String(s.sesiDraf[t] ?? 1);
-          return;
-        }
-        s.sesiDraf = { ...s.sesiDraf, [t]: n };
-        if (n === 1) delete s.sesiDraf[t]; // 1 = bawaan
-        setTimeout(gambar, 0); // setelah fokus pindah, agar fokus ikut dipulihkan
-      });
-      const jumlah = s.peserta.filter((p) => tingkatPeserta(p) === t).length;
-      if ((s.sesi[t] ?? 1) !== (s.sesiDraf[t] ?? 1)) input.classList.add('diedit');
-      return { sel: [`Kelas ${t}`, jumlah, el('span', { class: 'baris-kontrol' }, input, galat)] };
-    });
-    const tersimpan = sesiTersimpan();
-    const simpan = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-simpan-sesi', disabled: tersimpan }, 'Simpan');
-    simpan.addEventListener('click', () => {
+        galat.textContent = n === null ? 'Isi angka bulat 1 atau lebih.' : '';
+        if (n === null) sah = false;
+        else if (n !== 1) draf[t] = n; // 1 = bawaan
+      }
+      if (sah) s.sesiDraf = draf;
+      return sah;
+    };
+
+    const simpanSekarang = () => {
+      if (!bacaIsian()) {
+        status.textContent = 'Perbaiki isian yang salah dulu.';
+        return;
+      }
       s.sesi = { ...s.sesiDraf };
       simpanSesi(s.sesi);
       gambar();
       document.getElementById('kartu-user')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const baris = tingkat.map((t) => {
+      const input = el('input', { type: 'number', id: `sesi-${t}`, min: '1', step: '1', class: 'sel-edit angka', value: String(s.sesiDraf[t] ?? 1), 'aria-label': `Kel. Sesi kelas ${t}` });
+      const galat = el('span', { class: 'bantu', role: 'alert' });
+      isian.push({ t, input, galat });
+      input.addEventListener('input', () => {
+        bacaIsian();
+        segarkan();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') simpanSekarang();
+      });
+      const jumlah = s.peserta.filter((p) => tingkatPeserta(p) === t).length;
+      return { sel: [`Kelas ${t}`, jumlah, el('span', { class: 'baris-kontrol' }, input, galat)] };
     });
-    const batal = el('button', { class: 'tombol', type: 'button', id: 'tombol-batal-sesi', hidden: tersimpan }, 'Batal');
+
+    simpan.addEventListener('click', simpanSekarang);
     batal.addEventListener('click', () => {
       s.sesiDraf = { ...s.sesi };
       gambar();
     });
+    // Status awal tombol & teks (elemen pratinjau belum ada saat ini; disetel lagi oleh kartuPratinjau)
+    const tersimpan = sesiTersimpan();
+    simpan.disabled = tersimpan;
+    batal.hidden = tersimpan;
+    status.textContent = tersimpan ? 'Tersimpan.' : 'Ada perubahan yang belum disimpan.';
+    for (const { t, input } of isian) input.classList.toggle('diedit', (s.sesi[t] ?? 1) !== (s.sesiDraf[t] ?? 1));
+
     return el(
       'div',
       { class: 'kartu', id: 'kartu-sesi' },
       el('h2', {}, el('span', { class: 'langkah' }, langkah), 'Pengaturan sesi'),
-      el('p', { class: 'bantu' }, 'Isi nomor Kel. Sesi untuk setiap tingkat, lalu klik Simpan. Pratinjau dan file unduhan memakai sesi yang sudah disimpan; pengaturan diingat di browser ini.'),
+      el('p', { class: 'bantu' }, 'Isi nomor Kel. Sesi untuk setiap tingkat, lalu klik Simpan (atau tekan Enter). Pratinjau dan file unduhan memakai sesi yang sudah disimpan; pengaturan diingat di browser ini.'),
       tabel([{ judul: 'Tingkat' }, { judul: 'Peserta', angka: true }, { judul: 'Kel. Sesi' }], baris, 'Kel. Sesi per tingkat'),
-      el('div', { class: 'baris-kontrol' }, simpan, batal, el('span', { class: 'bantu', role: 'status' }, tersimpan ? 'Tersimpan.' : 'Ada perubahan yang belum disimpan.')),
+      el('div', { class: 'baris-kontrol' }, simpan, batal, status),
       tanpaTingkat ? el('p', { class: 'bantu' }, `${tanpaTingkat} peserta tidak diketahui tingkatnya, jadi memakai sesi 1.`) : null,
     );
   }
@@ -379,7 +420,7 @@ export function pasangTabUser(akar: HTMLElement): void {
         ? el('p', { class: 'bantu' }, 'Password dibuat acak saat file di-upload. Simpan file hasil unduhan: password yang sama tidak bisa dibuat lagi.')
         : null,
       wadahTabel,
-      sesiBelum ? daftarPesan([{ tingkat: 'peringatan', pesan: 'Pengaturan sesi belum disimpan. Klik Simpan di Pengaturan sesi dulu sebelum mengunduh.' }]) : null,
+      el('div', { id: 'peringatan-sesi', hidden: !sesiBelum }, daftarPesan([{ tingkat: 'peringatan', pesan: 'Pengaturan sesi belum disimpan. Klik Simpan di Pengaturan sesi dulu sebelum mengunduh.' }])),
       el('div', { class: 'baris-kontrol' }, unduh, unduhCsvTombol, galatUnduh),
       el('p', { class: 'bantu' }, 'File CSV berisi baris judul kolom lalu data peserta, tanpa baris petunjuk template.'),
     );
