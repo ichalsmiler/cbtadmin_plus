@@ -49,11 +49,16 @@ export function tabel(kolom: Kolom[], baris: BarisTabel[], keterangan?: string):
   return el('div', { class: 'tabel-bungkus' }, t);
 }
 
+/** Awalan teks supaya tingkat pesan tidak hanya dibedakan oleh warna. */
+const AWALAN: Record<string, string> = { galat: 'Harus diperbaiki: ', peringatan: 'Perlu dicek: ' };
+
 export function daftarPesan(pesan: Peringatan[]): HTMLElement | null {
   if (pesan.length === 0) return null;
   return el(
     'ul',
     { class: 'pesan', role: 'status' },
-    ...pesan.map((p) => el('li', { class: p.tingkat }, p.lokasi ? `${p.pesan} (${p.lokasi})` : p.pesan)),
+    ...pesan.map((p) =>
+      el('li', { class: p.tingkat }, AWALAN[p.tingkat] ? el('strong', {}, AWALAN[p.tingkat]) : null, p.lokasi ? `${p.pesan} (${p.lokasi})` : p.pesan),
+    ),
   );
 }

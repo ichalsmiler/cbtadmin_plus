@@ -76,7 +76,7 @@ export function uraiTanggal(v: unknown): Date | null {
 
 /** Format tampilan: "23 Nov 2026". */
 export function formatTanggal(t: Date | null): string {
-  if (!t) return '—';
+  if (!t) return '-';
   const nama = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   return `${t.getUTCDate()} ${nama[t.getUTCMonth()]} ${t.getUTCFullYear()}`;
 }

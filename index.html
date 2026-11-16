@@ -3,20 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web Ujian — Konverter Jadwal & User</title>
+    <title>Konverter Ujian: jadwal dan user</title>
   </head>
   <body>
     <header class="kepala">
-      <h1>Konverter Ujian</h1>
-      <p>Ubah jadwal dan data peserta ke format upload sistem ujian. Semua proses terjadi di komputer ini.</p>
+      <div>
+        <h1>Konverter Ujian</h1>
+        <p>Ubah jadwal dan data peserta ke format upload sistem ujian. Semua proses terjadi di komputer ini.</p>
+      </div>
+      <button class="tombol tema" type="button" id="tombol-tema">Tema gelap</button>
     </header>
 
-    <nav class="tab" role="tablist">
+    <nav class="tab" role="tablist" aria-label="Jenis konversi">
       <button role="tab" id="tab-btn-jadwal" aria-controls="tab-jadwal" aria-selected="true">Jadwal → Mapel</button>
-      <button role="tab" id="tab-btn-user" aria-controls="tab-user" aria-selected="false">User → CBTAdmin</button>
-      <button role="tab" id="tab-btn-moving" aria-controls="tab-moving" aria-selected="false">Kelas Moving</button>
-      <button role="tab" id="tab-btn-moodle" aria-controls="tab-moodle" aria-selected="false">User → Moodle</button>
-      <button role="tab" id="tab-btn-kamus" aria-controls="tab-kamus" aria-selected="false">Kamus Mapel</button>
+      <button role="tab" id="tab-btn-user" aria-controls="tab-user" aria-selected="false" tabindex="-1">User → CBTAdmin</button>
+      <button role="tab" id="tab-btn-moving" aria-controls="tab-moving" aria-selected="false" tabindex="-1">Kelas Moving</button>
+      <button role="tab" id="tab-btn-moodle" aria-controls="tab-moodle" aria-selected="false" tabindex="-1">User → Moodle</button>
+      <button role="tab" id="tab-btn-kamus" aria-controls="tab-kamus" aria-selected="false" tabindex="-1">Kamus Mapel <span class="segera">(segera)</span></button>
     </nav>
 
     <main>
@@ -25,7 +28,10 @@
       <section id="tab-moving" role="tabpanel" aria-labelledby="tab-btn-moving" hidden></section>
       <section id="tab-moodle" role="tabpanel" aria-labelledby="tab-btn-moodle" hidden></section>
       <section id="tab-kamus" role="tabpanel" aria-labelledby="tab-btn-kamus" hidden>
-        <p class="kosong">Fitur ini sedang dibuat.</p>
+        <div class="kartu">
+          <h2>Kamus mapel belum bisa diatur dari tab ini</h2>
+          <p class="kosong">Halaman pengaturan kamus masih dibuat. Untuk sekarang, nama mapel yang belum dikenal ditambahkan lewat tabel merah di tab Jadwal → Mapel (tombol "Simpan ke kamus"), dan tersimpan di browser ini.</p>
+        </div>
       </section>
     </main>
 

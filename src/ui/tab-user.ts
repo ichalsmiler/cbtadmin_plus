@@ -6,7 +6,7 @@ import templateUrl from '../assets/template-cbtadmin.xlsx?url';
 import { GalatFormat, type PesertaCBT, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { urutTingkat } from '../core/jadwal';
 import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, nomorSesi, tingkatDariSheet, tingkatPeserta, tulisCbtCsv, tulisCbtXlsx, type SesiPerTingkat } from '../core/user';
-import { ambilHasilMapel, catatPeserta, muatSesi, saatHasilMapelBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
+import { ambilHasilMapel, ambilPeserta, catatPeserta, muatSesi, saatHasilMapelBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
 import { daftarPesan, el, tabel } from './tabel';
 
 interface Status {
@@ -79,24 +79,47 @@ export function pasangTabUser(akar: HTMLElement): void {
   };
   s.sesiDraf = { ...s.sesi };
 
+  // Data peserta yang tersimpan dari kunjungan sebelumnya: pakai lagi tanpa upload ulang.
+  const lama = ambilPeserta();
+  if (lama) {
+    Object.assign(s, {
+      namaFile: lama.namaFile,
+      peserta: lama.peserta,
+      asli: lama.asli ?? lama.peserta,
+      peringatan: lama.peringatan ?? [],
+      sheet: lama.sheet ?? [],
+    });
+  }
+
+  /** Catat peserta untuk tab lain (Kelas Moving, User Moodle) dan simpan di browser. */
+  function catatSemua(): void {
+    catatPeserta({ namaFile: s.namaFile, peserta: s.peserta, asli: s.asli, peringatan: s.peringatan, sheet: s.sheet });
+  }
+
   saatHasilMapelBerubah(() => {
     if (s.peserta.some((p) => p.course.length)) gambar();
   });
 
+  /** Teks status selama file dibaca; '' = tidak sedang membaca. */
+  let memuat = '';
+
   async function pilihFile(f: File): Promise<void> {
     Object.assign(s, { namaFile: f.name, asli: [], peserta: [], peringatan: [], galat: [], sheet: [], angkatan: SEMUA, kelas: SEMUA, tampilkanPassword: false, cari: '' });
+    memuat = `Membaca ${f.name}…`;
+    gambar();
     try {
       const hasil = await bacaUser(await f.arrayBuffer(), f.name);
       s.asli = hasil.peserta;
       s.peserta = isiPassword(hasil.peserta);
       s.peringatan = hasil.peringatan;
       s.sheet = hasil.sheet;
-      catatPeserta({ namaFile: f.name, peserta: s.peserta });
+      catatSemua();
     } catch (e) {
       const pesan = e instanceof GalatFormat ? e.message : `Terjadi kesalahan tak terduga: ${String(e)}`;
       s.galat = [{ tingkat: 'galat', pesan }];
       catatPeserta(null);
     }
+    memuat = '';
     gambar();
   }
 
@@ -123,6 +146,13 @@ export function pasangTabUser(akar: HTMLElement): void {
       if (f) void pilihFile(f);
       input.value = '';
     });
+    const hapusTersimpan = el('button', { class: 'tombol', type: 'button', id: 'hapus-peserta-tersimpan' }, 'Hapus data peserta tersimpan');
+    hapusTersimpan.addEventListener('click', () => {
+      if (!confirm('Hapus data peserta (termasuk password) yang tersimpan di browser ini? Tab Kelas Moving dan User Moodle perlu upload ulang.')) return;
+      Object.assign(s, { namaFile: '', asli: [], peserta: [], peringatan: [], galat: [], sheet: [], angkatan: SEMUA, kelas: SEMUA, cari: '' });
+      catatPeserta(null);
+      gambar();
+    });
     return el(
       'div',
       { class: 'kartu' },
@@ -133,7 +163,11 @@ export function pasangTabUser(akar: HTMLElement): void {
         el('label', { class: 'tombol', for: 'file-user' }, s.namaFile ? 'Ganti file…' : 'Pilih file peserta (.xlsx)…'),
         input,
         s.namaFile ? el('span', {}, s.namaFile) : null,
+        s.namaFile ? hapusTersimpan : null,
       ),
+      s.namaFile
+        ? el('p', { class: 'bantu' }, 'Data peserta disimpan di browser ini, jadi tab Kelas Moving dan User Moodle tetap bisa memakainya setelah halaman dimuat ulang. Di komputer bersama, tekan "Hapus data peserta tersimpan" setelah selesai.')
+        : null,
       el(
         'p',
         { class: 'bantu' },
@@ -144,6 +178,7 @@ export function pasangTabUser(akar: HTMLElement): void {
         { class: 'bantu' },
         'Hasil: Nama Rombel dan Kelas / Jurusan = KELAS · Ruang = RG. · Kel. Sesi = sesuai pengaturan sesi per tingkat · Username = nomor UJIAN · Password = acak, mis. HJ86KL.',
       ),
+      memuat ? el('p', { class: 'memuat', role: 'status' }, memuat) : null,
       daftarPesan(s.galat),
     );
   }
@@ -339,7 +374,7 @@ export function pasangTabUser(akar: HTMLElement): void {
     ulang?.addEventListener('click', () => {
       if (!confirm('Buat ulang semua password acak? Password yang sedang tampil akan diganti.')) return;
       s.peserta = isiPassword(s.asli);
-      catatPeserta({ namaFile: s.namaFile, peserta: s.peserta });
+      catatSemua();
       gambar();
     });
 

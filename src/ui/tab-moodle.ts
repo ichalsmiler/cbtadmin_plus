@@ -73,7 +73,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
           [{ judul: 'Kelas' }, { judul: 'Mapel dari jadwal' }],
           tingkatAda.map((t) => {
             const d = mapel.get(t);
-            const teks = !d ? 'Belum dikonvert' : mapelLengkap(t) ? `${d.length} mapel` : `${d.length} mapel — masih ada nama mapel belum dikenal (baris merah)`;
+            const teks = !d ? 'Belum dikonvert' : mapelLengkap(t) ? `${d.length} mapel` : `${d.length} mapel, masih ada nama mapel belum dikenal (baris merah)`;
             return { tanda: !d ? ('merah' as const) : mapelLengkap(t) ? undefined : ('kuning' as const), sel: [t, teks] };
           }),
           'Status daftar mapel per kelas',

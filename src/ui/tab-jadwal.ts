@@ -56,16 +56,22 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     return [{ tingkat: 'galat', pesan }];
   }
 
+  /** Teks status selama file dibaca; '' = tidak sedang membaca. */
+  let memuat = '';
+
   async function pilihFile(f: File): Promise<void> {
     Object.assign(s, { file: null, namaFile: f.name, sheet: [], sheetDipilih: '', jadwal: null, galat: [], tingkat: '', sudahKonvert: false });
+    memuat = `Membaca ${f.name}…`;
+    gambar();
     try {
       s.file = await f.arrayBuffer();
       s.sheet = await daftarSheet(s.file);
       await bacaSheet(s.sheet[0]);
     } catch (e) {
       s.galat = pesanGalat(e);
-      gambar();
     }
+    memuat = '';
+    gambar();
   }
 
   async function bacaSheet(nama: string): Promise<void> {
@@ -132,6 +138,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
       kontrol,
       pilihSheet,
       el('p', { class: 'bantu' }, 'Format seperti jadwal.xlsx: header HARI/TGL, JAM, WAKTU, KELAS XII, KELAS X, KELAS XI.'),
+      memuat ? el('p', { class: 'memuat', role: 'status' }, memuat) : null,
       daftarPesan(s.galat),
     );
   }
@@ -145,7 +152,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
         baris.push({
           tanda: h.susulan ? 'abu' : undefined,
           sel: [
-            i === 0 ? h.namaHari || '—' : '',
+            i === 0 ? h.namaHari || '-' : '',
             i === 0 ? formatTanggal(h.tanggal) : '',
             h.susulan ? 'Susulan' : ses.nomor,
             ...tingkat.map((t) => (ses.mapelPerTingkat[t] ?? []).join(', ')),
@@ -205,11 +212,11 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     return el(
       'select',
       { id },
-      el('option', { value: '' }, '— pilih mapel —'),
+      el('option', { value: '' }, 'Pilih mapel…'),
       ...tambahan,
       ...[...s.kamus.mapel]
         .sort((a, b) => a.kode.localeCompare(b.kode))
-        .map((m) => el('option', { value: m.kode }, `${m.kode} — ${m.namaLengkap}`)),
+        .map((m) => el('option', { value: m.kode }, `${m.kode}: ${m.namaLengkap}`)),
     );
   }
 

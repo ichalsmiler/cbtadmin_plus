@@ -297,7 +297,12 @@ X, lalu cek hasil konversi memakai kode tersebut.
   2026-11-09), sehingga tidak hilang saat halaman dimuat ulang. Ini pengecualian
   yang disengaja dari aturan "data siswa tidak disimpan": isinya nomor ujian dan
   kunci nama, tetap hanya di komputer itu. Tombol "Hapus pilihan tersimpan" MUST
-  tersedia untuk komputer bersama. File moving dan file peserta tetap tidak disimpan.
+  tersedia untuk komputer bersama. File moving tetap tidak disimpan.
+- **FR-015c**: Data peserta hasil upload di tab User → CBTAdmin (termasuk password
+  yang dibuat) MUST disimpan di localStorage browser (permintaan sekolah
+  2026-11-16), agar tab Kelas Moving dan User Moodle tetap bisa mencocokkan nama
+  setelah halaman dimuat ulang tanpa upload ulang. Tombol "Hapus data peserta
+  tersimpan" MUST tersedia di tab User → CBTAdmin untuk komputer bersama.
 - **FR-015a**: Tingkat siswa untuk course diambil dari nama sheet (`KLS. XI`),
   atau dari kelas jika tidak ada sheet, sehingga KELAS yang belum diperbarui tidak
   membuat siswa XI mendapat course kelas X.

@@ -3,7 +3,7 @@
 
 import { kamusAwal, kodeTerbaru, lengkapiKamus, shortnameTerbaru } from '../core/kamus';
 import type { EditMapel } from '../core/mapel';
-import type { Kamus, PesertaMasuk, PilihanMapel } from '../core/tipe';
+import type { Kamus, PesertaMasuk, Peringatan, PilihanMapel } from '../core/tipe';
 
 const KUNCI_KAMUS = 'web-ujian.kamus';
 
@@ -149,20 +149,44 @@ export function saatHasilMapelBerubah(f: PendengarMapel): () => void {
   return () => pendengarMapel.delete(f);
 }
 
-// ---- Peserta CBTAdmin terakhir (hanya di memori, tidak pernah disimpan), dipakai tab User Moodle ----
+// ---- Peserta CBTAdmin terakhir, dipakai tab Kelas Moving dan User Moodle ----
+// Disimpan di localStorage (permintaan sekolah 2026-11-16) agar tidak perlu upload ulang setelah
+// halaman dimuat ulang. Ini pengecualian yang disengaja dari aturan "file siswa tidak disimpan";
+// tombol "Hapus data peserta tersimpan" di tab User → CBTAdmin untuk komputer bersama.
 
 export interface DataPeserta {
   namaFile: string;
   /** Peserta dengan password yang sudah dibuat (sama dengan file CBTAdmin). */
   peserta: PesertaMasuk[];
+  /** Peserta seperti terbaca dari file (password kosong untuk format DATA PESERTA). */
+  asli?: PesertaMasuk[];
+  peringatan?: Peringatan[];
+  sheet?: string[];
+}
+
+const KUNCI_PESERTA = 'web-ujian.peserta.v1';
+
+function muatDataPeserta(): DataPeserta | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(KUNCI_PESERTA) ?? 'null') as DataPeserta | null;
+    return d && typeof d.namaFile === 'string' && Array.isArray(d.peserta) && d.peserta.length ? d : null;
+  } catch {
+    return null;
+  }
 }
 
 type PendengarPeserta = (d: DataPeserta | null) => void;
-let dataPeserta: DataPeserta | null = null;
+let dataPeserta: DataPeserta | null = muatDataPeserta();
 const pendengarPeserta = new Set<PendengarPeserta>();
 
 export function catatPeserta(d: DataPeserta | null): void {
   dataPeserta = d;
+  try {
+    if (d) localStorage.setItem(KUNCI_PESERTA, JSON.stringify(d));
+    else localStorage.removeItem(KUNCI_PESERTA);
+  } catch {
+    // localStorage penuh / tidak tersedia: data tetap berlaku sampai halaman ditutup.
+  }
   for (const f of pendengarPeserta) f(d);
 }
 
@@ -288,5 +312,28 @@ export function simpanSesi(sesi: Record<string, number>): void {
     else localStorage.removeItem(KUNCI_SESI);
   } catch {
     // abaikan
+  }
+}
+
+// ---------- tema tampilan ----------
+
+export type Tema = 'terang' | 'gelap';
+const KUNCI_TEMA = 'web-ujian.tema';
+
+/** Tema pilihan operator; null = ikuti pengaturan sistem. */
+export function muatTema(): Tema | null {
+  try {
+    const t = localStorage.getItem(KUNCI_TEMA);
+    return t === 'terang' || t === 'gelap' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+export function simpanTema(t: Tema): void {
+  try {
+    localStorage.setItem(KUNCI_TEMA, t);
+  } catch {
+    // localStorage tidak tersedia: tema hanya berlaku sampai halaman ditutup.
   }
 }

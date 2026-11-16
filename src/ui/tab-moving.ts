@@ -27,7 +27,7 @@ interface Status {
 }
 
 function labelSiswa(p: PesertaMasuk): string {
-  return `${p.username} — ${p.firstname} (${p.department})`;
+  return `${p.username}: ${p.firstname} (${p.department})`;
 }
 
 /** Untuk rekap: cukup nama dan kelas, tanpa nomor ujian. */
@@ -75,9 +75,14 @@ export function pasangTabMoving(akar: HTMLElement): void {
     );
   }
 
+  /** Teks status selama file dibaca; '' = tidak sedang membaca. */
+  let memuat = '';
+
   async function pilihFile(files: FileList): Promise<void> {
     s.galat = [];
     for (const f of Array.from(files)) {
+      memuat = `Membaca ${f.name}…`;
+      gambar();
       try {
         const kel = await bacaFileMoving(await f.arrayBuffer(), f.name);
         s.kelompok = [...s.kelompok.filter((k) => k.namaFile !== f.name), ...kel]; // upload ulang file yang sama = ganti
@@ -86,6 +91,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       }
     }
     s.kelompok.sort((a, b) => a.judul.localeCompare(b.judul, 'id', { numeric: true }));
+    memuat = '';
     gambar();
   }
 
@@ -144,7 +150,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
             const sel = el(
               'select',
               { 'aria-label': `Kode mapel untuk ${singkatan}` },
-              el('option', { value: '', selected: !kode }, '— pilih kode mapel —'),
+              el('option', { value: '', selected: !kode }, 'Pilih kode mapel…'),
               ...semuaKode.map((k) => el('option', { value: k, selected: k === kode }, k)),
             );
             sel.addEventListener('change', () => {
@@ -185,6 +191,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
         { class: 'bantu' },
         'File moving kelas XI hanya dicocokkan dengan siswa kelas XI (sheet KLS. XI), dan file moving kelas XII hanya dengan siswa kelas XII. Kelas dibaca dari nama file ("MOVING XI …"), atau dari kolom KELAS jika nama file tidak menyebutnya.',
       ),
+      memuat ? el('p', { class: 'memuat', role: 'status' }, memuat) : null,
       daftarPesan([...s.galat, ...peringatanFile]),
       ringkasFile,
       tabelMapel ? el('p', { class: 'bantu' }, 'Pilih kode mapel untuk file moving berikut:') : null,
@@ -212,7 +219,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     const k = kunciPasangan(p);
     const dipilih = pilihanPasangan(p, s.pilihan);
     const sekarang = dipilih ?? p.username;
-    const opsi = new Map(p.kandidat.map((c) => [c.username, `${c.username} — ${c.nama} (${c.kelas}) · ${Math.round(c.skor * 100)}%`]));
+    const opsi = new Map(p.kandidat.map((c) => [c.username, `${c.username}: ${c.nama} (${c.kelas}) · ${Math.round(c.skor * 100)}%`]));
     if (sekarang && !opsi.has(sekarang)) {
       const x = semua.find((q) => q.username === sekarang);
       if (x) opsi.set(sekarang, labelSiswa(x));
@@ -220,7 +227,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     const sel = el(
       'select',
       { 'aria-label': `Siswa untuk ${p.siswa.nama}` },
-      el('option', { value: '', selected: sekarang === '' && dipilih === undefined }, '— pilih siswa —'),
+      el('option', { value: '', selected: sekarang === '' && dipilih === undefined }, 'Pilih siswa…'),
       ...[...opsi].map(([u, label]) => el('option', { value: u, selected: u === sekarang }, label)),
       el('option', { value: CARI }, 'Cari siswa lain…'),
       el('option', { value: ABAIKAN, selected: dipilih === '' }, 'Abaikan baris ini'),
@@ -236,7 +243,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       gambar();
     });
     cari.addEventListener('change', () => {
-      const u = cari.value.split(' — ')[0].trim();
+      const u = cari.value.split(': ')[0].trim();
       if (semua.some((q) => q.username === u)) {
         s.pilihan = { ...s.pilihan, [k]: u };
         gambar();
@@ -278,7 +285,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     if (perlu) pesan.push({ tingkat: 'galat', pesan: `${perlu} nama belum dicocokkan. Pilih siswanya di tabel merah, atau abaikan barisnya.` });
     pesan.push({
       tingkat: 'info',
-      pesan: 'Pilihan dan entri manual tersimpan di browser komputer ini, jadi tidak hilang saat halaman dimuat ulang (upload ulang file peserta dan file moving untuk melanjutkan). Di komputer bersama, tekan "Hapus pilihan tersimpan" setelah selesai.',
+      pesan: 'Pilihan dan entri manual tersimpan di browser komputer ini, jadi tidak hilang saat halaman dimuat ulang (upload ulang file moving untuk melanjutkan; data peserta diambil otomatis dari tab User → CBTAdmin). Di komputer bersama, tekan "Hapus pilihan tersimpan" setelah selesai.',
     });
 
     return el(
@@ -327,11 +334,11 @@ export function pasangTabMoving(akar: HTMLElement): void {
 
     const idDaftar = 'daftar-siswa-manual';
     const siswa = el('input', { type: 'text', list: idDaftar, placeholder: 'Ketik nama atau no ujian', size: '38', id: 'manual-siswa' });
-    const mapel = el('select', { id: 'manual-mapel' }, el('option', { value: '' }, '— pilih mapel moving —'), ...shortname.map((x) => el('option', { value: x }, x)));
+    const mapel = el('select', { id: 'manual-mapel' }, el('option', { value: '' }, 'Pilih mapel moving…'), ...shortname.map((x) => el('option', { value: x }, x)));
     const galat = el('span', { class: 'bantu', role: 'alert' });
     const tambah = el('button', { class: 'tombol utama', type: 'button' }, 'Tambah');
     tambah.addEventListener('click', () => {
-      const u = siswa.value.split(' — ')[0].trim();
+      const u = siswa.value.split(': ')[0].trim();
       if (!semua.some((q) => q.username === u)) {
         galat.textContent = 'Pilih siswa dari daftar.';
         return;
