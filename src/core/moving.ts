@@ -202,10 +202,15 @@ function jarakEdit(a: string, b: string): number {
 }
 
 /** Salah ketik dalam satu kata: 1 huruf untuk kata 4–6 huruf, 2 huruf untuk kata ≥ 7 huruf. */
+/**
+ * Salah ketik kecil: huruf pertama harus sama, lalu beda 1 huruf (kata 4–7 huruf) atau 2 huruf
+ * (kata ≥ 8 huruf). Aturan huruf pertama mencegah nama berakhiran sama seperti -PUTRA/-PUTRI
+ * dianggap mirip satu sama lain hanya karena akhirannya.
+ */
 function salahKetik(a: string, b: string): boolean {
   const n = Math.min(a.length, b.length);
-  if (n < 4) return false;
-  return jarakEdit(a, b) <= (n >= 7 ? 2 : 1);
+  if (n < 4 || a[0] !== b[0]) return false;
+  return jarakEdit(a, b) <= (n >= 8 ? 2 : 1);
 }
 
 /** Penulisan "Muhammad" yang sering dipakai; semuanya dianggap kata yang sama. */
@@ -310,7 +315,8 @@ export function cocokkanMoving(kelompok: KelompokMoving[], peserta: PesertaMasuk
       .map((p) => {
         const skor = kemiripan(nama, p.firstname);
         const sesuai = namaSesuai(nama, p.firstname);
-        const urut = skor + (nomor && nomorKelas(p.department) === nomor ? 0.15 : 0) + (sesuai ? 0.5 : 0);
+        // Teman sekelas (rombel sama dengan di file moving) didahulukan di daftar pilihan.
+        const urut = skor + (nomor && nomorKelas(p.department) === nomor ? 0.6 : 0) + (sesuai ? 0.5 : 0);
         return { username: p.username, nama: p.firstname, kelas: p.department, skor, sesuai, urut };
       })
       .sort((a, b) => b.urut - a.urut);

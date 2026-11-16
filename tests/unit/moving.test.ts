@@ -283,6 +283,26 @@ describe('nama disingkat, terpotong, atau salah ketik', async () => {
     expect(namaSesuai('Contoh Satu', 'SATU CONTOH')).toBe(false); // urutan kata beda
   });
 
+  it('namaSesuai: salah ketik harus huruf pertama sama; beda 2 huruf hanya untuk kata ≥ 8 huruf', () => {
+    expect(namaSesuai('Diputra', 'DIPTRA')).toBe(true); // kurang 1 huruf
+    expect(namaSesuai('Diputra', 'SAPUTRA')).toBe(false); // akhiran sama, huruf depan beda
+    expect(namaSesuai('Kirani', 'KIRUNO')).toBe(false); // 6 huruf, beda 2
+    expect(namaSesuai('Contohwati', 'CONTOHWETY')).toBe(true); // 10 huruf, beda 2
+  });
+
+  it('daftar pilihan mendahulukan teman sekelas', async () => {
+    const peserta = [
+      p('92-26-0201', 'DIPUTRA LAIN', 'XI-5'),
+      p('92-26-0202', 'ANDI DIPTRA CONTOH', 'XI-3'),
+      p('92-26-0203', 'ANDI SAPUTRA', 'XI-3'),
+    ];
+    const kel = await bukuContohMoving([{ judul: 'BIO 1', siswa: [['Diputra', 'XI 3']] }]);
+    const [h] = cocokkanMoving(await bacaFileMoving(kel, 'MOVING XI BIO.xlsx'), peserta);
+    expect(h.kandidat[0].username).toBe('92-26-0202');
+    expect(h.status).toBe('mirip');
+    expect(h.username).toBe('92-26-0202');
+  });
+
   const SISWA = [
     p('92-26-0101', 'PUTRI CONTOH BINTANG SEKARWANGI', 'XI-9'),
     p('92-26-0102', 'PUTRI CONTOH MELATI', 'XI-3'),

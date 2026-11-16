@@ -3,7 +3,7 @@
 // Hasilnya (mapel moving per siswa) dipakai tab User → Moodle untuk kolom course.
 
 import { urutTingkat } from '../core/jadwal';
-import { PETA_MAPEL_MOVING, bacaFileMoving, cocokkanMoving, kodeMovingAktif, kunciKodeMoving, kunciPasangan, movingPerSiswa, pilihanPasangan, pasanganGanda, JUMLAH_MOVING, rekapMoving, tulisRekapMovingXlsx, type KelompokMoving, type PasanganMoving, type TambahanManual } from '../core/moving';
+import { PETA_MAPEL_MOVING, bacaFileMoving, cocokkanMoving, kodeMovingAktif, kunciKodeMoving, kunciNama, kunciPasangan, movingPerSiswa, nomorKelas, pilihanPasangan, pasanganGanda, JUMLAH_MOVING, rekapMoving, tulisRekapMovingXlsx, type KelompokMoving, type PasanganMoving, type TambahanManual } from '../core/moving';
 import { tingkatPeserta } from '../core/moodle';
 import { GalatFormat, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { ambilPeserta, catatMoving, muatKamus, muatMoving, saatKamusBerubah, saatPesertaBerubah, simpanMoving, unduhFile } from './simpan';
@@ -215,9 +215,31 @@ export function pasangTabMoving(akar: HTMLElement): void {
     );
   }
 
-  function pemilih(p: PasanganMoving, semua: PesertaMasuk[], idDaftar: string): HTMLElement {
-    const k = kunciPasangan(p);
-    const dipilih = pilihanPasangan(p, s.pilihan);
+  /**
+   * Satu murid ada di beberapa file moving (satu baris per mapel). Di tabel pencocokan baris-baris
+   * itu digabung: kunci = tingkat + nama + nomor rombel, sama dengan dasar hasil cocok otomatis.
+   */
+  function kunciSiswa(p: PasanganMoving): string {
+    return `${p.kelompok.tingkat}|${kunciNama(p.siswa.nama)}|${nomorKelas(p.siswa.kelas)}`;
+  }
+
+  /** Pilihan operator untuk satu murid: pilihan pertama yang ada di salah satu barisnya. */
+  function pilihanGrup(baris: PasanganMoving[]): string | undefined {
+    for (const p of baris) {
+      const d = pilihanPasangan(p, s.pilihan);
+      if (d !== undefined) return d;
+    }
+    return undefined;
+  }
+
+  /** Simpan pilihan untuk semua baris (semua mapel) murid itu sekaligus. */
+  function pilihUntuk(baris: PasanganMoving[], u: string): void {
+    s.pilihan = { ...s.pilihan, ...Object.fromEntries(baris.map((p) => [kunciPasangan(p), u])) };
+  }
+
+  function pemilih(baris: PasanganMoving[], semua: PesertaMasuk[], idDaftar: string): HTMLElement {
+    const p = baris[0];
+    const dipilih = pilihanGrup(baris);
     const sekarang = dipilih ?? p.username;
     const opsi = new Map(p.kandidat.map((c) => [c.username, `${c.username}: ${c.nama} (${c.kelas}) · ${Math.round(c.skor * 100)}%`]));
     if (sekarang && !opsi.has(sekarang)) {
@@ -230,7 +252,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       el('option', { value: '', selected: sekarang === '' && dipilih === undefined }, 'Pilih siswa…'),
       ...[...opsi].map(([u, label]) => el('option', { value: u, selected: u === sekarang }, label)),
       el('option', { value: CARI }, 'Cari siswa lain…'),
-      el('option', { value: ABAIKAN, selected: dipilih === '' }, 'Abaikan baris ini'),
+      el('option', { value: ABAIKAN, selected: dipilih === '' }, 'Abaikan nama ini'),
     );
     const cari = el('input', { type: 'text', list: idDaftar, placeholder: 'Ketik nama atau no ujian', size: '34', hidden: true, 'aria-label': 'Cari siswa' });
     sel.addEventListener('change', () => {
@@ -239,13 +261,13 @@ export function pasangTabMoving(akar: HTMLElement): void {
         cari.focus();
         return;
       }
-      s.pilihan = { ...s.pilihan, [k]: sel.value === ABAIKAN ? '' : sel.value };
+      pilihUntuk(baris, sel.value === ABAIKAN ? '' : sel.value);
       gambar();
     });
     cari.addEventListener('change', () => {
       const u = cari.value.split(': ')[0].trim();
       if (semua.some((q) => q.username === u)) {
-        s.pilihan = { ...s.pilihan, [k]: u };
+        pilihUntuk(baris, u);
         gambar();
       }
     });
@@ -254,12 +276,19 @@ export function pasangTabMoving(akar: HTMLElement): void {
 
   function kartuCocok(pasangan: PasanganMoving[]): HTMLElement {
     const semua = [...new Set(pasangan.map((p) => p.kelompok.tingkat))].flatMap((t) => pesertaTingkat(t));
-    const statusAkhir = (p: PasanganMoving) => {
-      const dipilih = pilihanPasangan(p, s.pilihan);
+    // Satu baris per murid (semua mapel moving-nya digabung), urutan sesuai kemunculan pertama.
+    const perSiswa = new Map<string, PasanganMoving[]>();
+    for (const p of pasangan) {
+      const k = kunciSiswa(p);
+      perSiswa.set(k, [...(perSiswa.get(k) ?? []), p]);
+    }
+    const grup = [...perSiswa.values()];
+    const statusAkhir = (baris: PasanganMoving[]) => {
+      const dipilih = pilihanGrup(baris);
       if (dipilih !== undefined) return dipilih ? 'dipilih' : 'diabaikan';
-      return p.status;
+      return baris[0].status;
     };
-    const hitung = (st: string) => pasangan.filter((p) => statusAkhir(p) === st).length;
+    const hitung = (st: string) => grup.filter((g) => statusAkhir(g) === st).length;
     const perlu = hitung('pilih');
 
     const tombolSaring = (nilai: Saring, label: string) => {
@@ -270,8 +299,8 @@ export function pasangTabMoving(akar: HTMLElement): void {
       });
       return b;
     };
-    const tampil = pasangan.filter((p) => {
-      const st = statusAkhir(p);
+    const tampil = grup.filter((g) => {
+      const st = statusAkhir(g);
       if (s.saring === 'perlu') return st === 'pilih';
       if (s.saring === 'mirip') return st === 'mirip' || st === 'dipilih' || st === 'diabaikan';
       return true;
@@ -282,7 +311,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     const nama = new Map(semua.map((q) => [q.username, q]));
 
     const pesan: Peringatan[] = [];
-    if (perlu) pesan.push({ tingkat: 'galat', pesan: `${perlu} nama belum dicocokkan. Pilih siswanya di tabel merah, atau abaikan barisnya.` });
+    if (perlu) pesan.push({ tingkat: 'galat', pesan: `${perlu} nama belum dicocokkan. Pilih siswanya di tabel merah (cukup sekali, berlaku untuk semua mapel moving-nya), atau abaikan barisnya.` });
     pesan.push({
       tingkat: 'info',
       pesan: 'Pilihan dan entri manual tersimpan di browser komputer ini, jadi tidak hilang saat halaman dimuat ulang (upload ulang file moving untuk melanjutkan; data peserta diambil otomatis dari tab User → CBTAdmin). Di komputer bersama, tekan "Hapus pilihan tersimpan" setelah selesai.',
@@ -295,7 +324,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       el(
         'p',
         {},
-        `${pasangan.length} baris: ${hitung('persis')} sama persis, ${hitung('mirip')} mirip (dicocokkan otomatis, perlu dicek), ` +
+        `${grup.length} siswa (${pasangan.length} baris di file moving): ${hitung('persis')} sama persis, ${hitung('mirip')} mirip (dicocokkan otomatis, perlu dicek), ` +
           `${perlu} perlu dipilih, ${hitung('dipilih')} dipilih operator, ${hitung('diabaikan')} diabaikan.`,
       ),
       daftarPesan(pesan),
@@ -304,20 +333,21 @@ export function pasangTabMoving(akar: HTMLElement): void {
         { class: 'baris-kontrol', role: 'group', 'aria-label': 'Saring baris' },
         tombolSaring('perlu', `Perlu dipilih (${perlu})`),
         tombolSaring('mirip', `Mirip & sudah dipilih (${hitung('mirip') + hitung('dipilih') + hitung('diabaikan')})`),
-        tombolSaring('semua', `Semua (${pasangan.length})`),
+        tombolSaring('semua', `Semua (${grup.length})`),
       ),
       el('p', {}),
       datalist,
       tampil.length
         ? tabel(
-            [{ judul: 'Kelompok' }, { judul: 'Nama di file moving' }, { judul: 'Kelas' }, { judul: 'Dicocokkan ke' }],
-            tampil.slice(0, BATAS_BARIS).map((p) => {
-              const st = statusAkhir(p);
-              const u = pilihanPasangan(p, s.pilihan) ?? p.username;
+            [{ judul: 'Nama di file moving' }, { judul: 'Kelas' }, { judul: 'Mapel moving' }, { judul: 'Dicocokkan ke' }],
+            tampil.slice(0, BATAS_BARIS).map((baris) => {
+              const p = baris[0];
+              const st = statusAkhir(baris);
+              const u = pilihanGrup(baris) ?? p.username;
               const siswa = u ? nama.get(u) : undefined;
               return {
                 tanda: st === 'pilih' ? ('merah' as const) : st === 'mirip' ? ('kuning' as const) : st === 'diabaikan' ? ('abu' as const) : undefined,
-                sel: [p.kelompok.judul, p.siswa.nama, p.siswa.kelas, st === 'persis' && siswa ? labelSiswa(siswa) : pemilih(p, semua, idDaftar)],
+                sel: [p.siswa.nama, p.siswa.kelas, [...new Set(baris.map((b) => b.kelompok.judul))].join(', '), st === 'persis' && siswa ? labelSiswa(siswa) : pemilih(baris, semua, idDaftar)],
               };
             }),
             'Pencocokan nama murid kelas moving',
