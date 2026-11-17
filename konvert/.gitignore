@@ -1,0 +1,21 @@
+# Data asli sekolah (berisi nama & password siswa) - jangan di-commit
+/*.xlsx
+/*.csv
+/*.pdf
+~$*
+
+node_modules/
+dist/
+*.log
+.env*
+test-results/
+playwright-report/
+.vite/
+
+# Semua file data sekolah di subfolder juga (mis. "moving xi/"), kecuali fixture palsu & aset template
+*.xlsx
+*.xls
+*.csv
+*.pdf
+!tests/fixtures/*
+!src/assets/*

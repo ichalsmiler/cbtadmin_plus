@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Konvert User: jadwal dan user</title>
+  </head>
+  <body>
+    <header class="kepala">
+      <div>
+        <h1>Konvert User</h1>
+        <p>Ubah jadwal dan data peserta ke format upload sistem ujian. Semua proses terjadi di komputer ini.</p>
+      </div>
+      <div class="kepala-aksi">
+        <!-- Hanya tampil di server gabungan (aplikasi ini di /user/, Konver Soal di /) -->
+        <a class="tombol" id="ke-konver-soal" href="../" hidden>← Konver Soal</a>
+        <script>
+          if (/^\/user(\/|$)/.test(location.pathname)) document.getElementById('ke-konver-soal').hidden = false;
+        </script>
+        <button class="tombol tema" type="button" id="tombol-tema">Tema gelap</button>
+      </div>
+    </header>
+
+    <nav class="tab" role="tablist" aria-label="Jenis konversi">
+      <button role="tab" id="tab-btn-jadwal" aria-controls="tab-jadwal" aria-selected="true">Jadwal → Mapel</button>
+      <button role="tab" id="tab-btn-user" aria-controls="tab-user" aria-selected="false" tabindex="-1">User → CBTAdmin</button>
+      <button role="tab" id="tab-btn-moving" aria-controls="tab-moving" aria-selected="false" tabindex="-1">Kelas Moving</button>
+      <button role="tab" id="tab-btn-moodle" aria-controls="tab-moodle" aria-selected="false" tabindex="-1">User → Moodle</button>
+      <button role="tab" id="tab-btn-kamus" aria-controls="tab-kamus" aria-selected="false" tabindex="-1">Kamus Mapel <span class="segera">(segera)</span></button>
+    </nav>
+
+    <main>
+      <section id="tab-jadwal" role="tabpanel" aria-labelledby="tab-btn-jadwal"></section>
+      <section id="tab-user" role="tabpanel" aria-labelledby="tab-btn-user" hidden></section>
+      <section id="tab-moving" role="tabpanel" aria-labelledby="tab-btn-moving" hidden></section>
+      <section id="tab-moodle" role="tabpanel" aria-labelledby="tab-btn-moodle" hidden></section>
+      <section id="tab-kamus" role="tabpanel" aria-labelledby="tab-btn-kamus" hidden>
+        <div class="kartu">
+          <h2>Kamus mapel belum bisa diatur dari tab ini</h2>
+          <p class="kosong">Halaman pengaturan kamus masih dibuat. Untuk sekarang, nama mapel yang belum dikenal ditambahkan lewat tabel merah di tab Jadwal → Mapel (tombol "Simpan ke kamus"), dan tersimpan di browser ini.</p>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
