@@ -56,6 +56,8 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_peserta/cbtadmin/reset', 'Peserta::reset');
     $routes->get('daftar_peserta/cbtadmin/template', 'Peserta::template');
     $routes->get('daftar_peserta/cbtadmin/export', 'Peserta::export');
+    $routes->get('konvert', 'Konvert::index');
+    $routes->get('konvert/app', 'Konvert::app');
     $routes->get('daftar_peserta/moodle', 'Peserta::moodle');
     $routes->post('daftar_peserta/moodle/sinkron', 'Peserta::sync');
     $routes->post('daftar_peserta/moodle/buat', 'Peserta::createMoodle');

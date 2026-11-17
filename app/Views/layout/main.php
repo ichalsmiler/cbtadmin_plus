@@ -9,6 +9,7 @@ $menu = [
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
     ['No Attempt Check', 'file-earmark-x', 'noattempt_check'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
+    ['Konvert User', 'arrow-left-right', 'konvert'],
     ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', 'tools'],

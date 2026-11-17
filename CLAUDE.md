@@ -1,7 +1,9 @@
-# CBT Admin — peta proyek (untuk Claude; baca ini dulu, jangan menjelajah ulang)
+# CBT Admin Plus — peta proyek (untuk Claude; baca ini dulu, jangan menjelajah ulang)
 
 Panel admin ujian CBT (CodeIgniter 4.7, PHP 8.4) di atas **Moodle 5.1.8+** (kode web di `public/`).
 Meniru AIOCBT CBTAdmin (lms.sman2makassar.sch.id/cbtadmin). Semua teks UI berbahasa Indonesia.
+Repo `ichalsmiler/cbtadmin_plus` (lokal `F:ppstadmin_plus`) = cbtadmin + Konvert User (dulu repo `web-ujian`) di folder `konvert/`.
+Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 
 ## Server dan alur kerja
 - Utama `moodle` = 172.16.32.154, cadangan `cadangan` = 172.16.32.155 (alias SSH, user smiler, sudo tanpa sandi;
@@ -63,6 +65,7 @@ Menu → controller:
 | Daftar Ruang | Ruang | kode login pengawas `NPSN-<huruf><no><2 acak>` (`Pengawas::usernameFor`), password 4 huruf kapital (`Pengawas::randomPassword`), Tukar Akses, Generate Kode, Cetak ID Login (`pdf/id_login`), nama lab (`ruang.lokasi`) |
 | Dokumen | Dokumen | kartu login peserta per ruang/kelas (`pdf/kartu`: logo sekolah kiri + logo kanan `logo2` dari Info Sekolah, sama besar via `School::gayaLogo`; catatan kiri + tanda tangan kepala sekolah kanan bila nama kepala diisi; jam ujian per tingkatan `jam_<X|XI|XII>_mulai/selesai`, `catatan_kartu`), daftar hadir; Laporan Kehadiran admin `dokumen/laporan_kehadiran` 2 tab: `?tab=pengawas` (rekap absensi pengawas, `Absensi::rekap($tgl,$tingkat)`, view `dokumen/absensi`; alamat lama `dokumen/absensi` dialihkan) dan `?tab=ujian` (hadir = punya attempt, berita acara) |
 | Hasil Ujian / No Attempt | HasilUjian / NoAttempt | tab `?tab=cepat` "Selesai terlalu cepat" (pw/pm/pn: % batas waktu, % median, % nilai); tab `?tab=analisis` + `export_analisis` (P kesukaran, D daya beda 27%) dan `export_soal` (B/S/–/? per nomor) via `Libraries/AnalisisSoal` (langkah terakhir question_attempt_steps dari attempt selesai terakhir) |
+| Konvert User | Konvert | admin saja; aplikasi TypeScript+Vite di `konvert/` (jadwal → mapel, data peserta → template CBTAdmin, kelas moving, user Moodle; diproses di browser, 166 tes `npm test`), di-build `bash deploy/build-konvert.sh` → `app/Konvert/konvert.html` (di-commit, ikut `deploy.sh`), disajikan `konvert/app` dalam iframe `konvert/index`. Node.js hanya di PC, tidak di server |
 | Tools | Tools | accordion: Moodle Tools (Kelola Test `tools/test_manage`, Cron, Purge/Delete cache, Anti Submit) + CBTAdmin Tools (Info Sekolah, Info Kegiatan, Lock/Resume/Anti Newtab, Ganti Password) + Lainnya (akun, panel, backup, log: tab Panel / Pengawas (login panel + jam absen per ruang dari activity_log + tabel tindakan pengawas) / Mulai ujian (`quiz_attempts.timestart`, telat vs `jam_<T>_mulai`, `?telat=`) / Login siswa (logstore, >1 IP kuning) / Belum mulai (hadir tanpa attempt) via `Libraries/LogUjian`, `?log_tgl=&log_tab=`; Excel `tools/log_export?jenis=`; jejak siswa `tools/jejak?u=` (event Moodle + absensi + log panel yang menyebut username; paksa submit/tambah waktu/reset login mencatat `; siswa: …` lewat `PanelController::daftarSiswaLog`)) |
 
 Library penting: `Moodle` (koneksi DB Moodle langsung, baca; `quizzes()`, `categories()`, `coursesInCategory()`,

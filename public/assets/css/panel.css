@@ -346,3 +346,6 @@ div.dt-container .dt-paging .dt-paging-button.current { background: var(--brand-
     font-weight: 600;
 }
 .text-bg-success { background-color: var(--brand-fill) !important; color: var(--on-brand) !important; }
+
+/* Konvert User: aplikasi HTML tunggal di dalam bingkai, setinggi layar. */
+.konvert-frame { display: block; width: 100%; height: calc(100vh - var(--topbar-h) - 9.5rem); min-height: 560px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
