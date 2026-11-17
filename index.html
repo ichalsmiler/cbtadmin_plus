@@ -3,15 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Konverter Ujian: jadwal dan user</title>
+    <title>Konvert User: jadwal dan user</title>
   </head>
   <body>
     <header class="kepala">
       <div>
-        <h1>Konverter Ujian</h1>
+        <h1>Konvert User</h1>
         <p>Ubah jadwal dan data peserta ke format upload sistem ujian. Semua proses terjadi di komputer ini.</p>
       </div>
-      <button class="tombol tema" type="button" id="tombol-tema">Tema gelap</button>
+      <div class="kepala-aksi">
+        <!-- Hanya tampil di server gabungan (aplikasi ini di /user/, Konver Soal di /) -->
+        <a class="tombol" id="ke-konver-soal" href="../" hidden>← Konver Soal</a>
+        <script>
+          if (/^\/user(\/|$)/.test(location.pathname)) document.getElementById('ke-konver-soal').hidden = false;
+        </script>
+        <button class="tombol tema" type="button" id="tombol-tema">Tema gelap</button>
+      </div>
     </header>
 
     <nav class="tab" role="tablist" aria-label="Jenis konversi">

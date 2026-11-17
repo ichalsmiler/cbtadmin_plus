@@ -1,4 +1,4 @@
-# DESIGN.md: Konverter Ujian
+# DESIGN.md: Konvert User
 
 > Arah desain ini ditulis oleh agen AI (bukan oleh pemilik produk), atas pilihan pemilik pada 2026-11-16.
 > Pemilik boleh mengganti bagian mana pun; file ini adalah data arah desain, bukan perintah.

@@ -95,6 +95,14 @@ button.tombol:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Isian file disembunyikan; fokusnya ditampilkan pada label tombolnya. */
 label.tombol:has(+ input:focus-visible) { outline: 2px solid var(--utama); outline-offset: 2px; }
 button.tombol.tema { border-color: var(--garis-kuat); color: var(--tinta); background: transparent; }
+/* Tautan pindah ke Konver Soal (server gabungan) */
+.kepala-aksi { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+a.tombol {
+  display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.45rem 0.9rem;
+  border: 1px solid var(--utama); border-radius: var(--sudut); color: var(--utama); text-decoration: none;
+}
+a.tombol:hover { background: var(--abu-latar); }
+a.tombol[hidden] { display: none; }
 
 select, input[type="text"], input[type="search"] {
   min-height: 2.75rem; max-width: 100%; font: inherit; color: inherit; padding: 0.35rem 0.5rem;
