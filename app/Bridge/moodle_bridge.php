@@ -393,6 +393,56 @@ try {
             $result['items'][] = ['id' => (int) $course->id, 'status' => 'dibuat'];
             break;
 
+        case 'enrol_users':
+            // Daftarkan user ke course (shortname) sebagai siswa lewat metode enrol manual.
+            // Masukan: users = [{userid, courses: [shortname, ...]}]; yang sudah terdaftar dilewati.
+            require_once $CFG->dirroot . '/lib/enrollib.php';
+            $manual = enrol_get_plugin('manual');
+            $role   = $DB->get_record('role', ['shortname' => 'student'], 'id', MUST_EXIST);
+            $courses = $instances = [];
+            foreach ($DB->get_records('course', null, '', 'id, shortname') as $c) {
+                $courses[core_text::strtolower($c->shortname)] = $c;
+            }
+            foreach ($in['users'] as $u) {
+                $item = ['userid' => (int) $u['userid'], 'baru' => 0, 'sudah' => 0, 'tidak_ada' => []];
+                try {
+                    foreach ((array) $u['courses'] as $sn) {
+                        $course = $courses[core_text::strtolower(trim((string) $sn))] ?? null;
+                        if ($course === null || (int) $course->id === SITEID) {
+                            $item['tidak_ada'][] = (string) $sn;
+
+                            continue;
+                        }
+                        if (! isset($instances[$course->id])) {
+                            $inst = null;
+                            foreach (enrol_get_instances((int) $course->id, false) as $e) {
+                                if ($e->enrol === 'manual') {
+                                    $inst = $e;
+                                    break;
+                                }
+                            }
+                            if ($inst === null) {
+                                $id   = $manual->add_default_instance(get_course((int) $course->id));
+                                $inst = $DB->get_record('enrol', ['id' => $id], '*', MUST_EXIST);
+                            }
+                            $instances[$course->id] = $inst;
+                        }
+                        $inst = $instances[$course->id];
+                        if ($DB->record_exists('user_enrolments', ['enrolid' => $inst->id, 'userid' => $item['userid']])) {
+                            $item['sudah']++;
+
+                            continue;
+                        }
+                        $manual->enrol_user($inst, $item['userid'], (int) $role->id);
+                        $item['baru']++;
+                    }
+                } catch (Throwable $e) {
+                    $item['error'] = cbt_clean_error($e->getMessage());
+                }
+                $result['items'][] = $item;
+            }
+            break;
+
         case 'session_gc':
             // Hapus sesi Moodle yang sudah melewati batas waktu sesi situs.
             \core\session\manager::gc();

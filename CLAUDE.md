@@ -54,7 +54,7 @@ Menu → controller:
 | Menu | Controller | Catatan |
 |---|---|---|
 | Dashboard | Dashboard | stat via `dashboard/stats` (JSON); pengawas: kartu Belum Login / Belum Mulai / Mengerjakan / Sudah Submit + kartu "Pantauan Siswa" berisi nama per kelompok (`Libraries/PantauRuang::get`, hari ini, quiz tes aktif; JSON `pantau`), lalu kartu "Sesi Aktif (Kelas X)" + siswa ruangnya di sesi aktif, Belum/Sudah Submit juga per sesi (`Pengawas::usernamesInRuang($ruang, $sesi)`); token pengawas diganti pesan "Sesi belum diaktifkan oleh proktor" selama `sesi_aktif` kosong (`ActiveTest::sesiBelumAktifUntuk`, JSON `status_tes/token` → `sesiBelum`, halaman reload otomatis) |
-| Daftar Peserta | Peserta | pengawas: `peserta_ruang` (`Peserta::ruang`, baca saja, ruangnya; tautan kotak siswa di dashboard); impor AIOCBT (`Excel::read`, header baris 9), No. Peserta = username bila kosong; Reset Peserta (ketik HAPUS) / centang "Hapus data lama" saat impor → `hapusSemua()` (buka suspend Moodle siswa terblokir, kosongkan peserta+absensi+blokir; centang `ruang=1` di Reset ikut hapus ruang, sesi, akun pengawas; akun Moodle tetap) |
+| Daftar Peserta | Peserta | template TUNGGAL (`template` dan `export` sama: `Excel::templatePeserta`, format AIOCBT judul kolom baris 9 + No. Peserta + Mapel 1..n, lembar "Daftar Mapel" dari Moodle; bisa diimpor ulang); kolom `mapel` (shortname course, dipisah koma; impor kolom `mapel`/`course1..14`, CSV upload user Moodle langsung bisa: firstname=nama, lastname=kelas); tombol **Sinkron ke Moodle** (`daftar_peserta/moodle/buat` → `createMoodle`, bertahap ±20 dtk/permintaan + `peserta/sinkron_proses` kirim ulang otomatis): buat akun yang belum ada lalu daftarkan mapel yang belum (`mapelBelumTerdaftar`, aksi bridge `enrol_users`, role student, enrol manual), shortname tak dikenal dilaporkan; pengawas: `peserta_ruang` (`Peserta::ruang`, baca saja, ruangnya; tautan kotak siswa di dashboard); impor AIOCBT (`Excel::read`, header baris 9), No. Peserta = username bila kosong; Reset Peserta (ketik HAPUS) / centang "Hapus data lama" saat impor → `hapusSemua()` (buka suspend Moodle siswa terblokir, kosongkan peserta+absensi+blokir; centang `ruang=1` di Reset ikut hapus ruang, sesi, akun pengawas; akun Moodle tetap) |
 | Status Test / Token | StatusTes | sesi wajib dipilih; tombol Aktifkan / Nonaktifkan sesi (`status_tes/sesi`, aksi=aktifkan/nonaktifkan; nonaktif = `sesi_aktif` kosong → semua quiz dikunci password bawaan, `apply()` token dilewati) (`sesi_id` → setting `sesi_aktif`, `ActiveTest::sesiList()/sesiAktif()`, sesi peserta = `COALESCE(p.sesi_id, r.sesi_id)`, tingkatan dari kelas pesertanya); kategori Moodle = tes; simpan → hanya mapel dicentang + kategori itu tampil, lainnya disembunyikan; token bersama (`ActiveTest`, cron `cbt:token`); quiz di luar kategori aktif (quiz baru, tes lama) dikunci password bawaan `ActiveTest::DEFAULT_PASSWORD`=123456 (`applyDefault`, dipanggil `sync()` tiap menit dan saat simpan tes) |
 | Status Peserta | StatusPeserta | paksa submit, tambah waktu; tombol "Hapus attempt…" (admin) → HapusAttempt; "Login ganda" `status_peserta/login_ganda` (log user_loggedin per IP per tanggal) |
 | Reset Login | ResetLogin | hanya dipakai saat Lock login aktif |
@@ -73,10 +73,10 @@ Library penting: `Moodle` (koneksi DB Moodle langsung, baca; `quizzes()`, `categ
 
 Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, quiz_times, finish_attempts,
 delete_attempts, add_time, list_sessions, kill_sessions, quiz_password, course_visibility, category_visibility,
-suspend_users, cbtujian_config, purge_caches, create_category, create_course, session_gc.
+suspend_users, cbtujian_config, purge_caches, create_category, create_course, session_gc, enrol_users.
 
 Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, password_plain), peserta, ruang
-(+lokasi), sesi, settings, activity_log, absensi, blokir.
+(+lokasi), sesi, settings, activity_log, absensi, blokir; peserta.mapel (TEXT).
 
 ## Moodle (kustomisasi)
 - Semua setelan ada di `deploy/moodle/setelan.php` (idempoten), CSS di `deploy/moodle/boost.scss` (tema Boost,

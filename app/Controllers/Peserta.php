@@ -13,7 +13,6 @@ use App\Libraries\Tingkat;
 class Peserta extends PanelController
 {
     private const USERNAME_RE = '/^[a-z0-9._@-]{2,100}$/';
-    private const COLUMNS     = ['nomor_peserta', 'nama', 'kelas', 'username', 'password', 'ruang', 'sesi'];
 
     // ------------------------------------------------------------------ Pengawas
 
@@ -79,6 +78,7 @@ class Peserta extends PanelController
             'username'      => $username,
             'ruang_id'      => $ruangId > 0 ? $ruangId : null,
             'sesi_id'       => $sesiId > 0 ? $sesiId : null,
+            'mapel'         => self::mapelTeks(preg_split('/[,;\r\n]+/', (string) $this->request->getPost('mapel'))),
             'updated_at'    => date('Y-m-d H:i:s'),
         ];
 
@@ -203,24 +203,50 @@ class Peserta extends PanelController
         return $jumlah;
     }
 
+    /** Template tunggal (format AIOCBT + Mapel 1..n), berisi dua baris contoh. */
     public function template()
     {
-        $data = Excel::build(self::COLUMNS, [
-            ['0001', 'Contoh Siswa', 'XII IPA 1', 'siswa0001', '', 'Ruang 1', 'Sesi 1'],
-        ]);
+        $mapel  = $this->daftarMapelMoodle();
+        $contoh = array_slice(array_column($mapel, 'shortname'), 0, 3);
+        $rows   = [
+            array_merge(['Contoh Siswa Satu', 'X-1', 'X-1', '1', '1', '', '', ''], $contoh),
+            array_merge(['Contoh Siswa Dua', 'X-2', 'X-2', '2', '1', '', '', ''], $contoh),
+        ];
 
-        return $this->response->download('template_peserta.xlsx', $data);
+        return $this->response->download('template_peserta_cbtadmin.xlsx', Excel::templatePeserta($rows, $mapel));
     }
 
+    /** Export dengan format template yang sama, jadi bisa diubah lalu diimpor kembali. */
     public function export()
     {
         $rows = [];
         foreach ($this->pesertaRows((string) $this->request->getGet('kelas'), (string) $this->request->getGet('ruang')) as $p) {
-            $rows[] = [$p['nomor_peserta'], $p['nama'], $p['kelas'], $p['username'], $p['password_plain'], $p['ruang_nama'], $p['sesi_nama']];
+            $rows[] = array_merge(
+                [$p['nama'], $p['kelas'], $p['kelas'], (string) $p['ruang_nama'], (string) $p['sesi_nama'], $p['username'], (string) $p['password_plain'], $p['nomor_peserta']],
+                array_values(array_filter(array_map('trim', explode(',', (string) $p['mapel']))))
+            );
         }
         ActivityLog::add('export_peserta', count($rows) . ' baris');
 
-        return $this->response->download('peserta_' . date('Ymd_His') . '.xlsx', Excel::build(self::COLUMNS, $rows));
+        return $this->response->download('peserta_' . date('Ymd_His') . '.xlsx', Excel::templatePeserta($rows, $this->daftarMapelMoodle()));
+    }
+
+    /** Shortname course Moodle (tanpa halaman depan situs) untuk lembar "Daftar Mapel"; [] bila Moodle tak terbaca. */
+    private function daftarMapelMoodle(): array
+    {
+        try {
+            $rows = Moodle::db()->query(
+                'SELECT c.shortname, c.fullname AS nama, cc.name AS tes FROM ' . Moodle::t('course') . ' c
+                   LEFT JOIN ' . Moodle::t('course_categories') . ' cc ON cc.id = c.category
+                  WHERE c.id > 1 ORDER BY cc.name, c.shortname'
+            )->getResultArray();
+        } catch (\Throwable $e) {
+            log_message('error', 'Daftar mapel template: ' . $e->getMessage());
+
+            return [];
+        }
+
+        return array_map(static fn ($r) => ['shortname' => (string) $r['shortname'], 'nama' => (string) $r['nama'], 'tes' => (string) $r['tes']], $rows);
     }
 
     public function import()
@@ -231,7 +257,7 @@ class Peserta extends PanelController
         }
 
         try {
-            $rows = array_map(static fn (array $row) => self::normalizeImportRow($row), Excel::read($file->getTempName(), ['nama', 'nama_peserta']));
+            $rows = array_map(static fn (array $row) => self::normalizeImportRow($row), Excel::read($file->getTempName(), ['nama', 'nama_peserta', 'firstname']));
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'Berkas tidak bisa dibaca: ' . $e->getMessage());
         }
@@ -298,6 +324,12 @@ class Peserta extends PanelController
             if (($row['password'] ?? '') !== '') {
                 $data['password_plain'] = mb_substr($row['password'], 0, 100);
             }
+            // Mapel (kolom "mapel", "mapel_1".., atau "course1".. seperti CSV upload user Moodle).
+            // Berkas tanpa kolom mapel tidak mengubah mapel yang sudah tersimpan.
+            $mapel = self::mapelDariBaris($row);
+            if ($mapel !== null) {
+                $data['mapel'] = self::mapelTeks($mapel);
+            }
 
             $old = $db->table('peserta')->where('username', $username)->get()->getRowArray();
             // No. Peserta dari berkas; bila tidak ada (template AIOCBT), pakai username.
@@ -317,6 +349,12 @@ class Peserta extends PanelController
                 $db->table('peserta')->insert($data);
                 $baru++;
             }
+        }
+        // Kolom email (CSV Moodle, mis. 01-26-0001@smada.id): bila semua memakai satu domain, akun Moodle yang
+        // dibuat panel ikut memakai domain itu (setting email_domain).
+        $domains = array_unique(array_filter(array_map(static fn ($r) => strtolower(substr(strrchr((string) ($r['email'] ?? ''), '@') ?: '', 1)), $rows)));
+        if (count($domains) === 1 && preg_match('/^[a-z0-9.-]+\.[a-z]{2,}$/', reset($domains))) {
+            Settings::set('email_domain', reset($domains));
         }
         // Satu akun pengawas untuk setiap ruang (ruang baru dari import ini ikut dibuatkan).
         $pengawas = Pengawas::sync();
@@ -399,57 +437,167 @@ class Peserta extends PanelController
         return redirect()->back()->with('success', "$baru user Moodle disalin ke Data CBTAdmin, $taut ditautkan. Password user yang disalin tidak diketahui panel; reset dulu bila perlu dicetak di kartu.");
     }
 
-    /** Buat akun Moodle untuk peserta Data CBTAdmin yang belum punya. */
+    /**
+     * Sinkron ke Moodle: (1) buat akun Moodle peserta yang belum punya, (2) daftarkan setiap peserta ke mapel
+     * di kolom "mapel". Dikerjakan bertahap ±20 detik per permintaan (batas waktu server); bila masih ada sisa,
+     * halaman kemajuan mengirim ulang otomatis sampai selesai. Mapel yang shortname-nya tidak ada di Moodle dilaporkan.
+     */
     public function createMoodle()
     {
-        $db      = db_connect();
-        $pending = $db->table('peserta')->where('moodle_userid', null)->orderBy('id')->get()->getResultArray();
-        if ($pending === []) {
-            return redirect()->back()->with('success', 'Semua peserta Data CBTAdmin sudah punya akun Moodle.');
+        @set_time_limit(120);
+        $db     = db_connect();
+        $mulai  = microtime(true);
+        $batas  = 20.0;
+        $hasil  = (array) (session()->get('sinkron_moodle') ?? []);
+        if ($this->request->getPost('lanjut') !== '1') {
+            $hasil = ['dibuat' => 0, 'ditautkan' => 0, 'daftar' => 0, 'gagal' => [], 'tidak_ada' => []];
         }
 
+        // Tahap 1: akun Moodle.
         $domain = Settings::get('email_domain', 'cbt.local');
-        $users  = [];
-        foreach ($pending as $p) {
-            if ((string) $p['password_plain'] === '') {
-                $p['password_plain'] = self::randomPassword();
-                $db->table('peserta')->where('id', $p['id'])->update(['password_plain' => $p['password_plain']]);
+        while (microtime(true) - $mulai < $batas) {
+            $pending = $db->table('peserta')->where('moodle_userid', null)->whereNotIn('username', array_keys($hasil['gagal']) ?: [''])
+                ->orderBy('id')->limit(40)->get()->getResultArray();
+            if ($pending === []) {
+                break;
             }
-            $users[] = [
-                'username'  => $p['username'],
-                'password'  => $p['password_plain'],
-                'firstname' => $p['nama'],
-                'lastname'  => $p['kelas'] !== '' ? $p['kelas'] : '-',
-                'email'     => str_contains($p['username'], '@') ? $p['username'] : $p['username'] . '@' . $domain,
-                'cohort'    => $p['kelas'],
-            ];
-        }
-
-        try {
-            $items = MoodleBridge::call('create_users', ['users' => $users]);
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Gagal membuat user Moodle: ' . $e->getMessage());
-        }
-
-        $dibuat = $diperbarui = 0;
-        $gagal  = [];
-        foreach ($items as $item) {
-            if (isset($item['error']) || empty($item['id'])) {
-                $gagal[] = $item['username'] . ' (' . ($item['error'] ?? 'tanpa keterangan') . ')';
-
-                continue;
+            $users = [];
+            foreach ($pending as $p) {
+                if ((string) $p['password_plain'] === '') {
+                    $p['password_plain'] = self::randomPassword();
+                    $db->table('peserta')->where('id', $p['id'])->update(['password_plain' => $p['password_plain']]);
+                }
+                $users[] = [
+                    'username'  => $p['username'],
+                    'password'  => $p['password_plain'],
+                    'firstname' => $p['nama'],
+                    'lastname'  => $p['kelas'] !== '' ? $p['kelas'] : '-',
+                    'email'     => str_contains($p['username'], '@') ? $p['username'] : $p['username'] . '@' . $domain,
+                    'cohort'    => $p['kelas'],
+                ];
             }
-            $db->table('peserta')->where('username', $item['username'])->update(['moodle_userid' => $item['id']]);
-            $item['status'] === 'dibuat' ? $dibuat++ : $diperbarui++;
-        }
-        ActivityLog::add('buat_user_moodle', "$dibuat dibuat, $diperbarui diperbarui, " . count($gagal) . ' gagal');
+            try {
+                $items = MoodleBridge::call('create_users', ['users' => $users]);
+            } catch (\Throwable $e) {
+                return redirect()->to(site_url('daftar_peserta/cbtadmin'))->with('error', 'Gagal membuat user Moodle: ' . $e->getMessage());
+            }
+            foreach ($items as $item) {
+                if (isset($item['error']) || empty($item['id'])) {
+                    $hasil['gagal'][$item['username']] = $item['error'] ?? 'tanpa keterangan';
 
-        $message = "$dibuat user Moodle dibuat, $diperbarui user yang sudah ada ditautkan dan passwordnya disamakan.";
-        if ($gagal !== []) {
-            $message .= ' Gagal: ' . implode('; ', array_slice($gagal, 0, 5)) . (count($gagal) > 5 ? '; …' : '');
+                    continue;
+                }
+                $db->table('peserta')->where('username', $item['username'])->update(['moodle_userid' => $item['id']]);
+                $item['status'] === 'dibuat' ? $hasil['dibuat']++ : $hasil['ditautkan']++;
+            }
         }
 
-        return redirect()->back()->with($gagal === [] ? 'success' : 'error', $message);
+        // Tahap 2: pendaftaran mapel yang belum ada (dihitung ulang tiap putaran dari database Moodle).
+        $sisaDaftar = 0;
+        if (microtime(true) - $mulai < $batas) {
+            try {
+                [$kurang, $tidakAda] = $this->mapelBelumTerdaftar();
+            } catch (\Throwable $e) {
+                return redirect()->to(site_url('daftar_peserta/cbtadmin'))->with('error', 'Database Moodle tidak bisa dibaca: ' . $e->getMessage());
+            }
+            $hasil['tidak_ada'] = $tidakAda;
+            foreach (array_chunk($kurang, 60, true) as $potong) {
+                if (microtime(true) - $mulai >= $batas) {
+                    break;
+                }
+                $users = [];
+                foreach ($potong as $uid => $courses) {
+                    $users[] = ['userid' => $uid, 'courses' => $courses];
+                }
+                try {
+                    $items = MoodleBridge::call('enrol_users', ['users' => $users]);
+                } catch (\Throwable $e) {
+                    return redirect()->to(site_url('daftar_peserta/cbtadmin'))->with('error', 'Gagal mendaftarkan mapel: ' . $e->getMessage());
+                }
+                foreach ($items as $item) {
+                    $hasil['daftar'] += (int) ($item['baru'] ?? 0);
+                    if (isset($item['error'])) {
+                        $hasil['gagal']['user#' . $item['userid']] = $item['error'];
+                    }
+                }
+                foreach (array_keys($potong) as $uid) {
+                    unset($kurang[$uid]);
+                }
+            }
+            $sisaDaftar = array_sum(array_map('count', $kurang));
+        }
+
+        $sisaAkun = $db->table('peserta')->where('moodle_userid', null)->whereNotIn('username', array_keys($hasil['gagal']) ?: [''])->countAllResults();
+        session()->set('sinkron_moodle', $hasil);
+        $macet = $hasil['gagal'] !== [] && $sisaAkun + $sisaDaftar > 0 && microtime(true) - $mulai < $batas;
+        if (($sisaAkun > 0 || $sisaDaftar > 0) && ! $macet) {
+            // Belum selesai: halaman kemajuan yang mengirim ulang permintaan ini secara otomatis.
+            return view('peserta/sinkron_proses', ['hasil' => $hasil, 'sisaAkun' => $sisaAkun, 'sisaDaftar' => $sisaDaftar]);
+        }
+
+        session()->remove('sinkron_moodle');
+        ActivityLog::add('sinkron_ke_moodle', "{$hasil['dibuat']} akun dibuat, {$hasil['ditautkan']} ditautkan, {$hasil['daftar']} pendaftaran mapel, " . count($hasil['gagal']) . ' gagal');
+        $message = "Sinkron ke Moodle selesai: {$hasil['dibuat']} akun dibuat, {$hasil['ditautkan']} akun lama ditautkan (password disamakan), {$hasil['daftar']} pendaftaran mapel baru.";
+        if ($hasil['tidak_ada'] !== []) {
+            $message .= ' Mapel tidak ditemukan di Moodle (periksa shortname): ' . implode(', ', array_slice(array_keys($hasil['tidak_ada']), 0, 10))
+                . (count($hasil['tidak_ada']) > 10 ? ', …' : '') . '.';
+        }
+        if ($hasil['gagal'] !== []) {
+            $daftar = [];
+            foreach (array_slice($hasil['gagal'], 0, 5, true) as $u => $err) {
+                $daftar[] = "$u ($err)";
+            }
+            $message .= ' Gagal: ' . implode('; ', $daftar) . (count($hasil['gagal']) > 5 ? '; …' : '');
+        }
+
+        return redirect()->to(site_url('daftar_peserta/cbtadmin'))->with($hasil['gagal'] === [] && $hasil['tidak_ada'] === [] ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Pendaftaran mapel yang belum ada di Moodle: [moodle_userid => [shortname, ...]] untuk mapel yang course-nya ada,
+     * dan [shortname => jumlah siswa] untuk mapel yang tidak ditemukan.
+     */
+    private function mapelBelumTerdaftar(): array
+    {
+        $peserta = db_connect()->table('peserta')->select('moodle_userid, mapel')
+            ->where('moodle_userid IS NOT NULL', null, false)->where('mapel IS NOT NULL', null, false)->where('mapel !=', '')->get()->getResultArray();
+        if ($peserta === []) {
+            return [[], []];
+        }
+        $m       = Moodle::db();
+        $courses = [];
+        foreach ($m->table(Moodle::t('course'))->select('shortname')->where('id >', 1)->get()->getResultArray() as $c) {
+            $courses[strtolower($c['shortname'])] = $c['shortname'];
+        }
+        $sudah = [];
+        foreach (array_chunk(array_map('intval', array_column($peserta, 'moodle_userid')), 500) as $ids) {
+            $rows = $m->query(
+                'SELECT ue.userid, c.shortname FROM ' . Moodle::t('user_enrolments') . ' ue
+                   JOIN ' . Moodle::t('enrol') . ' e ON e.id = ue.enrolid JOIN ' . Moodle::t('course') . ' c ON c.id = e.courseid
+                  WHERE ue.userid IN ?',
+                [$ids]
+            )->getResultArray();
+            foreach ($rows as $r) {
+                $sudah[$r['userid'] . '|' . strtolower($r['shortname'])] = true;
+            }
+        }
+
+        $kurang = $tidakAda = [];
+        foreach ($peserta as $p) {
+            foreach (explode(',', (string) $p['mapel']) as $sn) {
+                $key = strtolower(trim($sn));
+                if ($key === '') {
+                    continue;
+                }
+                if (! isset($courses[$key])) {
+                    $tidakAda[trim($sn)] = ($tidakAda[trim($sn)] ?? 0) + 1;
+                } elseif (! isset($sudah[$p['moodle_userid'] . '|' . $key])) {
+                    $kurang[(int) $p['moodle_userid']][] = $courses[$key];
+                }
+            }
+        }
+
+        return [$kurang, $tidakAda];
     }
 
     public function resetPassword()
@@ -526,10 +674,48 @@ class Peserta extends PanelController
      * (8 karakter, huruf besar, huruf kecil, angka, simbol) dan tetap mudah diketik.
      * Karakter yang mudah tertukar (0/O, 1/l/I) tidak dipakai.
      */
+    /**
+     * Daftar mapel dari satu baris impor: kolom mapel / mapel_1 / mata_pelajaran / course1..course14
+     * (format CSV upload user Moodle). Isi sel boleh berisi beberapa mapel dipisah koma.
+     * null = berkas tidak punya kolom mapel sama sekali.
+     */
+    private static function mapelDariBaris(array $row): ?array
+    {
+        $ada  = false;
+        $list = [];
+        foreach ($row as $key => $value) {
+            if (preg_match('/^(mapel|mata_pelajaran|course)(_?\d+)?$/', (string) $key)) {
+                $ada  = true;
+                $list = array_merge($list, preg_split('/[,;]+/', (string) $value));
+            }
+        }
+
+        return $ada ? $list : null;
+    }
+
+    /** Rapikan daftar mapel menjadi "A, B, C" (tanpa kosong/duplikat, urutan tetap); null bila kosong. */
+    public static function mapelTeks(array $list): ?string
+    {
+        $hasil = [];
+        foreach ($list as $m) {
+            $m = trim(preg_replace('/\s+/', ' ', (string) $m));
+            if ($m !== '' && ! isset($hasil[strtolower($m)])) {
+                $hasil[strtolower($m)] = mb_substr($m, 0, 100);
+            }
+        }
+
+        return $hasil === [] ? null : implode(', ', $hasil);
+    }
+
     /** Samakan nama kolom template AIOCBT dengan kolom CBT Admin. */
     private static function normalizeImportRow(array $row): array
     {
         $alias = [
+            // CSV upload user Moodle: firstname = nama, lastname/department = kelas.
+            'firstname'    => 'nama',
+            'lastname'     => 'kelas',
+            'department'   => 'kelas',
+            'address'      => 'ruang',   // CSV Moodle hasil AIOCBT: kolom address berisi nomor ruang
             'nama_peserta' => 'nama',
             'nama_rombel'  => 'kelas',
             'rombel'       => 'kelas',
