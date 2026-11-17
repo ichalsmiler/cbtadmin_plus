@@ -2,7 +2,7 @@
 
 Panel admin ujian CBT (CodeIgniter 4.7, PHP 8.4) di atas **Moodle 5.1.8+** (kode web di `public/`).
 Meniru AIOCBT CBTAdmin (lms.sman2makassar.sch.id/cbtadmin). Semua teks UI berbahasa Indonesia.
-Repo `ichalsmiler/cbtadmin_plus` (lokal `F:ppstadmin_plus`) = cbtadmin + Konvert User (dulu repo `web-ujian`) di folder `konvert/`.
+Repo `ichalsmiler/cbtadmin_plus` (lokal `F:/apps/cbtadmin_plus`) = cbtadmin + Konvert User (dulu repo `web-ujian`) di folder `konvert/`.
 Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 
 ## Server dan alur kerja
