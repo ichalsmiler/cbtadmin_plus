@@ -42,6 +42,7 @@ class Auth extends PanelController
             'admin_nama' => $admin['nama'],
             'admin_role' => $admin['role'],
             'last_seen'  => time(),
+            'cred'       => \App\Filters\Guard::cap((string) $admin['password_hash']),
         ]);
         $db->table('admins')->where('id', $admin['id'])->update(['last_login' => date('Y-m-d H:i:s')]);
         ActivityLog::add('login');

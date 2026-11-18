@@ -36,18 +36,29 @@ class Guard implements FilterInterface
         }
 
         // Akun bisa dihapus, dinonaktifkan, atau diganti rolenya saat sesinya masih berjalan.
-        $admin = db_connect()->table('admins')->select('role, aktif, nama, ruang_id')
+        $admin = db_connect()->table('admins')->select('role, aktif, nama, ruang_id, password_hash')
             ->where('id', (int) $session->get('admin_id'))->get()->getRowArray();
         if (! $admin || ! (int) $admin['aktif']) {
             $session->destroy();
 
             return $this->deny($request, 'Akun Anda sudah tidak aktif.');
         }
+        // Password/kode login diganti (Generate Kode, reset, Ganti Password) → sesi lama ikut putus.
+        // Sesi yang dibuat sebelum pengecekan ini ada belum punya cap: dicap sekali tanpa logout.
+        $cap = self::cap((string) $admin['password_hash']);
+        if ($session->get('cred') === null) {
+            $session->set('cred', $cap);
+        } elseif (! hash_equals((string) $session->get('cred'), $cap)) {
+            $session->destroy();
+
+            return $this->deny($request, 'Password akun ini sudah diganti. Silakan login lagi.');
+        }
         $session->set([
             'admin_role'  => $admin['role'],
             'admin_nama'  => $admin['nama'],
-            // Pengawas ruang hanya melihat siswa di ruangnya.
-            'admin_ruang' => $admin['role'] === 'proktor' && $admin['ruang_id'] !== null ? (int) $admin['ruang_id'] : null,
+            // Pengawas ruang hanya melihat siswa di ruangnya. Pengawas tanpa ruang = ruang 0 (tidak ada):
+            // tidak melihat siswa dan tokennya terkunci, bukan tanpa batas seperti admin.
+            'admin_ruang' => $admin['role'] === 'proktor' ? (int) ($admin['ruang_id'] ?? 0) : null,
         ]);
 
         $timeout = (int) env('cbt.sessionTimeout', 3600);
@@ -93,6 +104,12 @@ class Guard implements FilterInterface
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
+    }
+
+    /** Cap sesi dari hash password akun: berubah bila password diganti. */
+    public static function cap(string $passwordHash): string
+    {
+        return substr(hash('sha256', $passwordHash), 0, 24);
     }
 
     private function deny(RequestInterface $request, string $message)

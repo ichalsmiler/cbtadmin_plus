@@ -3,7 +3,7 @@
 // Hasilnya (mapel moving per siswa) dipakai tab User → Moodle untuk kolom course.
 
 import { urutTingkat } from '../core/jadwal';
-import { PETA_MAPEL_MOVING, bacaFileMoving, cocokkanMoving, kodeMovingAktif, kunciKodeMoving, kunciNama, kunciPasangan, movingPerSiswa, nomorKelas, pilihanPasangan, pasanganGanda, JUMLAH_MOVING, rekapMoving, tulisRekapMovingXlsx, type KelompokMoving, type PasanganMoving, type TambahanManual } from '../core/moving';
+import { PETA_MAPEL_MOVING, bacaFileMoving, tingkatDariKelasMoving, tingkatDariNamaFile, cocokkanMoving, kodeMovingAktif, kunciKodeMoving, kunciNama, kunciPasangan, movingPerSiswa, nomorKelas, pilihanPasangan, pasanganGanda, JUMLAH_MOVING, rekapMoving, tulisRekapMovingXlsx, type KelompokMoving, type PasanganMoving, type TambahanManual } from '../core/moving';
 import { tingkatPeserta } from '../core/moodle';
 import { GalatFormat, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { ambilPeserta, catatMoving, muatKamus, muatMoving, saatKamusBerubah, saatPesertaBerubah, simpanMoving, unduhFile } from './simpan';
@@ -24,7 +24,12 @@ interface Status {
   pilihan: Record<string, string>;
   manual: TambahanManual[];
   saring: Saring;
+  /** Alur yang sedang dikerjakan: 'XI' atau 'XII' ('' = belum dipilih). Tiap alur punya file, pencocokan, dan rekap sendiri. */
+  alur: string;
 }
+
+/** Tingkatan yang punya kelas moving; masing-masing alur tersendiri. */
+const ALUR_MOVING = ['XI', 'XII'];
 
 function labelSiswa(p: PesertaMasuk): string {
   return `${p.username}: ${p.firstname} (${p.department})`;
@@ -37,13 +42,14 @@ function namaKelas(p: PesertaMasuk): string {
 
 export function pasangTabMoving(akar: HTMLElement): void {
   const tersimpan = muatMoving();
-  const s: Status = { kelompok: [], galat: [], ...tersimpan, saring: 'perlu' };
+  const s: Status = { kelompok: [], galat: [], ...tersimpan, saring: 'perlu', alur: '' };
 
   saatPesertaBerubah(() => gambar());
   saatKamusBerubah(() => gambar());
 
+  /** Kelompok (file) alur yang sedang dikerjakan. */
   function kelompokAktif(): KelompokMoving[] {
-    return s.kelompok.map((k) => ({ ...k, kode: kodeMovingAktif(k, s.kodeDiganti) }));
+    return s.kelompok.filter((k) => k.tingkat === s.alur).map((k) => ({ ...k, kode: kodeMovingAktif(k, s.kodeDiganti) }));
   }
 
   /** Peserta per tingkat (dari nama sheet), untuk dicocokkan. */
@@ -84,8 +90,19 @@ export function pasangTabMoving(akar: HTMLElement): void {
       memuat = `Membaca ${f.name}…`;
       gambar();
       try {
-        const kel = await bacaFileMoving(await f.arrayBuffer(), f.name);
-        s.kelompok = [...s.kelompok.filter((k) => k.namaFile !== f.name), ...kel]; // upload ulang file yang sama = ganti
+        // File yang diunggah di alur kelas XI dianggap kelas XI (begitu juga XII); bila nama file atau kolom KELAS
+        // menyebut kelas lain, operator diberi peringatan (mungkin salah alur).
+        const kel = (await bacaFileMoving(await f.arrayBuffer(), f.name)).map((k): KelompokMoving => {
+          const terbaca = tingkatDariNamaFile(f.name) || tingkatDariKelasMoving(k.siswa.map((x) => x.kelas));
+          const baru: KelompokMoving = { ...k, tingkat: s.alur };
+          delete baru.peringatan;
+          if (terbaca && terbaca !== s.alur) {
+            baru.peringatan = `File ini tampaknya untuk kelas ${terbaca}, tetapi diunggah di alur kelas ${s.alur}; muridnya dicocokkan dengan siswa kelas ${s.alur}. Lepas file lalu unggah di alur kelas ${terbaca} bila salah.`;
+          }
+          return baru;
+        });
+        // Upload ulang file yang sama di alur ini = ganti; file alur lain tidak tersentuh.
+        s.kelompok = [...s.kelompok.filter((k) => !(k.namaFile === f.name && k.tingkat === s.alur)), ...kel];
       } catch (e) {
         s.galat.push({ tingkat: 'galat', pesan: e instanceof GalatFormat ? e.message : `${f.name}: ${String(e)}` });
       }
@@ -105,7 +122,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     });
     const hapus = el('button', { class: 'tombol', type: 'button' }, 'Lepas semua file');
     hapus.addEventListener('click', () => {
-      Object.assign(s, { kelompok: [], galat: [] }); // pilihan & entri manual tetap tersimpan
+      Object.assign(s, { kelompok: s.kelompok.filter((k) => k.tingkat !== s.alur), galat: [] }); // hanya file alur ini; pilihan & entri manual tetap tersimpan
       gambar();
     });
     const jumlahTersimpan = Object.keys(s.pilihan).length + s.manual.length;
@@ -176,20 +193,20 @@ export function pasangTabMoving(akar: HTMLElement): void {
     return el(
       'div',
       { class: 'kartu' },
-      el('h2', {}, el('span', { class: 'langkah' }, '1'), 'Upload daftar kelas moving'),
+      el('h2', {}, el('span', { class: 'langkah' }, '1'), `Upload daftar kelas moving ${s.alur}`),
       el(
         'div',
         { class: 'baris-kontrol' },
-        el('label', { class: 'tombol', for: 'file-moving' }, s.kelompok.length ? 'Tambah / ganti file…' : 'Pilih file moving (.xlsx, bisa banyak sekaligus)…'),
+        el('label', { class: 'tombol', for: 'file-moving' }, kelompokAktif().length ? 'Tambah / ganti file…' : `Pilih file moving kelas ${s.alur} (.xlsx, bisa banyak sekaligus)…`),
         input,
-        s.kelompok.length ? hapus : null,
+        kelompokAktif().length ? hapus : null,
         hapusSimpanan,
       ),
       el('p', { class: 'bantu' }, 'Format seperti "DAFTAR HADIR KELAS MOVING XI BIO.xlsx": satu sheet per kelompok, judul kelompok di baris 2, kolom NAMA MURID dan KELAS.'),
       el(
         'p',
         { class: 'bantu' },
-        'File moving kelas XI hanya dicocokkan dengan siswa kelas XI (sheet KLS. XI), dan file moving kelas XII hanya dengan siswa kelas XII. Kelas dibaca dari nama file ("MOVING XI …"), atau dari kolom KELAS jika nama file tidak menyebutnya.',
+        `Semua file yang diunggah di sini dicocokkan dengan siswa kelas ${s.alur} saja. Untuk kelas ${ALUR_MOVING.filter((x) => x !== s.alur).join(', ')}, pilih alurnya di atas.`,
       ),
       memuat ? el('p', { class: 'memuat', role: 'status' }, memuat) : null,
       daftarPesan([...s.galat, ...peringatanFile]),
@@ -358,7 +375,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
   }
 
   function kartuManual(): HTMLElement {
-    const tingkat = urutTingkat([...new Set(kelompokAktif().map((k) => k.tingkat))].concat(s.kelompok.length ? [] : ['XI']));
+    const tingkat = [s.alur];
     const semua = tingkat.flatMap((t) => pesertaTingkat(t));
     const shortname = [...new Set(kelompokAktif().filter((k) => k.kode).map((k) => `USBK-${k.tingkat}-${k.kode}`))].sort();
 
@@ -388,10 +405,12 @@ export function pasangTabMoving(akar: HTMLElement): void {
     });
 
     const nama = new Map(semua.map((q) => [q.username, q]));
-    const daftar = s.manual.length
+    // Entri manual alur ini saja (shortname USBK-<kelas>-…); indeks asli dipakai untuk hapus.
+    const manualAlur = s.manual.map((m, i) => ({ m, i })).filter(({ m }) => m.shortname.split('-')[1] === s.alur);
+    const daftar = manualAlur.length
       ? tabel(
           [{ judul: 'Siswa' }, { judul: 'Mapel moving' }, { judul: '' }],
-          s.manual.map((m, i) => {
+          manualAlur.map(({ m, i }) => {
             const hapus = el('button', { class: 'tombol', type: 'button' }, 'Hapus');
             hapus.addEventListener('click', () => {
               s.manual = s.manual.filter((_, j) => j !== i);
@@ -425,7 +444,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
   }
 
   function kartuRekap(moving: Map<string, string[]>, pasangan: PasanganMoving[]): HTMLElement {
-    const tingkat = [...new Set(kelompokAktif().map((k) => k.tingkat))];
+    const tingkat = [s.alur];
     const semua = tingkat.flatMap((t) => pesertaTingkat(t));
     const jumlah = new Map<number, number>();
     for (const q of semua) {
@@ -503,19 +522,50 @@ export function pasangTabMoving(akar: HTMLElement): void {
     );
   }
 
+  /** Pilih alur: Kelas XI atau Kelas XII, masing-masing dengan langkah 1–4 sendiri. */
+  function kartuAlur(): HTMLElement {
+    const tombol = ALUR_MOVING.map((t) => {
+      const jumlah = new Set(s.kelompok.filter((k) => k.tingkat === t).map((k) => k.namaFile)).size;
+      const b = el(
+        'button',
+        { class: t === s.alur ? 'tombol utama' : 'tombol', type: 'button', 'aria-pressed': String(t === s.alur) },
+        `Kelas ${t}${jumlah ? ` (${jumlah} file)` : ''}`,
+      );
+      b.addEventListener('click', () => {
+        s.alur = t;
+        s.galat = [];
+        gambar();
+      });
+      return b;
+    });
+    return el(
+      'div',
+      { class: 'kartu' },
+      el('h2', {}, 'Pilih kelas moving'),
+      el('div', { class: 'baris-kontrol', role: 'group', 'aria-label': 'Kelas moving' }, ...tombol),
+      el('p', { class: 'bantu' }, s.alur
+        ? `Mengerjakan kelas moving ${s.alur}. Hasil kelas XI dan XII digabung otomatis untuk tab User → Moodle.`
+        : 'Kelas XI dan XII dikerjakan terpisah: pilih salah satu untuk upload file, mencocokkan nama, dan rekapnya.'),
+    );
+  }
+
   function gambar(): void {
     const fokus = document.activeElement?.id;
     const adaPeserta = !!ambilPeserta();
-    const pasangan = adaPeserta && s.kelompok.length ? hitungPasangan() : [];
-    const moving = movingPerSiswa(pasangan, s.pilihan, s.manual);
+    // Hasil semua alur (XI + XII) untuk User → Moodle; yang ditampilkan hanya alur terpilih.
+    const semuaPasangan = adaPeserta && s.kelompok.length ? hitungPasangan() : [];
+    const pasangan = semuaPasangan.filter((p) => p.kelompok.tingkat === s.alur);
+    const moving = movingPerSiswa(semuaPasangan, s.pilihan, s.manual);
     catatMoving(moving);
     simpanMoving({ pilihan: s.pilihan, manual: s.manual, kodeDiganti: s.kodeDiganti });
+    const adaFile = kelompokAktif().length > 0;
     akar.replaceChildren(
       ...[
-        kartuUpload(),
-        s.kelompok.length ? (adaPeserta ? kartuCocok(pasangan) : kartuSumberKosong()) : null,
-        adaPeserta && s.kelompok.length ? kartuManual() : null,
-        adaPeserta && s.kelompok.length ? kartuRekap(moving, pasangan) : null,
+        kartuAlur(),
+        s.alur ? kartuUpload() : null,
+        s.alur && adaFile ? (adaPeserta ? kartuCocok(pasangan) : kartuSumberKosong()) : null,
+        s.alur && adaPeserta && adaFile ? kartuManual() : null,
+        s.alur && adaPeserta && adaFile ? kartuRekap(moving, pasangan) : null,
       ].filter((x): x is HTMLElement => x !== null),
     );
     if (fokus) document.getElementById(fokus)?.focus();

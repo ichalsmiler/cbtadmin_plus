@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # ----------------------------- PENGATURAN ------------------------------------
-WWWROOT="${WWWROOT:-http://172.16.32.154}"   # alamat yang dibuka peserta
+WWWROOT="${WWWROOT:-http://$(hostname -I | awk '{print $1}')}"   # alamat yang dibuka peserta (bawaan: IP server ini)
 MOODLE_BRANCH="${MOODLE_BRANCH:-501}"        # 501 = Moodle 5.1, 405 = 4.5 LTS
 SITE_FULLNAME="${SITE_FULLNAME:-Ujian Online}"
 SITE_SHORTNAME="${SITE_SHORTNAME:-Ujian}"

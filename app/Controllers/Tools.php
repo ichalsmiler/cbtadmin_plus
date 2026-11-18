@@ -272,8 +272,11 @@ class Tools extends PanelController
         if (mb_strlen($password) < 8) {
             return redirect()->to(site_url('tools#password'))->with('error', 'Password minimal 8 karakter.');
         }
+        $hash = password_hash($password, PASSWORD_DEFAULT);
         db_connect()->table('admins')->where('id', (int) session()->get('admin_id'))
-            ->update(['password_hash' => password_hash($password, PASSWORD_DEFAULT), 'password_plain' => null]);
+            ->update(['password_hash' => $hash, 'password_plain' => null]);
+        // Sesi lain akun ini putus (Guard), sesi ini tetap.
+        session()->set('cred', \App\Filters\Guard::cap($hash));
         ActivityLog::add('ganti_password');
 
         return redirect()->to(site_url('tools#password'))->with('success', 'Password Anda diganti. Catat password baru supaya tidak lupa.');
@@ -318,6 +321,16 @@ class Tools extends PanelController
             $kategori = array_values(array_filter(Moodle::categories(), static fn ($c) => (int) $c['parent'] === 0));
             if ($katId > 0) {
                 $mapel = Moodle::coursesInCategory($katId);
+                // Jumlah attempt per mapel, ditampilkan di dialog Hapus mapel.
+                $ids     = array_map('intval', array_column($mapel, 'id'));
+                $attempt = $ids === [] ? [] : array_column(Moodle::db()->query(
+                    'SELECT q.course, COUNT(*) AS n FROM ' . Moodle::t('quiz_attempts') . ' a JOIN ' . Moodle::t('quiz')
+                    . ' q ON q.id = a.quiz WHERE q.course IN (' . implode(',', $ids) . ') GROUP BY q.course'
+                )->getResultArray(), 'n', 'course');
+                foreach ($mapel as &$c) {
+                    $c['attempt'] = (int) ($attempt[$c['id']] ?? 0);
+                }
+                unset($c);
             }
         } catch (\Throwable $e) {
             $error = true;
@@ -330,8 +343,23 @@ class Tools extends PanelController
             }
         }
 
+        $jumlah = null;
+        try {
+            $m      = Moodle::db();
+            $admins = array_filter(array_map('intval', explode(',', (string) ($m->table(Moodle::t('config'))->select('value')->where('name', 'siteadmins')->get()->getRowArray()['value'] ?? ''))));
+            $jumlah = [
+                'user'     => $m->table(Moodle::t('user'))->where('deleted', 0)->where('username !=', 'guest')->whereNotIn('id', $admins ?: [0])->countAllResults(),
+                'mapel'    => $m->table(Moodle::t('course'))->where('id >', 1)->countAllResults(),
+                'kategori' => $m->table(Moodle::t('course_categories'))->countAllResults(),
+                'log'      => $m->table(Moodle::t('logstore_standard_log'))->countAllResults(),
+            ];
+        } catch (\Throwable $e) {
+            log_message('error', 'Jumlah reset: ' . $e->getMessage());
+        }
+
         return $this->render('tools/test_manage', [
-            'title'    => 'Daftar Test & Mapel',
+            'title'    => 'Kategori Mapel',
+            'jumlah'   => $jumlah,
             'kategori' => $kategori,
             'aktif'    => $aktif,
             'mapel'    => $mapel,
@@ -353,6 +381,268 @@ class Tools extends PanelController
         return redirect()->to(site_url('tools/test_manage') . '?kat=' . $id)->with('success', 'Ujian "' . $nama . '" ditambahkan.');
     }
 
+    /** Buat kategori hari ujian sekaligus: awalan + nomor, mis. H1..H8 (jumlah 8, mulai 1). */
+    public function tambahHari()
+    {
+        $jumlah = (int) $this->request->getPost('jumlah');
+        $mulai  = max(1, (int) ($this->request->getPost('mulai') ?: 1));
+        $awalan = trim((string) $this->request->getPost('awalan'));
+        $awalan = $awalan === '' ? 'H' : mb_substr($awalan, 0, 50);
+        $back   = site_url('tools/test_manage');
+        if ($jumlah < 1 || $jumlah > 50) {
+            return redirect()->to($back)->with('error', 'Isi jumlah hari ujian antara 1 dan 50.');
+        }
+        $target = [];
+        for ($i = 0; $i < $jumlah; $i++) {
+            $target[] = $awalan . ($mulai + $i);
+        }
+
+        try {
+            $rencana = self::rencanaHari(array_values(array_filter(Moodle::categories(), static fn ($c) => (int) $c['parent'] === 0)), $target, $awalan, $mulai);
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Hari ujian tidak dibuat: ' . $e->getMessage());
+        }
+        try {
+            if ($rencana['ganti'] !== []) {
+                MoodleBridge::call('rename_categories', ['renames' => array_map(static fn ($g) => ['id' => $g['id'], 'name' => $g['baru']], $rencana['ganti'])]);
+            }
+            if ($rencana['buat'] !== []) {
+                MoodleBridge::call('create_categories', ['names' => $rencana['buat']]);
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal membuat hari ujian: ' . $e->getMessage());
+        }
+
+        $bagian = [];
+        if ($rencana['ganti'] !== []) {
+            $bagian[] = 'diganti namanya: ' . implode(', ', array_map(static fn ($g) => $g['lama'] . ' → ' . $g['baru'], $rencana['ganti']));
+        }
+        if ($rencana['buat'] !== []) {
+            $bagian[] = 'dibuat baru: ' . implode(', ', $rencana['buat']);
+        }
+        ActivityLog::add('tambah_ujian', 'hari ujian ' . implode(' – ', $target) . '; ' . ($bagian === [] ? 'sudah lengkap' : implode('; ', $bagian)));
+
+        return redirect()->to($back)->with('success', 'Hari ujian ' . reset($target) . '–' . end($target) . ' siap. '
+            . ($bagian === [] ? 'Semua sudah ada, tidak ada perubahan.' : ucfirst(implode('. ', $bagian)) . '.'));
+    }
+
+    /**
+     * Dari Konvert User (Jadwal → Mapel, di dalam panel): daftar mapel JSON {awalan, mapel: [{category, shortname, fullname}]}
+     * langsung dibuat di Moodle: hari N masuk ke kategori bernama awalan+N (bukan id). Balasan JSON + token CSRF baru.
+     */
+    public function mapelJson()
+    {
+        @set_time_limit(300);
+        $in    = $this->request->getJSON(true) ?? [];
+        $rows  = array_values(array_filter((array) ($in['mapel'] ?? []), 'is_array'));
+        $balas = static fn (array $data, int $status = 200) => service('response')->setStatusCode($status)
+            ->setJSON($data + ['csrf' => csrf_hash()]);
+        if ($rows === [] || count($rows) > 500) {
+            return $balas(['ok' => false, 'pesan' => 'Tidak ada mapel untuk dibuat (maksimal 500 baris).'], 400);
+        }
+        try {
+            return $balas($this->buatMapel($rows, trim((string) ($in['awalan'] ?? '')) ?: 'H', 'Konvert User'));
+        } catch (\Throwable $e) {
+            return $balas(['ok' => false, 'pesan' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Inti impor mapel: kolom category = NOMOR HARI → kategori bernama awalan+N (bukan id); category_path/kategori = nama.
+     *
+     * @return array{ok: bool, pesan: string, dibuat: int, ada: int, gagal: int, tanpa_kategori: list<string>}
+     */
+    private function buatMapel(array $rows, string $awalan, string $sumber): array
+    {
+        try {
+            $kategori = [];
+            foreach (Moodle::categories() as $c) {
+                if ((int) $c['parent'] === 0) {
+                    $kategori[mb_strtolower(trim($c['name']))] = $c;
+                }
+            }
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Database Moodle tidak bisa dibaca.');
+        }
+
+        $courses = $tanpaKategori = [];
+        foreach ($rows as $r) {
+            $shortname = trim((string) ($r['shortname'] ?? ''));
+            if ($shortname === '') {
+                continue;
+            }
+            $sebut = trim((string) ($r['category_path'] ?? $r['kategori'] ?? $r['category'] ?? ''));
+            $nama  = preg_match('/^\d+$/', $sebut) ? $awalan . (int) $sebut : $sebut;
+            $kat   = $kategori[mb_strtolower($nama)] ?? null;
+            if ($kat === null) {
+                $tanpaKategori[$nama !== '' ? $nama : '(kosong)'][] = $shortname;
+
+                continue;
+            }
+            $courses[] = ['category' => (int) $kat['id'], 'fullname' => trim((string) ($r['fullname'] ?? '')), 'shortname' => $shortname, 'kat' => $kat['name']];
+        }
+
+        $dibuat = $ada = $gagal = [];
+        $urutan = [];  // kategori => [courseid] sesuai urutan kiriman (urutan sesi dari Konvert)
+        foreach (array_chunk($courses, 25) as $potong) {
+            try {
+                $items = MoodleBridge::call('create_courses', ['courses' => array_map(static fn ($c) => array_diff_key($c, ['kat' => 1]), $potong)]);
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Gagal membuat mapel: ' . $e->getMessage() . ($dibuat !== [] ? ' (' . array_sum($dibuat) . ' mapel sudah sempat dibuat)' : ''));
+            }
+            foreach ($items as $i => $item) {
+                $kat = $potong[$i]['kat'];
+                if (isset($item['id'], $item['category']) && ! isset($item['error'])) {
+                    $urutan[(int) $item['category']][] = (int) $item['id'];
+                }
+                if (isset($item['error'])) {
+                    $gagal[] = $item['shortname'] . ' (' . $item['error'] . ')';
+                } elseif ($item['status'] === 'dibuat') {
+                    $dibuat[$kat] = ($dibuat[$kat] ?? 0) + 1;
+                } else {
+                    $ada[] = $item['shortname'];
+                }
+            }
+        }
+        // Course baru masuk di urutan paling atas kategori; susun ulang supaya urutannya sama dengan kiriman.
+        $tersusun = true;
+        if ($urutan !== []) {
+            try {
+                MoodleBridge::call('sort_courses', ['urutan' => $urutan]);
+            } catch (\Throwable $e) {
+                $tersusun = false;
+                log_message('error', 'Urutkan mapel: ' . $e->getMessage());
+            }
+        }
+        $total = array_sum($dibuat);
+        ActivityLog::add('impor_mapel', "dari $sumber: $total mapel dibuat, " . count($ada) . ' sudah ada, ' . count($gagal) . ' gagal, ' . count($tanpaKategori) . ' kategori tidak ditemukan');
+
+        $pesan = $total . ' mapel dibuat' . ($dibuat !== [] ? ' (' . implode(', ', array_map(static fn ($k, $n) => "$k: $n", array_keys($dibuat), $dibuat)) . ')' : '') . '.';
+        if ($ada !== []) {
+            $pesan .= ' ' . count($ada) . ' shortname sudah ada di Moodle, dilewati.';
+        }
+        if ($tanpaKategori !== []) {
+            $pesan .= ' Kategori tidak ditemukan: ' . implode(', ', array_map(static fn ($k, $v) => "$k (" . count($v) . ' mapel)', array_keys($tanpaKategori), $tanpaKategori))
+                . '. Buat dulu lewat "Jumlah hari", lalu kirim ulang dari Konvert User.';
+        }
+        if ($gagal !== []) {
+            $pesan .= ' Gagal: ' . implode('; ', array_slice($gagal, 0, 5)) . (count($gagal) > 5 ? '; …' : '') . '.';
+        }
+        $pesan .= $tersusun ? ' Urutan mapel di setiap hari disusun menurut sesi.' : ' Urutan mapel di Moodle gagal disusun ulang.';
+
+        return [
+            'ok'             => $tanpaKategori === [] && $gagal === [],
+            'pesan'          => $pesan,
+            'dibuat'         => $total,
+            'ada'            => count($ada),
+            'gagal'          => count($gagal),
+            'tanpa_kategori' => array_keys($tanpaKategori),
+        ];
+    }
+
+    /**
+     * Rencana "Jumlah hari": pakai kategori tingkat atas yang sudah ada dulu, urut id, lalu buat kekurangannya.
+     * Kategori bernama awalan+nomor di bawah "mulai" (mis. H1-H4 saat mulai 5) dibiarkan. Kategori sisa
+     * (lebih banyak dari jumlah hari) dibiarkan, kecuali namanya akan sama dengan salah satu hasil: dibatalkan.
+     *
+     * @return array{ganti: list<array{id:int, lama:string, baru:string}>, buat: list<string>}
+     */
+    private static function rencanaHari(array $kategori, array $target, string $awalan, int $mulai): array
+    {
+        usort($kategori, static fn ($a, $b) => (int) $a['id'] <=> (int) $b['id']);
+        $pola  = '/^' . preg_quote($awalan, '/') . '(\d+)$/i';
+        $pakai = [];
+        foreach ($kategori as $k) {
+            if (! (preg_match($pola, trim($k['name']), $m) && (int) $m[1] < $mulai)) {
+                $pakai[] = $k;
+            }
+        }
+
+        $ganti = $buat = [];
+        foreach ($target as $i => $nama) {
+            if (isset($pakai[$i])) {
+                if ($pakai[$i]['name'] !== $nama) {
+                    $ganti[] = ['id' => (int) $pakai[$i]['id'], 'lama' => (string) $pakai[$i]['name'], 'baru' => $nama];
+                }
+            } else {
+                $buat[] = $nama;
+            }
+        }
+        $hasil = array_map('strtolower', $target);
+        foreach (array_slice($pakai, count($target)) as $sisa) {
+            if (in_array(strtolower(trim($sisa['name'])), $hasil, true)) {
+                throw new \RuntimeException('kategori "' . $sisa['name'] . '" (id ' . $sisa['id'] . ') akan bernama sama dengan hasil. Tambah jumlah hari atau ganti nama kategori itu dulu.');
+            }
+        }
+
+        return ['ganti' => $ganti, 'buat' => $buat];
+    }
+
+    /**
+     * Hapus kategori (ujian) beserta semua mapel, soal, attempt, dan nilainya di Moodle.
+     * Kategori berisi mapel wajib dikonfirmasi dengan mengetik namanya; tes aktif (Status Test) tidak bisa dihapus.
+     */
+    public function hapusUjian()
+    {
+        $id   = (int) $this->request->getPost('id');
+        $back = site_url('tools/test_manage');
+        $kat  = null;
+        try {
+            foreach (Moodle::categories() as $c) {
+                if ((int) $c['id'] === $id && (int) $c['parent'] === 0) {
+                    $kat = $c;
+                }
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if ($kat === null) {
+            return redirect()->to($back)->with('error', 'Ujian tidak ditemukan.');
+        }
+        if ($id === \App\Libraries\ActiveTest::categoryId()) {
+            return redirect()->to($back . '?kat=' . $id)->with('error', 'Ujian "' . $kat['name'] . '" sedang dipakai sebagai tes aktif di Status Test. Pilih tes lain dulu.');
+        }
+        if ((int) $kat['coursecount'] > 0 && trim((string) $this->request->getPost('konfirmasi')) !== $kat['name']) {
+            return redirect()->to($back . '?kat=' . $id)->with('error', 'Ketik nama ujian "' . $kat['name'] . '" persis untuk menghapusnya beserta ' . (int) $kat['coursecount'] . ' mapel di dalamnya.');
+        }
+        try {
+            MoodleBridge::call('delete_category', ['id' => $id]);
+        } catch (\Throwable $e) {
+            return redirect()->to($back . '?kat=' . $id)->with('error', 'Gagal menghapus ujian: ' . $e->getMessage());
+        }
+        ActivityLog::add('hapus_ujian', $kat['name'] . ' (id ' . $id . ', ' . (int) $kat['coursecount'] . ' mapel)');
+
+        return redirect()->to($back)->with('success', 'Ujian "' . $kat['name'] . '" dihapus' . ((int) $kat['coursecount'] > 0 ? ' beserta ' . (int) $kat['coursecount'] . ' mapel di dalamnya.' : '.'));
+    }
+
+    /** Ganti nama kategori (ujian) di Moodle. */
+    public function ubahUjian()
+    {
+        $id   = (int) $this->request->getPost('id');
+        $nama = trim((string) $this->request->getPost('nama'));
+        $back = site_url('tools/test_manage') . '?kat=' . $id;
+        $lama = null;
+        try {
+            foreach (Moodle::categories() as $c) {
+                if ((int) $c['id'] === $id) {
+                    $lama = $c['name'];
+                }
+            }
+            if ($lama === null) {
+                return redirect()->to(site_url('tools/test_manage'))->with('error', 'Ujian tidak ditemukan.');
+            }
+            if ($nama === $lama) {
+                return redirect()->to($back)->with('success', 'Nama ujian tidak berubah.');
+            }
+            MoodleBridge::call('update_category', ['id' => $id, 'name' => mb_substr($nama, 0, 255)]);
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal mengubah ujian: ' . $e->getMessage());
+        }
+        ActivityLog::add('ubah_ujian', $lama . ' → ' . $nama);
+
+        return redirect()->to($back)->with('success', 'Nama ujian "' . $lama . '" diubah menjadi "' . $nama . '".');
+    }
+
     public function tambahMapel()
     {
         $kat       = (int) $this->request->getPost('kategori');
@@ -367,6 +657,221 @@ class Tools extends PanelController
         ActivityLog::add('tambah_mapel', $shortname . ' (' . $fullname . ')');
 
         return redirect()->to($back)->with('success', 'Pelajaran "' . $fullname . '" ditambahkan (tersembunyi sampai diaktifkan di Status Test). Isi soalnya di Moodle.');
+    }
+
+    /**
+     * Hapus satu mapel (course) dari Moodle beserta soal, jawaban, dan nilainya. Wajib ketik shortname;
+     * mapel yang sedang aktif di tes aktif ditolak (nonaktifkan dulu di Status Test).
+     */
+    public function hapusMapel()
+    {
+        $id   = (int) $this->request->getPost('id');
+        $back = site_url('tools/test_manage');
+        try {
+            $c = Moodle::db()->query(
+                'SELECT c.id, c.fullname, c.shortname, c.visible, cc.path FROM ' . Moodle::t('course') . ' c
+                   JOIN ' . Moodle::t('course_categories') . ' cc ON cc.id = c.category WHERE c.id = ? AND c.id > 1',
+                [$id]
+            )->getRowArray();
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if (! $c) {
+            return redirect()->to($back)->with('error', 'Mapel tidak ditemukan.');
+        }
+        // Kategori ujian = kategori tingkat atas, angka pertama di path "/<id>/...".
+        $katUjian = (int) explode('/', trim((string) $c['path'], '/'))[0];
+        $back    .= '?kat=' . $katUjian;
+        if ((int) $c['visible'] === 1 && $katUjian === \App\Libraries\ActiveTest::categoryId()) {
+            return redirect()->to($back)->with('error', 'Mapel "' . $c['fullname'] . '" sedang aktif di tes aktif. Nonaktifkan dulu di Status Test.');
+        }
+        if (trim((string) $this->request->getPost('konfirmasi')) !== $c['shortname']) {
+            return redirect()->to($back)->with('error', 'Ketik shortname "' . $c['shortname'] . '" persis untuk menghapus mapel ini.');
+        }
+        try {
+            MoodleBridge::call('delete_course', ['id' => $id]);
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal menghapus mapel: ' . $e->getMessage());
+        }
+        ActivityLog::add('hapus_mapel', $c['shortname'] . ' (' . $c['fullname'] . ', id ' . $id . ')');
+
+        return redirect()->to($back)->with('success', 'Mapel "' . $c['fullname'] . '" dihapus dari Moodle.');
+    }
+
+    // ------------------------------------------------------------------ Reset Moodle
+
+    private const RESET_TAHAP = ['siswa', 'ujian', 'log'];
+
+    /**
+     * Reset Moodle: hapus akun siswa, semua mapel/kategori (soal, jawaban, nilai), dan log, sesuai centang.
+     * Setelan, plugin, tema, dan akun admin tetap. Sebelum mulai, database Moodle + panel dibackup ke
+     * writable/backup. Berjalan bertahap (±20 detik per permintaan) lewat halaman proses yang mengirim ulang.
+     */
+    public function resetMoodle()
+    {
+        $back = site_url('tools/test_manage');
+        if (trim((string) $this->request->getPost('konfirmasi')) !== 'RESET MOODLE') {
+            return redirect()->to($back)->with('error', 'Ketik RESET MOODLE (huruf kapital) untuk mengonfirmasi.');
+        }
+        $opsi = array_values(array_intersect(self::RESET_TAHAP, (array) $this->request->getPost('tahap')));
+        $panel = $this->request->getPost('panel') === '1';
+        if ($opsi === [] && ! $panel) {
+            return redirect()->to($back)->with('error', 'Centang minimal satu data yang akan dihapus.');
+        }
+        if (\App\Libraries\ActiveTest::sesiId() > 0) {
+            return redirect()->to($back)->with('error', 'Masih ada sesi ujian aktif. Nonaktifkan sesi di Status Test dulu.');
+        }
+        try {
+            $mengerjakan = Moodle::db()->table(Moodle::t('quiz_attempts'))->where('state', 'inprogress')->countAllResults();
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if ($mengerjakan > 0) {
+            return redirect()->to($back)->with('error', "Masih ada $mengerjakan attempt yang sedang dikerjakan siswa. Selesaikan (paksa submit) dulu.");
+        }
+
+        try {
+            $berkas = $this->backupReset();
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Reset dibatalkan karena backup gagal: ' . $e->getMessage());
+        }
+        ActivityLog::add('reset_moodle', 'mulai: ' . implode(', ', $opsi) . ($panel ? ', panel' : '') . '; backup ' . implode(', ', array_map('basename', $berkas)));
+        session()->set('reset_moodle', [
+            'tahap'  => $opsi,
+            'guru'   => $this->request->getPost('simpan_guru') === '1',
+            'panel'  => $panel,
+            'hasil'  => [],
+            'backup' => array_map('basename', $berkas),
+        ]);
+
+        return $this->langkahReset();
+    }
+
+    public function resetLanjut()
+    {
+        if (! is_array(session()->get('reset_moodle'))) {
+            return redirect()->to(site_url('tools/test_manage'))->with('error', 'Tidak ada reset yang sedang berjalan.');
+        }
+
+        return $this->langkahReset();
+    }
+
+    /** Jalankan tahap berikutnya selama ±20 detik; selesai → bereskan data panel lalu kembali ke halaman. */
+    private function langkahReset()
+    {
+        $job = session()->get('reset_moodle');
+        @set_time_limit(300);
+        $label = ['siswa' => 'akun siswa', 'ujian' => 'mapel & kategori', 'log' => 'log Moodle'];
+        while ($job['tahap'] !== []) {
+            $tahap = $job['tahap'][0];
+            try {
+                $item = MoodleBridge::call('reset_moodle', ['tahap' => $tahap, 'batas' => 20, 'simpan_guru' => $job['guru']])[0];
+            } catch (\Throwable $e) {
+                session()->remove('reset_moodle');
+                ActivityLog::add('reset_moodle', "gagal di tahap $tahap: " . $e->getMessage());
+
+                return redirect()->to(site_url('tools/test_manage'))->with('error', 'Reset berhenti di tahap ' . $label[$tahap] . ': ' . $e->getMessage()
+                    . ' Backup: writable/backup/' . implode(', ', $job['backup']) . '.');
+            }
+            $job['hasil'][$tahap] = ($job['hasil'][$tahap] ?? 0) + (int) $item['hapus'];
+            if ((int) $item['sisa'] > 0) {
+                session()->set('reset_moodle', $job);
+
+                return $this->render('tools/reset_proses', [
+                    'title' => 'Reset Moodle',
+                    'pesan' => 'Menghapus ' . $label[$tahap] . ': ' . $job['hasil'][$tahap] . ' terhapus, ' . (int) $item['sisa'] . ' tersisa…',
+                ]);
+            }
+            array_shift($job['tahap']);
+            session()->set('reset_moodle', $job);
+        }
+
+        // Selesai: tes aktif menunjuk kategori yang sudah dihapus; akun Moodle siswa sudah tidak ada.
+        $db = db_connect();
+        if (isset($job['hasil']['ujian'])) {
+            \App\Libraries\Settings::set('tes_kategori', '0');
+        }
+        if (isset($job['hasil']['siswa'])) {
+            $db->table('peserta')->update(['moodle_userid' => null]);
+        }
+        $panel = '';
+        if ($job['panel']) {
+            if (! isset($job['hasil']['siswa'])) {
+                // Siswa yang diblokir tetap ada di Moodle: buka blokirnya dulu supaya tidak terkunci selamanya.
+                $ids = array_map('intval', array_column(Moodle::db()->table(Moodle::t('user'))->select('id')
+                    ->where('deleted', 0)->where('suspended', 1)->get()->getResultArray(), 'id'));
+                if ($ids !== []) {
+                    MoodleBridge::call('suspend_users', ['userids' => $ids, 'suspend' => false]);
+                }
+            }
+            $jumlah = $db->table('peserta')->countAllResults();
+            $db->table('absensi')->emptyTable();
+            $db->table('blokir')->emptyTable();
+            $db->table('peserta')->emptyTable();
+            $panel = ", $jumlah peserta panel";
+        }
+        try {
+            MoodleBridge::call('purge_caches', []);
+        } catch (\Throwable $e) {
+            log_message('error', 'Purge setelah reset: ' . $e->getMessage());
+        }
+        session()->remove('reset_moodle');
+        $ringkas = implode(', ', array_map(static fn ($t, $n) => "$n {$label[$t]}", array_keys($job['hasil']), $job['hasil'])) . $panel;
+        ActivityLog::add('reset_moodle', 'selesai: ' . $ringkas);
+
+        return redirect()->to(site_url('tools/test_manage'))->with('success', 'Reset Moodle selesai: ' . $ringkas . ' dihapus. Backup sebelum reset: writable/backup/'
+            . implode(', ', $job['backup']) . '.');
+    }
+
+    /**
+     * Backup database Moodle dan panel (mysqldump, gzip) ke writable/backup sebelum reset; berkas lebih dari
+     * 30 hari dihapus. Gagal → reset tidak dijalankan.
+     *
+     * @return list<string> path berkas
+     */
+    private function backupReset(): array
+    {
+        $dir = WRITEPATH . 'backup/';
+        if (! is_dir($dir) && ! mkdir($dir, 0750, true)) {
+            throw new \RuntimeException('folder writable/backup tidak bisa dibuat.');
+        }
+        foreach (glob($dir . 'reset_*.sql.gz') ?: [] as $lama) {
+            if (filemtime($lama) < time() - 30 * 86400) {
+                @unlink($lama);
+            }
+        }
+        $panel = config('Database')->default;
+        $sumber = [
+            'moodle' => [env('moodle.hostname', 'localhost'), (int) env('moodle.port', 3306), env('moodle.username', ''), env('moodle.password', ''), env('moodle.database', 'moodle')],
+            'panel'  => [$panel['hostname'], (int) ($panel['port'] ?: 3306), $panel['username'], $panel['password'], $panel['database']],
+        ];
+        $waktu  = date('Ymd_His');
+        $berkas = [];
+        foreach ($sumber as $nama => [$host, $port, $user, $pass, $database]) {
+            $path = $dir . "reset_{$waktu}_{$nama}.sql.gz";
+            $cmd  = ['mysqldump', '--single-transaction', '--quick', '--no-tablespaces', '--default-character-set=utf8mb4',
+                '-h', (string) $host, '-P', (string) $port, '-u', (string) $user, (string) $database];
+            $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, ['MYSQL_PWD' => (string) $pass, 'PATH' => '/usr/bin:/bin']);
+            if (! is_resource($proc)) {
+                throw new \RuntimeException('mysqldump tidak bisa dijalankan.');
+            }
+            $gz = gzopen($path, 'wb6');
+            while (! feof($pipes[1])) {
+                gzwrite($gz, (string) fread($pipes[1], 1 << 20));
+            }
+            gzclose($gz);
+            $err = trim((string) stream_get_contents($pipes[2]));
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            if (proc_close($proc) !== 0) {
+                @unlink($path);
+                throw new \RuntimeException("backup database $nama gagal" . ($err !== '' ? ": $err" : '') . '.');
+            }
+            chmod($path, 0640);
+            $berkas[] = $path;
+        }
+
+        return $berkas;
     }
 
     // ------------------------------------------------------------------ Akun panel
@@ -407,6 +912,9 @@ class Tools extends PanelController
                 return redirect()->to(site_url('tools#akun'))->with('error', 'Akun tidak ditemukan.');
             }
             $db->table('admins')->where('id', $id)->update($data);
+            if ($id === $me && isset($data['password_hash'])) {
+                session()->set('cred', \App\Filters\Guard::cap($data['password_hash']));
+            }
             ActivityLog::add('ubah_akun', $username . ($password !== '' ? ' (password diganti)' : ''));
         } else {
             $db->table('admins')->insert($data + ['created_at' => date('Y-m-d H:i:s')]);

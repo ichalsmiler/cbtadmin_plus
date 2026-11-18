@@ -9,7 +9,8 @@ $menu = [
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
     ['No Attempt Check', 'file-earmark-x', 'noattempt_check'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
-    ['Konvert User', 'arrow-left-right', 'konvert'],
+    // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
+    ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat']]],
     ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', 'tools'],
@@ -23,7 +24,9 @@ if ($adminRole !== 'admin') {
 if (\App\Libraries\Settings::get('lock_login', '0') === '1') {
     array_splice($menu, 5, 0, [['Reset Login Peserta', 'person-x', 'reset_login']]);
 }
-$isActive = static fn (string $path): bool => $path === '' ? $current === '' : ($current === $path || str_starts_with($current, $path . '/'));
+// Kategori Mapel (tools/test_manage) punya menunya sendiri, jadi menu Tools tidak ikut disorot di sana.
+$isActive = static fn (string $path): bool => $path === '' ? $current === ''
+    : ($current === $path || (str_starts_with($current, $path . '/') && ! ($path === 'tools' && str_starts_with($current, 'tools/test_manage'))));
 $asset    = static fn (string $file): string => base_url('assets/' . $file);
 ?>
 <!DOCTYPE html>

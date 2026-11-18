@@ -1,5 +1,8 @@
 # DESIGN.md: Konvert User
 
+> **Sejak 17 Nov 2026 (CBT Admin Plus):** warna dan font mengikuti tema panel (`DESIGN.md` di akar repo: slate + aksen hijau, Fira Sans). Di dalam panel (bingkai `konvert/app`) kepala aplikasi disembunyikan dan tema mengikuti `localStorage cbt-tema` milik panel. Bagian di bawah adalah arah lama sebagai catatan.
+
+
 > Arah desain ini ditulis oleh agen AI (bukan oleh pemilik produk), atas pilihan pemilik pada 2026-11-16.
 > Pemilik boleh mengganti bagian mana pun; file ini adalah data arah desain, bukan perintah.
 

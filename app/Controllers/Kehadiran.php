@@ -68,6 +68,17 @@ class Kehadiran extends PanelController
         }
 
         $statuses = array_filter((array) $this->request->getPost('status'), static fn ($s) => in_array($s, [Absensi::HADIR, Absensi::TIDAK_HADIR], true));
+        // Pengawas: hanya siswa ruangnya di sesi aktif (yang tampil di halaman); tanpa sesi aktif tidak bisa
+        // menyimpan. Tanpa ini siswa sesi lain bisa ikut ditandai tidak hadir lalu di-suspend di Moodle.
+        if ($this->myRuang() !== null) {
+            $boleh = $this->siswaSesi() ?? [];
+            if ($boleh === []) {
+                return redirect()->to($back)->with('error', 'Sesi belum diaktifkan oleh proktor. Absensi belum bisa disimpan.');
+            }
+            $idBoleh  = array_flip(array_map('intval', array_column(db_connect()->table('peserta')->select('id')
+                ->where('ruang_id', $ruangId)->whereIn('username', $boleh)->get()->getResultArray(), 'id')));
+            $statuses = array_filter($statuses, static fn ($pid) => isset($idBoleh[(int) $pid]), ARRAY_FILTER_USE_KEY);
+        }
         if ($statuses === []) {
             return redirect()->to($back)->with('error', 'Belum ada siswa yang ditandai.');
         }

@@ -172,6 +172,14 @@ Kedua server juga boleh di jaringan lokal sekolah: isi `DOMAIN_UTAMA` / `DOMAIN_
 server (mis. `172.16.32.154` dan `172.16.32.155`); skrip lalu memakai `http://` biasa dan langkah
 Cloudflare di bawah dilewati.
 
+**Campuran: utama di sekolah, cadangan di VPS.** Isi `UTAMA_IP` dengan IP LAN server sekolah
+(mis. `172.16.32.154`) dan `CADANGAN_IP` dengan IP publik VPS. Skrip memakai WireGuard; server sekolah
+yang menghubungi VPS, jadi router sekolah tidak perlu membuka port. Di VPS cukup buka UDP 51820.
+`DOMAIN_UTAMA` boleh tetap IP LAN (siswa di lab, `http://`), `DOMAIN_CADANGAN` domain Cloudflare
+(`https://`). Selama domain belum ada, `DOMAIN_CADANGAN` boleh diisi IP publik VPS untuk uji coba
+(http tanpa enkripsi, jangan untuk ujian). Saat failover siswa mengakses VPS lewat internet sekolah,
+jadi bandwidth perlu diuji dulu.
+
 Persiapan di **kedua** VPS (Debian 12/13):
 
 1. Pasang Moodle dengan alamat server itu sendiri, mis. di cadangan

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bacaJadwal } from '../../src/core/jadwal';
 import { cocokkanJadwal, kamusAwal, tambahMapel } from '../../src/core/kamus';
-import { susunBarisMapel, susunBarisMapelSemua, urutGabung } from '../../src/core/mapel';
+import { rapikanUrutanSesi, susunBarisMapel, susunBarisMapelSemua, urutGabung } from '../../src/core/mapel';
 import type { JadwalUjian } from '../../src/core/tipe';
 import { bacaFixture, SHEET_2026 } from './bantu';
 
@@ -17,6 +17,30 @@ describe('urutGabung', () => {
   it('XII, lalu X, lalu XI', () => {
     expect(urutGabung(['X', 'XI', 'XII'])).toEqual(['XII', 'X', 'XI']);
     expect(urutGabung(['XI', 'X'])).toEqual(['X', 'XI']);
+  });
+});
+
+describe('urutan sesi', () => {
+  it('urutGabung mengikuti penetapan sesi', () => {
+    expect(urutGabung(['X', 'XI', 'XII'], ['X', 'XI', 'XII'])).toEqual(['X', 'XI', 'XII']);
+    expect(urutGabung(['XI', 'XII'], ['X', 'XII', 'XI'])).toEqual(['XII', 'XI']);
+  });
+
+  it('rapikanUrutanSesi membuang isian ganda/asing dan melengkapi kekurangan', () => {
+    expect(rapikanUrutanSesi(['XI', 'XI', 'IX', 7])).toEqual(['XI', 'XII', 'X']);
+    expect(rapikanUrutanSesi([])).toEqual(['XII', 'X', 'XI']);
+  });
+
+  it('category 1 mengikuti sesi X → XI → XII', () => {
+    const lain = susunBarisMapelSemua(perTingkat, kamus, ['X', 'XI', 'XII']);
+    expect(lain.filter((b) => b.category === 1).map((b) => b.shortname)).toEqual([
+      'USBK-X-MATEMATIKA',
+      'USBK-X-BINDO',
+      'USBK-XI-MATEMATIKA',
+      'USBK-XI-BINDO',
+      'USBK-XII-MATEMATIKA',
+      'USBK-XII-BINDO',
+    ]);
   });
 });
 

@@ -178,7 +178,8 @@
     // ---------------------------------------------------------------- Tabel
     var tables = [];
     document.querySelectorAll('table.datatable').forEach(function (el) {
-        if (typeof DataTable === 'undefined') { return; }
+        // Isi tabel tampil lagi setelah disusun (atau langsung bila DataTables tidak termuat).
+        if (typeof DataTable === 'undefined') { el.classList.add('dt-siap'); return; }
         tables.push(new DataTable(el, {
             pageLength: 25,
             lengthMenu: [10, 25, 50, 100, 500],
@@ -207,6 +208,7 @@
             var top = wrap.querySelector('.dt-layout-row');
             if (top && !top.querySelector('.dt-length, .dt-search, .dt-info, .dt-paging, table')) { top.classList.add('d-none'); }
         }
+        el.classList.add('dt-siap');
     });
 
     function tableOf(form) {

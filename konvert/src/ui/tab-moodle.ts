@@ -1,5 +1,5 @@
 // Tab "User → Moodle": memakai peserta dari tab User → CBTAdmin (password yang sama) dan
-// daftar mapel dari tab Jadwal → Mapel, lalu menghasilkan CSV seperti USER MOODLE.csv.
+// daftar mapel dari tab Jadwal, lalu menghasilkan CSV seperti USER MOODLE.csv.
 
 import { keMoodle, pengecualianAwal, tingkatPeserta, tulisMoodleCsv, uraiDaftarShortname } from '../core/moodle';
 import { urutTingkat } from '../core/jadwal';
@@ -16,9 +16,12 @@ import {
   simpanPengecualian,
   unduhCsv,
 } from './simpan';
+import type { Peringatan } from '../core/tipe';
+import { alamatDataMoodle, kirimKeMoodle, kirimMoodleTersedia } from './panel';
 import { daftarPesan, el, tabel } from './tabel';
 
-const BATAS_PRATINJAU = 200;
+/** Pilihan jumlah baris pratinjau; 0 = semua. Bawaan 30 supaya halaman tetap ringan. */
+const PILIHAN_BATAS = [30, 50, 100, 0];
 const SEMUA = '';
 
 function tanggalHariIni(): string {
@@ -34,6 +37,22 @@ function ringkasCourse(course: string[]): HTMLElement {
   return el('span', { class: 'ringkas-course', title: course.join('\n') }, tampil + sisa);
 }
 
+/** Tingkatan yang punya mapel pilihan (kelas moving): pratinjau menampilkan mapel pilihannya saja. */
+const TINGKAT_PILIHAN = ['XI', 'XII'];
+
+/**
+ * Kolom course di pratinjau. Kelas XI/XII: hanya mapel pilihan (dari Kelas Moving), mapel wajib cukup disebut
+ * jumlahnya; kelas lain: ringkasan semua course. File CSV dan kiriman ke Moodle tetap berisi semuanya.
+ */
+function selCourse(course: string[], tingkat: string, moving: readonly string[]): HTMLElement {
+  if (!TINGKAT_PILIHAN.includes(tingkat)) return ringkasCourse(course);
+  const pilihan = course.filter((c) => moving.includes(c));
+  const wajib = course.length - pilihan.length;
+  const judul = course.join('\n');
+  if (!pilihan.length) return el('span', { class: 'ringkas-course kosong', title: judul }, `Belum ada mapel pilihan (${wajib} wajib)`);
+  return el('span', { class: 'ringkas-course', title: judul }, `${pilihan.map((c) => c.replace(/^USBK-[IVX]+-/, '')).join(', ')} (+${wajib} wajib)`);
+}
+
 function bukaTab(id: string): void {
   document.getElementById(id)?.click();
   window.scrollTo({ top: 0 });
@@ -43,6 +62,8 @@ export function pasangTabMoodle(akar: HTMLElement): void {
   let kecuali = muatPengecualian(pengecualianAwal());
   let sheetDipilih = SEMUA;
   let tampilkanPassword = false;
+  /** Jumlah baris pratinjau; 0 = semua (file unduhan & kiriman tetap berisi semua). */
+  let batas = PILIHAN_BATAS[0];
 
   saatPesertaBerubah(() => {
     sheetDipilih = SEMUA;
@@ -51,7 +72,11 @@ export function pasangTabMoodle(akar: HTMLElement): void {
   saatHasilMapelBerubah(() => gambar());
   saatMovingBerubah(() => gambar());
 
-  function tombolKe(tab: string, label: string): HTMLButtonElement {
+  function tombolKe(tab: string, label: string): HTMLElement {
+    // Di panel, tab Jadwal ada di menu sendiri (bingkai ?bagian=user tidak memuatnya): buka menu itu.
+    if (!document.getElementById(tab) && tab === 'tab-btn-jadwal') {
+      return el('a', { class: 'tombol', href: '../jadwal_mapel', target: '_top' }, label.replace('tab Jadwal', 'menu Jadwal'));
+    }
     const b = el('button', { class: 'tombol', type: 'button' }, label);
     b.addEventListener('click', () => bukaTab(tab));
     return b;
@@ -90,8 +115,8 @@ export function pasangTabMoodle(akar: HTMLElement): void {
         ? el(
             'div',
             { class: 'baris-kontrol' },
-            el('span', { class: 'bantu' }, 'Course diisi dari hasil konversi jadwal. Tekan "Konvert semua kelas" di tab Jadwal → Mapel.'),
-            tombolKe('tab-btn-jadwal', 'Buka tab Jadwal → Mapel'),
+            el('span', { class: 'bantu' }, 'Course diisi dari hasil konversi jadwal. Buka Jadwal, upload jadwal, lalu tekan "Konvert"; hasilnya otomatis muncul di sini (juga di halaman lain).'),
+            tombolKe('tab-btn-jadwal', 'Buka tab Jadwal'),
           )
         : null,
     );
@@ -142,7 +167,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
       ...peringatan,
       ...belumLengkap.map((t) => ({
         tingkat: 'peringatan' as const,
-        pesan: `Daftar mapel kelas ${t} belum lengkap: masih ada nama mapel belum dikenal di tab Jadwal → Mapel, jadi mapel itu tidak ikut di course`,
+        pesan: `Daftar mapel kelas ${t} belum lengkap: masih ada nama mapel belum dikenal di tab Jadwal, jadi mapel itu tidak ikut di course`,
       })),
     ];
 
@@ -167,9 +192,61 @@ export function pasangTabMoodle(akar: HTMLElement): void {
       gambar();
     });
 
+    const pilihBatas = el(
+      'select',
+      { id: 'batas-moodle' },
+      ...PILIHAN_BATAS.map((n) => el('option', { value: String(n), selected: n === batas }, n ? `${n} baris` : 'Semua')),
+    );
+    pilihBatas.addEventListener('change', () => {
+      batas = Number(pilihBatas.value);
+      gambar();
+    });
+
     const namaFile = `USER MOODLE${sheetDipilih ? ` ${sheetDipilih}` : ''} ${tanggalHariIni()}.csv`;
     const unduh = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-unduh-moodle', disabled: tingkatTanpaMapel.length > 0 }, `Unduh ${namaFile}`);
     unduh.addEventListener('click', () => unduhCsv(namaFile, tulisMoodleCsv(baris)));
+
+    // Di panel: kirim langsung ke Moodle (buat akun + daftarkan ke mapelnya), bertahap per paket.
+    const hasilKirim = el('div', { 'aria-live': 'polite' });
+    let kirim: HTMLButtonElement | null = null;
+    if (kirimMoodleTersedia()) {
+      const label = `Kirim ${baris.length} siswa ke Moodle`;
+      const tombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-kirim-moodle', disabled: unduh.disabled || baris.length === 0 }, label);
+      tombol.addEventListener('click', async () => {
+        const jumlahCourse = baris.reduce((n, b) => n + b.course.length, 0);
+        if (!confirm(`Kirim ${baris.length} siswa ke Moodle?\n\n• Akun yang belum ada dibuat; yang sudah ada: password, nama, kelas, dan ruang disamakan.\n• Setiap siswa didaftarkan ke mapelnya (${jumlahCourse} pendaftaran); yang sudah terdaftar dilewati.\n\nUntuk ±1.000 siswa butuh beberapa menit; jangan tutup halaman.`)) return;
+        tombol.disabled = true;
+        hasilKirim.replaceChildren(el('p', { class: 'memuat', role: 'status' }, 'Mengirim…'));
+        try {
+          const h = await kirimKeMoodle(baris, (selesai, total) => {
+            tombol.textContent = `Mengirim ${selesai}/${total}…`;
+            hasilKirim.replaceChildren(el('p', { class: 'memuat', role: 'status' }, `Mengirim ke Moodle: ${selesai} dari ${total} siswa…`));
+          });
+          const pesan: Peringatan[] = [
+            {
+              tingkat: h.gagal.length ? 'peringatan' : 'info',
+              pesan: `Selesai: ${h.dibuat} akun dibuat, ${h.diperbarui} diperbarui; ${h.enrolBaru} pendaftaran mapel baru, ${h.enrolSudah} sudah terdaftar.`,
+            },
+          ];
+          if (h.tidakAda.length) {
+            pesan.push({ tingkat: 'peringatan', pesan: `${h.tidakAda.length} mapel belum ada di Moodle, siswa belum didaftarkan ke mapel itu: ${h.tidakAda.slice(0, 10).join(', ')}${h.tidakAda.length > 10 ? ', …' : ''}. Buat dulu lewat menu Jadwal ("Buat mapel di Moodle"), lalu kirim ulang.` });
+          }
+          if (h.gagal.length) {
+            pesan.push({ tingkat: 'galat', pesan: `${h.gagal.length} gagal: ${h.gagal.slice(0, 5).join('; ')}${h.gagal.length > 5 ? '; …' : ''}` });
+          }
+          const isi: Node[] = [daftarPesan(pesan)!];
+          const tautan = alamatDataMoodle();
+          if (tautan) isi.push(el('p', { class: 'bantu' }, el('a', { href: tautan, target: '_top' }, 'Buka Daftar Peserta Moodle')));
+          hasilKirim.replaceChildren(...isi);
+        } catch (e) {
+          hasilKirim.replaceChildren(daftarPesan([{ tingkat: 'galat', pesan: e instanceof Error ? e.message : String(e) }])!);
+        } finally {
+          tombol.disabled = false;
+          tombol.textContent = label;
+        }
+      });
+      kirim = tombol;
+    }
     const maksCourse = Math.max(0, ...baris.map((b) => b.course.length));
 
     return el(
@@ -178,7 +255,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
       el('h2', {}, el('span', { class: 'langkah' }, '3'), 'Pratinjau & unduh'),
       pilihSheet,
       daftarPesan(pesan),
-      el('div', { class: 'baris-kontrol' }, tombolPassword),
+      el('div', { class: 'baris-kontrol' }, tombolPassword, el('label', { for: 'batas-moodle' }, 'Tampilkan:'), pilihBatas),
       el('p', {}),
       tabel(
         [
@@ -190,9 +267,9 @@ export function pasangTabMoodle(akar: HTMLElement): void {
           { judul: 'department' },
           { judul: 'address', angka: true },
           { judul: 'Jumlah course', angka: true },
-          { judul: 'course' },
+          { judul: 'course (XI/XII: mapel pilihan)' },
         ],
-        baris.slice(0, BATAS_PRATINJAU).map((b) => ({
+        (batas ? baris.slice(0, batas) : baris).map((b) => ({
           tanda: b.course.length === 0 ? ('merah' as const) : undefined,
           sel: [
             b.username,
@@ -203,7 +280,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
             b.department,
             b.address,
             b.course.length,
-            ringkasCourse(b.course),
+            selCourse(b.course, b.tingkat, ambilMoving().get(b.username) ?? []),
           ],
         })),
         'Pratinjau data user Moodle',
@@ -212,10 +289,12 @@ export function pasangTabMoodle(akar: HTMLElement): void {
         'p',
         { class: 'jumlah' },
         `${baris.length} peserta, paling banyak ${maksCourse} course per siswa (kolom course1–course${Math.max(14, maksCourse)}).` +
-          (baris.length > BATAS_PRATINJAU ? ` Pratinjau menampilkan ${BATAS_PRATINJAU} baris pertama; file unduhan berisi semuanya.` : ''),
+          (batas && baris.length > batas ? ` Pratinjau menampilkan ${batas} baris pertama; file unduhan dan kiriman ke Moodle berisi semuanya.` : ''),
       ),
-      el('div', { class: 'baris-kontrol' }, unduh),
+      el('div', { class: 'baris-kontrol' }, unduh, kirim),
+      hasilKirim,
       el('p', { class: 'bantu' }, 'Format sama dengan USER MOODLE.csv: pemisah titik koma (;), email = username@smada.id.'),
+      kirim ? el('p', { class: 'bantu' }, 'Kirim ke Moodle = tanpa unduh dan upload CSV: akun dibuat dan siswa langsung didaftarkan ke mapelnya. Mapel (course) harus sudah ada di Moodle.') : null,
     );
   }
 

@@ -66,7 +66,7 @@ function singkatanMapel(judul: string, namaFile: string): string {
   return dariFile && PETA_MAPEL_MOVING[dariFile] ? dariFile : dariJudul || dariFile;
 }
 
-function tingkatDariNamaFile(namaFile: string): string {
+export function tingkatDariNamaFile(namaFile: string): string {
   const m = /MOVING\s+([IVX]+)\b/i.exec(namaFile);
   return m ? m[1].toUpperCase() : '';
 }

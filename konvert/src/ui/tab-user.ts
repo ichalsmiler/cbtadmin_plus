@@ -6,7 +6,8 @@ import templateUrl from '../assets/template-cbtadmin.xlsx?url';
 import { GalatFormat, type PesertaCBT, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { urutTingkat } from '../core/jadwal';
 import { bacaUser, cariPeserta, isiPassword, keCbt, kodeTidakCocok, nomorSesi, tingkatDariSheet, tingkatPeserta, tulisCbtCsv, tulisCbtXlsx, type SesiPerTingkat } from '../core/user';
-import { ambilHasilMapel, ambilPeserta, catatPeserta, muatSesi, saatHasilMapelBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
+import { ambilHasilMapel, ambilPeserta, catatPeserta, muatSesi, saatHasilMapelBerubah, saatSesiBerubah, simpanSesi, unduhCsv, unduhFile } from './simpan';
+import { alamatDataPeserta, kirimPeserta, kirimPesertaTersedia } from './panel';
 import { daftarPesan, el, tabel } from './tabel';
 
 interface Status {
@@ -26,13 +27,16 @@ interface Status {
   tampilkanPassword: boolean;
   /** Kata kunci pencarian di pratinjau (tidak memengaruhi file unduhan). */
   cari: string;
+  /** Jumlah baris pratinjau yang ditampilkan; 0 = semua. Tidak memengaruhi file unduhan. */
+  batas: number;
   /** Kel. Sesi per tingkat; diingat di browser. */
   sesi: SesiPerTingkat;
   /** Isian di kartu Pengaturan sesi yang belum disimpan. */
   sesiDraf: SesiPerTingkat;
 }
 
-const BATAS_PRATINJAU = 200;
+/** Pilihan jumlah baris pratinjau; 0 = semua. Bawaan 30 supaya halaman tetap ringan. */
+const PILIHAN_BATAS = [30, 50, 100, 0];
 const SEMUA = '';
 
 function tanggalHariIni(): string {
@@ -74,10 +78,17 @@ export function pasangTabUser(akar: HTMLElement): void {
     kelas: SEMUA,
     tampilkanPassword: false,
     cari: '',
+    batas: PILIHAN_BATAS[0],
     sesi: muatSesi(),
     sesiDraf: {},
   };
   s.sesiDraf = { ...s.sesi };
+  // Sesi diubah di tab Jadwal (atau halaman lain): pakai nilai baru, isian yang belum disimpan diganti.
+  saatSesiBerubah((sesi) => {
+    s.sesi = sesi;
+    s.sesiDraf = { ...sesi };
+    gambar();
+  });
 
   // Data peserta yang tersimpan dari kunjungan sebelumnya: pakai lagi tanpa upload ulang.
   const lama = ambilPeserta();
@@ -263,7 +274,7 @@ export function pasangTabUser(akar: HTMLElement): void {
       'div',
       { class: 'kartu', id: 'kartu-sesi' },
       el('h2', {}, el('span', { class: 'langkah' }, langkah), 'Pengaturan sesi'),
-      el('p', { class: 'bantu' }, 'Isi nomor Kel. Sesi untuk setiap tingkat, lalu klik Simpan (atau tekan Enter). Pratinjau dan file unduhan memakai sesi yang sudah disimpan; pengaturan diingat di browser ini.'),
+      el('p', { class: 'bantu' }, 'Isi nomor Kel. Sesi untuk setiap tingkat, lalu klik Simpan (atau tekan Enter). Pratinjau dan file unduhan memakai sesi yang sudah disimpan; pengaturan diingat di browser ini dan sama dengan urutan sesi di tab Jadwal.'),
       tabel([{ judul: 'Tingkat' }, { judul: 'Peserta', angka: true }, { judul: 'Kel. Sesi' }], baris, 'Kel. Sesi per tingkat'),
       el('div', { class: 'baris-kontrol' }, simpan, batal, status),
       tanpaTingkat ? el('p', { class: 'bantu' }, `${tanpaTingkat} peserta tidak diketahui tingkatnya, jadi memakai sesi 1.`) : null,
@@ -279,7 +290,7 @@ export function pasangTabUser(akar: HTMLElement): void {
         'div',
         { class: 'kartu' },
         el('h2', {}, 'Cek kode mapel'),
-        el('p', { class: 'kosong' }, 'Konvert jadwal di tab "Jadwal → Mapel" untuk memeriksa apakah kode course1–course14 peserta cocok dengan kode mapel.'),
+        el('p', { class: 'kosong' }, 'Konvert jadwal di tab "Jadwal" untuk memeriksa apakah kode course1–course14 peserta cocok dengan kode mapel.'),
       );
     }
     const { diperiksa, tidakCocok } = kodeTidakCocok(peserta, hasilMapel);
@@ -314,7 +325,7 @@ export function pasangTabUser(akar: HTMLElement): void {
     const nomor = new Map(cbt.map((p, i) => [p, i + 1]));
     const isiTabel = () => {
       const cocok = cariPeserta(cbt, s.cari);
-      const tampil = cocok.slice(0, BATAS_PRATINJAU);
+      const tampil = s.batas ? cocok.slice(0, s.batas) : cocok;
       const jumlah = s.cari.trim()
         ? `${cocok.length} dari ${cbt.length} peserta cocok dengan "${s.cari.trim()}".`
         : `${cbt.length} peserta.`;
@@ -336,8 +347,8 @@ export function pasangTabUser(akar: HTMLElement): void {
             'p',
             { class: 'jumlah', role: 'status' },
             jumlah +
-              (cocok.length > BATAS_PRATINJAU ? ` Pratinjau menampilkan ${BATAS_PRATINJAU} baris pertama.` : '') +
-              (s.cari.trim() ? ' Pencarian hanya menyaring pratinjau; file unduhan tetap berisi semua peserta.' : cbt.length > BATAS_PRATINJAU ? ' File unduhan berisi semuanya.' : ''),
+              (tampil.length < cocok.length ? ` Pratinjau menampilkan ${tampil.length} baris pertama.` : '') +
+              (s.cari.trim() ? ' Pencarian hanya menyaring pratinjau; file unduhan tetap berisi semua peserta.' : tampil.length < cbt.length ? ' File unduhan berisi semuanya.' : ''),
           ),
         ],
       );
@@ -364,6 +375,15 @@ export function pasangTabUser(akar: HTMLElement): void {
       cari.focus();
     });
     cari.addEventListener('input', () => (bersihkan.hidden = !cari.value));
+    const pilihBatas = el(
+      'select',
+      { id: 'batas-user' },
+      ...PILIHAN_BATAS.map((n) => el('option', { value: String(n), selected: n === s.batas }, n ? `${n} baris` : 'Semua')),
+    );
+    pilihBatas.addEventListener('change', () => {
+      s.batas = Number(pilihBatas.value);
+      isiTabel();
+    });
     const tombolPassword = el('button', { class: 'tombol', type: 'button', 'aria-pressed': String(s.tampilkanPassword) }, s.tampilkanPassword ? 'Sembunyikan password' : 'Tampilkan password');
     tombolPassword.addEventListener('click', () => {
       s.tampilkanPassword = !s.tampilkanPassword;
@@ -394,9 +414,36 @@ export function pasangTabUser(akar: HTMLElement): void {
       }
     });
 
-    const namaCsv = namaFile.replace(/\.xlsx$/, '.csv');
-    const unduhCsvTombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-user-csv', disabled: unduh.disabled }, `Unduh ${namaCsv}`);
-    unduhCsvTombol.addEventListener('click', () => unduhCsv(namaCsv, tulisCbtCsv(cbt)));
+    // Di panel: kirim langsung ke Data CBTAdmin (pengganti unduh CSV). Di luar panel: unduh CSV seperti dulu.
+    const hasilKirim = el('div', { 'aria-live': 'polite' });
+    let tombolKedua: HTMLElement;
+    if (kirimPesertaTersedia()) {
+      const label = `Kirim ${cbt.length} peserta ke Data CBTAdmin`;
+      const kirim = el('button', { class: 'tombol', type: 'button', id: 'tombol-kirim-cbtadmin', disabled: unduh.disabled }, label);
+      kirim.addEventListener('click', async () => {
+        if (!confirm(`Kirim ${cbt.length} peserta ke Data CBTAdmin?\nUsername yang sudah ada diperbarui (nama, kelas, ruang, sesi, password); yang baru ditambahkan. Peserta lain tidak dihapus.`)) return;
+        kirim.disabled = true;
+        kirim.textContent = 'Mengirim…';
+        hasilKirim.replaceChildren();
+        try {
+          const h = await kirimPeserta(cbt);
+          const isi: Node[] = [daftarPesan([{ tingkat: h.ok ? 'info' : 'peringatan', pesan: h.pesan }])!];
+          const tautan = alamatDataPeserta();
+          if (tautan) isi.push(el('p', { class: 'bantu' }, el('a', { href: tautan, target: '_top' }, 'Buka Data CBTAdmin')));
+          hasilKirim.replaceChildren(...isi);
+        } catch (e) {
+          hasilKirim.replaceChildren(daftarPesan([{ tingkat: 'galat', pesan: e instanceof Error ? e.message : String(e) }])!);
+        } finally {
+          kirim.disabled = false;
+          kirim.textContent = label;
+        }
+      });
+      tombolKedua = kirim;
+    } else {
+      const namaCsv = namaFile.replace(/\.xlsx$/, '.csv');
+      tombolKedua = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-user-csv', disabled: unduh.disabled }, `Unduh ${namaCsv}`);
+      tombolKedua.addEventListener('click', () => unduhCsv(namaCsv, tulisCbtCsv(cbt)));
+    }
 
     // Filter angkatan & kelas: berlaku untuk pratinjau dan file unduhan
     const tingkatAda = urutTingkat([...new Set(s.peserta.map(tingkatPeserta).filter(Boolean))]);
@@ -449,6 +496,8 @@ export function pasangTabUser(akar: HTMLElement): void {
         el('label', { for: 'cari-user' }, 'Cari peserta:'),
         cari,
         bersihkan,
+        el('label', { for: 'batas-user' }, 'Tampilkan:'),
+        pilihBatas,
       ),
       el('div', { class: 'baris-kontrol' }, tombolPassword, ulang),
       adaYangDibuat
@@ -456,8 +505,11 @@ export function pasangTabUser(akar: HTMLElement): void {
         : null,
       wadahTabel,
       el('div', { id: 'peringatan-sesi', hidden: !sesiBelum }, daftarPesan([{ tingkat: 'peringatan', pesan: 'Pengaturan sesi belum disimpan. Klik Simpan di Pengaturan sesi dulu sebelum mengunduh.' }])),
-      el('div', { class: 'baris-kontrol' }, unduh, unduhCsvTombol, galatUnduh),
-      el('p', { class: 'bantu' }, 'File CSV berisi baris judul kolom lalu data peserta, tanpa baris petunjuk template.'),
+      el('div', { class: 'baris-kontrol' }, unduh, tombolKedua, galatUnduh),
+      hasilKirim,
+      el('p', { class: 'bantu' }, kirimPesertaTersedia()
+        ? 'Kirim ke Data CBTAdmin memasukkan peserta yang tampil (sesuai filter Angkatan/Kelas) langsung ke menu Daftar Peserta → Data CBTAdmin, tanpa unduh dan impor berkas.'
+        : 'File CSV berisi baris judul kolom lalu data peserta, tanpa baris petunjuk template.'),
     );
   }
 

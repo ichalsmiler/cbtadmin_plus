@@ -24,6 +24,13 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('tools/test_manage', 'Tools::testManage');
     $routes->post('tools/test_manage/ujian', 'Tools::tambahUjian');
     $routes->post('tools/test_manage/mapel', 'Tools::tambahMapel');
+    $routes->post('tools/test_manage/mapel/hapus', 'Tools::hapusMapel');
+    $routes->post('tools/test_manage/reset', 'Tools::resetMoodle');
+    $routes->post('tools/test_manage/reset/lanjut', 'Tools::resetLanjut');
+    $routes->post('tools/test_manage/ujian/ubah', 'Tools::ubahUjian');
+    $routes->post('tools/test_manage/hari', 'Tools::tambahHari');
+    $routes->post('tools/test_manage/ujian/hapus', 'Tools::hapusUjian');
+    $routes->post('tools/test_manage/mapel_json', 'Tools::mapelJson');
     $routes->post('tools/akun/simpan', 'Tools::simpanAkun');
     $routes->post('tools/akun/hapus/(:num)', 'Tools::hapusAkun/$1');
     $routes->get('tools/backup', 'Tools::backup');
@@ -53,14 +60,20 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_peserta/cbtadmin/hapus/(:num)', 'Peserta::delete/$1');
     $routes->post('daftar_peserta/cbtadmin/massal', 'Peserta::bulk');
     $routes->post('daftar_peserta/cbtadmin/import', 'Peserta::import');
+    $routes->post('daftar_peserta/cbtadmin/impor_json', 'Peserta::imporJson');
     $routes->post('daftar_peserta/cbtadmin/reset', 'Peserta::reset');
     $routes->get('daftar_peserta/cbtadmin/template', 'Peserta::template');
     $routes->get('daftar_peserta/cbtadmin/export', 'Peserta::export');
     $routes->get('konvert', 'Konvert::index');
+    $routes->get('jadwal_mapel', 'Konvert::jadwal');
+    $routes->get('sesi_tingkat', 'SesiTingkat::index');
+    $routes->post('sesi_tingkat/simpan', 'SesiTingkat::simpan');
+    $routes->post('sesi_tingkat/json', 'SesiTingkat::json');
     $routes->get('konvert/app', 'Konvert::app');
     $routes->get('daftar_peserta/moodle', 'Peserta::moodle');
     $routes->post('daftar_peserta/moodle/sinkron', 'Peserta::sync');
     $routes->post('daftar_peserta/moodle/buat', 'Peserta::createMoodle');
+    $routes->post('daftar_peserta/moodle/kirim_json', 'Peserta::kirimMoodleJson');
     $routes->post('daftar_peserta/moodle/reset_password', 'Peserta::resetPassword');
 
     $routes->get('status_tes', 'StatusTes::index');

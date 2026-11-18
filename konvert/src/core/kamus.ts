@@ -221,3 +221,72 @@ export function cocokkanJadwal(
   }
   return hasil;
 }
+
+// ---------- pengaturan kamus (tab Kamus Mapel) ----------
+
+/** Daftar alias dari teks "a, b; c" (atau satu per baris): dinormalisasi, kosong & ganda dibuang. */
+export function pecahAlias(teks: string): string[] {
+  return [...new Set(teks.split(/[,;\n]+/).map(normalisasiNama).filter(Boolean))];
+}
+
+/**
+ * Mengubah satu mapel (kode, nama lengkap, alias). Kode baru juga diganti di grup. Ditolak bila kode
+ * sudah dipakai mapel lain atau alias sudah dimiliki mapel/grup lain. Kamus asli tidak diubah.
+ */
+export function ubahMapel(kamus: Kamus, kodeLama: string, baru: { kode: string; namaLengkap: string; alias: string[] }): Kamus {
+  const kode = baru.kode.trim().toUpperCase().replace(/\s+/g, ' ');
+  const nama = baru.namaLengkap.trim().replace(/\s+/g, ' ');
+  if (!cariMapel(kamus, kodeLama)) throw new GalatFormat(`Kode mapel "${kodeLama}" tidak ada di kamus.`);
+  if (!kode || !nama) throw new GalatFormat('Kode dan nama lengkap mapel wajib diisi.');
+  if (kode !== kodeLama && cariMapel(kamus, kode)) throw new GalatFormat(`Kode mapel "${kode}" sudah ada di kamus.`);
+  const alias = [...new Set(baru.alias.map(normalisasiNama).filter(Boolean))];
+  for (const a of alias) {
+    const lain = kamus.mapel.find((m) => m.kode !== kodeLama && m.alias.includes(a));
+    if (lain) throw new GalatFormat(`Alias "${a}" sudah dipakai ${lain.kode}.`);
+    if (kamus.grup.some((g) => g.alias.includes(a))) throw new GalatFormat(`Alias "${a}" sudah dipakai grup mapel.`);
+  }
+  return {
+    ...kamus,
+    grup: kamus.grup.map((g) => ({ alias: [...g.alias], kodeAnggota: g.kodeAnggota.map((k) => (k === kodeLama ? kode : k)) })),
+    mapel: kamus.mapel.map((m) => (m.kode === kodeLama ? { kode, namaLengkap: nama, alias } : { ...m, alias: [...m.alias] })),
+  };
+}
+
+/** Menghapus satu mapel. Ditolak bila mapel itu anggota grup (mis. PAI/PAK di "pendidikan agama"). */
+export function hapusMapel(kamus: Kamus, kode: string): Kamus {
+  if (!cariMapel(kamus, kode)) throw new GalatFormat(`Kode mapel "${kode}" tidak ada di kamus.`);
+  const grup = kamus.grup.find((g) => g.kodeAnggota.includes(kode));
+  if (grup) throw new GalatFormat(`${kode} anggota grup "${grup.alias.join(', ')}", tidak bisa dihapus.`);
+  return {
+    ...kamus,
+    grup: kamus.grup.map((g) => ({ alias: [...g.alias], kodeAnggota: [...g.kodeAnggota] })),
+    mapel: kamus.mapel.filter((m) => m.kode !== kode).map((m) => ({ ...m, alias: [...m.alias] })),
+  };
+}
+
+/** Kamus dari berkas JSON hasil Ekspor; isi yang rusak ditolak dengan pesan yang jelas. */
+export function kamusDariJson(teks: string): Kamus {
+  let data: unknown;
+  try {
+    data = JSON.parse(teks);
+  } catch {
+    throw new GalatFormat('Berkas bukan JSON yang valid.');
+  }
+  const k = data as Kamus;
+  const sah =
+    !!k &&
+    k.versi === 1 &&
+    Array.isArray(k.mapel) &&
+    Array.isArray(k.grup) &&
+    k.mapel.every((m) => m && typeof m.kode === 'string' && m.kode.trim() !== '' && typeof m.namaLengkap === 'string' && Array.isArray(m.alias) && m.alias.every((a) => typeof a === 'string')) &&
+    k.grup.every((g) => g && Array.isArray(g.alias) && Array.isArray(g.kodeAnggota));
+  if (!sah) throw new GalatFormat('Berkas bukan kamus mapel Konvert (versi 1).');
+  const kode = k.mapel.map((m) => m.kode);
+  const ganda = kode.filter((x, i) => kode.indexOf(x) !== i);
+  if (ganda.length) throw new GalatFormat(`Kode mapel ganda di berkas: ${[...new Set(ganda)].join(', ')}.`);
+  return {
+    versi: 1,
+    mapel: k.mapel.map((m) => ({ kode: m.kode, namaLengkap: m.namaLengkap, alias: [...m.alias] })),
+    grup: k.grup.map((g) => ({ alias: [...g.alias], kodeAnggota: [...g.kodeAnggota] })),
+  };
+}

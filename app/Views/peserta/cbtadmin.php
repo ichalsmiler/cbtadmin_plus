@@ -29,14 +29,10 @@
         </form>
         <div class="ms-auto d-flex flex-wrap gap-2">
             <button class="btn btn-primary btn-sm" type="button" data-fill-modal="#pesertaModal"
-                    data-fill='{"id":"","nomor_peserta":"","nama":"","kelas":"","username":"","password":"","ruang_id":"","sesi_id":"","mapel":""}'>
+                    data-fill='{"id":"","nomor_peserta":"","nama":"","kelas":"","username":"","password":"","ruang_id":"","sesi_id":""}'>
                 <i class="bi bi-plus-lg me-1"></i>Tambah
             </button>
             <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload me-1"></i>Import Excel</button>
-            <button class="btn btn-success btn-sm" type="button" data-post="<?= site_url('daftar_peserta/moodle/buat') ?>"
-                    data-confirm-text="Sinkron semua peserta ke Moodle? Akun yang belum ada dibuat (yang sudah ada, passwordnya disamakan dengan panel), lalu setiap siswa didaftarkan ke mapel di kolom Mapel. Untuk ±1.000 siswa bisa beberapa menit.">
-                <i class="bi bi-arrow-repeat me-1"></i>Sinkron ke Moodle
-            </button>
             <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('daftar_peserta/cbtadmin/export') . ($query !== '' ? '?' . $query : '') ?>"><i class="bi bi-download me-1"></i>Export Excel</a>
             <button class="btn btn-outline-danger btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#resetModal"><i class="bi bi-trash3 me-1"></i>Reset Peserta</button>
         </div>
@@ -53,11 +49,11 @@
             </button>
         </div>
         <div class="card-body">
-            <table class="table table-hover align-middle w-100 datatable" data-order-col="2">
+            <table class="table table-hover align-middle w-100 datatable" data-order-col="1">
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
-                    <th>No. Peserta</th><th>Nama</th><th>Kelas</th><th>Username</th><th>Password</th><th>Ruang</th><th>Sesi</th><th>Mapel</th><th>Moodle</th>
+                    <th>No. Peserta</th><th>Nama</th><th>Kelas</th><th>Username</th><th>Password</th><th>Ruang</th><th>Sesi</th><th>Moodle</th>
                     <th data-orderable="false"></th>
                 </tr>
                 </thead>
@@ -72,11 +68,6 @@
                         <td><code><?= esc($p['password_plain'] ?? '') ?></code></td>
                         <td><?= esc($p['ruang_nama'] ?? '-') ?></td>
                         <td><?= esc($p['sesi_nama'] ?? '-') ?></td>
-                        <?php $mapelList = array_values(array_filter(array_map('trim', explode(',', (string) ($p['mapel'] ?? ''))))); ?>
-                        <td data-order="<?= count($mapelList) ?>">
-                            <?php if ($mapelList === []): ?><span class="text-body-secondary">–</span>
-                            <?php else: ?><span class="badge text-bg-light" title="<?= esc(implode("\n", $mapelList), 'attr') ?>"><?= count($mapelList) ?> mapel</span><?php endif ?>
-                        </td>
                         <td><?= $p['moodle_userid'] ? '<span class="badge text-bg-success">Ada</span>' : '<span class="badge text-bg-secondary">Belum</span>' ?></td>
                         <td class="text-end text-nowrap">
                             <button class="btn btn-outline-secondary btn-sm" type="button" title="Ubah" data-fill-modal="#pesertaModal"
@@ -84,7 +75,6 @@
                                         'id' => $p['id'], 'nomor_peserta' => $p['nomor_peserta'], 'nama' => $p['nama'], 'kelas' => $p['kelas'],
                                         'username' => $p['username'], 'password' => $p['password_plain'] ?? '',
                                         'ruang_id' => $p['ruang_id'] ?? '', 'sesi_id' => $p['sesi_id'] ?? '',
-                                        'mapel' => str_replace(', ', "\n", (string) ($p['mapel'] ?? '')),
                                     ]), 'attr') ?>"><i class="bi bi-pencil"></i></button>
                             <button class="btn btn-outline-danger btn-sm" type="button" title="Hapus"
                                     data-post="<?= site_url('daftar_peserta/cbtadmin/hapus/' . $p['id']) ?>"
@@ -124,10 +114,6 @@
                         <?php foreach ($sesiList as $s): ?><option value="<?= (int) $s['id'] ?>"><?= esc($s['nama']) ?></option><?php endforeach ?>
                     </select>
                 </div>
-                <div class="col-12"><label class="form-label" for="fMapel">Mapel (shortname course Moodle)</label>
-                    <textarea class="form-control" id="fMapel" name="mapel" rows="4" placeholder="Satu per baris atau dipisah koma, mis. USBK-XII-BINDO"></textarea>
-                    <div class="form-text">Didaftarkan ke Moodle saat klik <strong>Sinkron ke Moodle</strong>.</div>
-                </div>
                 <p class="small text-muted mb-0">Mengganti password peserta yang sudah punya akun Moodle langsung mengganti password Moodle-nya.</p>
             </div>
             <div class="modal-footer">
@@ -144,12 +130,11 @@
             <?= csrf_field() ?>
             <div class="modal-header"><h5 class="modal-title">Import Excel</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
             <div class="modal-body">
-                <p class="mb-2"><a href="<?= site_url('daftar_peserta/cbtadmin/template') ?>"><i class="bi bi-file-earmark-excel me-1"></i>Unduh template peserta</a>, isi, lalu unggah di sini. Setelah impor, klik <strong>Sinkron ke Moodle</strong>.</p>
+                <p class="mb-2">Isi <a href="<?= site_url('daftar_peserta/cbtadmin/template') ?>">template peserta</a>, lalu unggah di sini.</p>
                 <ul class="small text-muted ps-3">
-                    <li>Satu template untuk semua: nama, rombel, ruang, sesi, username, password, dan <strong>Mapel 1, 2, dst.</strong> (shortname course Moodle; daftarnya ada di lembar "Daftar Mapel").</li>
-                    <li>Hanya Nama Peserta yang wajib. Username/password kosong dibuat otomatis; ruang dan sesi baru dibuat otomatis.</li>
-                    <li>Username yang sudah ada diperbarui, bukan digandakan. Hasil <strong>Export Excel</strong> memakai format yang sama, jadi bisa diubah lalu diimpor kembali.</li>
-                    <li>Template AIOCBT lama dan CSV upload user Moodle (<code>course1</code>, <code>course2</code>, …) tetap bisa diimpor.</li>
+                    <li>Kolom wajib: <code>nama</code> dan <code>username</code>.</li>
+                    <li>Username yang sudah ada akan diperbarui, bukan digandakan. Peserta yang tidak ada di berkas tetap disimpan.</li>
+                    <li>Password kosong dibuat acak. Ruang dan sesi yang belum ada dibuat otomatis.</li>
                 </ul>
                 <input class="form-control" type="file" name="berkas" accept=".xlsx,.xls,.csv" required>
                 <div class="form-check mt-3">

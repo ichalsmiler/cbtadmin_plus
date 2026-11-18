@@ -80,9 +80,25 @@ try {
                         'username' => $username, 'mnethostid' => $CFG->mnet_localhost_id, 'deleted' => 0,
                     ]);
                     if ($existing) {
+                        // Sama seperti reset_passwords/kill_sessions/suspend_users: akun admin situs dan guest
+                        // tidak boleh diubah dari panel (mis. baris impor ber-username "admin").
+                        if (is_siteadmin($existing) || isguestuser($existing)) {
+                            throw new RuntimeException('Akun admin tidak boleh diubah dari panel.');
+                        }
                         if (! empty($u['password'])) {
                             cbt_check_password((string) $u['password'], $existing);
                             update_internal_user_password($existing, (string) $u['password']);
+                        }
+                        // Kiriman dari Konvert User membawa profil terbaru (nama, kelas, ruang): samakan.
+                        $ubah = false;
+                        foreach (['firstname', 'lastname', 'department', 'address'] as $kolom) {
+                            if (isset($u[$kolom]) && (string) $u[$kolom] !== '' && (string) $existing->{$kolom} !== (string) $u[$kolom]) {
+                                $existing->{$kolom} = (string) $u[$kolom];
+                                $ubah = true;
+                            }
+                        }
+                        if ($ubah) {
+                            user_update_user($existing, false, false);
                         }
                         $item += ['id' => (int) $existing->id, 'status' => 'diperbarui'];
                     } else {
@@ -95,6 +111,8 @@ try {
                             'firstname'  => (string) $u['firstname'],
                             'lastname'   => (string) $u['lastname'],
                             'email'      => (string) $u['email'],
+                            'department' => (string) ($u['department'] ?? ''),
+                            'address'    => (string) ($u['address'] ?? ''),
                             'lang'       => $CFG->lang,
                         ];
                         $item += ['id' => (int) user_create_user($user, true, false), 'status' => 'dibuat'];
@@ -374,6 +392,90 @@ try {
             $result['items'][] = ['id' => (int) $cat->id, 'status' => 'dibuat'];
             break;
 
+        case 'create_categories':
+            // Banyak kategori ujian sekaligus (mis. H1..H8); nama yang sudah ada dilewati.
+            foreach ((array) $in['names'] as $name) {
+                $name = trim((string) $name);
+                $item = ['name' => $name];
+                if ($name === '') {
+                    continue;
+                }
+                $ada = $DB->get_record('course_categories', ['name' => $name, 'parent' => 0], 'id', IGNORE_MULTIPLE);
+                if ($ada) {
+                    $item += ['id' => (int) $ada->id, 'status' => 'sudah ada'];
+                } else {
+                    $item += ['id' => (int) core_course_category::create(['name' => $name, 'parent' => 0])->id, 'status' => 'dibuat'];
+                }
+                $result['items'][] = $item;
+            }
+            break;
+
+        case 'delete_category':
+            // Hapus kategori ujian tingkat atas beserta isinya (course, quiz, attempt, nilai) lewat API Moodle.
+            $cat = core_course_category::get((int) $in['id'], MUST_EXIST, true);
+            if ((int) $cat->parent !== 0) {
+                throw new RuntimeException('Hanya kategori ujian tingkat atas yang bisa dihapus dari panel.');
+            }
+            if ((int) $DB->count_records('course_categories', ['parent' => 0]) <= 1) {
+                throw new RuntimeException('Moodle wajib punya minimal satu kategori; buat kategori lain dulu.');
+            }
+            $jumlahCourse = (int) $DB->count_records('course', ['category' => (int) $cat->id]);
+            $nama         = $cat->name;
+            $cat->delete_full(false);
+            $result['items'][] = ['id' => (int) $in['id'], 'name' => $nama, 'course' => $jumlahCourse, 'status' => 'dihapus'];
+            break;
+
+        case 'delete_course':
+            // Hapus satu mapel (course) beserta quiz, soal di bank course, attempt, dan nilainya.
+            require_once $CFG->dirroot . '/course/lib.php';
+            $course = $DB->get_record('course', ['id' => (int) $in['id']], '*', MUST_EXIST);
+            if ((int) $course->id === (int) SITEID) {
+                throw new RuntimeException('Halaman depan situs tidak bisa dihapus.');
+            }
+            if (! delete_course($course, false)) {
+                throw new RuntimeException('Moodle gagal menghapus mapel.');
+            }
+            fix_course_sortorder();
+            $result['items'][] = ['id' => (int) $course->id, 'shortname' => $course->shortname, 'status' => 'dihapus'];
+            break;
+
+        case 'rename_categories':
+            // Ganti nama beberapa kategori tingkat atas sekaligus: [{id, name}]. Dua tahap (nama sementara dulu)
+            // supaya pertukaran nama, mis. h1 -> H2 sementara H2 -> H3, tidak bentrok di tengah jalan.
+            $ubah = [];
+            foreach ((array) $in['renames'] as $r) {
+                $cat = core_course_category::get((int) $r['id'], MUST_EXIST, true);
+                if ((int) $cat->parent !== 0 || trim((string) $r['name']) === '') {
+                    throw new RuntimeException('Kategori ' . (int) $r['id'] . ' tidak bisa diganti namanya.');
+                }
+                $ubah[] = [$cat, trim((string) $r['name'])];
+            }
+            foreach ($ubah as [$cat]) {
+                $cat->update(['name' => '__cbt_sementara_' . $cat->id]);
+            }
+            foreach ($ubah as [$cat, $name]) {
+                core_course_category::get((int) $cat->id, MUST_EXIST, true)->update(['name' => $name]);
+                $result['items'][] = ['id' => (int) $cat->id, 'name' => $name, 'status' => 'diubah'];
+            }
+            break;
+
+        case 'update_category':
+            // Ganti nama kategori (ujian) tingkat atas.
+            $name = trim((string) $in['name']);
+            if ($name === '') {
+                throw new RuntimeException('Nama ujian wajib diisi.');
+            }
+            $cat = core_course_category::get((int) $in['id'], MUST_EXIST, true);
+            if ((int) $cat->parent !== 0) {
+                throw new RuntimeException('Hanya kategori ujian tingkat atas yang bisa diubah dari panel.');
+            }
+            if ($DB->record_exists_select('course_categories', 'name = ? AND parent = 0 AND id <> ?', [$name, (int) $cat->id])) {
+                throw new RuntimeException('Ujian "' . $name . '" sudah ada.');
+            }
+            $cat->update(['name' => $name]);
+            $result['items'][] = ['id' => (int) $cat->id, 'status' => 'diubah'];
+            break;
+
         case 'create_course':
             // Mapel baru memakai bawaan course (Single activity + Quiz) dan tersembunyi sampai
             // diaktifkan di Status Test.
@@ -393,12 +495,135 @@ try {
             $result['items'][] = ['id' => (int) $course->id, 'status' => 'dibuat'];
             break;
 
+        case 'create_courses':
+            // Banyak mapel sekaligus: [{category, fullname, shortname}]. Shortname yang sudah ada dilewati
+            // (dilaporkan beserta kategorinya). Tersembunyi sampai diaktifkan di Status Test.
+            require_once $CFG->dirroot . '/course/lib.php';
+            foreach ((array) $in['courses'] as $c) {
+                $shortname = trim((string) $c['shortname']);
+                $item      = ['shortname' => $shortname];
+                try {
+                    $ada = $DB->get_record('course', ['shortname' => $shortname], 'id, category');
+                    if ($ada) {
+                        $item += ['id' => (int) $ada->id, 'category' => (int) $ada->category, 'status' => 'sudah ada'];
+                    } else {
+                        core_course_category::get((int) $c['category'], MUST_EXIST, true);
+                        $course = create_course((object) [
+                            'fullname' => trim((string) $c['fullname']) ?: $shortname, 'shortname' => $shortname,
+                            'category' => (int) $c['category'], 'visible' => 0,
+                        ]);
+                        $item += ['id' => (int) $course->id, 'category' => (int) $c['category'], 'status' => 'dibuat'];
+                    }
+                } catch (Throwable $e) {
+                    $item['error'] = cbt_clean_error($e->getMessage());
+                }
+                $result['items'][] = $item;
+            }
+            break;
+
+        case 'sort_courses':
+            // Susun ulang urutan mapel di kategori: urutan = {kategori: [courseid, ...]}; course yang disebut di
+            // depan sesuai urutan kiriman (mis. per sesi XII → X → XI), sisanya di belakang dengan urutan lama.
+            require_once $CFG->dirroot . '/course/lib.php';
+            foreach ((array) $in['urutan'] as $katId => $ids) {
+                $ada = $DB->get_records('course', ['category' => (int) $katId], 'sortorder, id', 'id, sortorder');
+                if ($ada === []) {
+                    continue;
+                }
+                $depan = array_values(array_filter(array_map('intval', (array) $ids), static fn ($id) => isset($ada[$id])));
+                $urut  = array_values(array_unique(array_merge($depan, array_map('intval', array_keys($ada)))));
+                $dasar = min(array_map(static fn ($c) => (int) $c->sortorder, $ada));
+                foreach ($urut as $i => $id) {
+                    $DB->set_field('course', 'sortorder', $dasar + $i, ['id' => $id]);
+                }
+                $result['items'][] = ['category' => (int) $katId, 'jumlah' => count($urut)];
+            }
+            fix_course_sortorder();
+            cache_helper::purge_by_event('changesincourse');
+            cache_helper::purge_by_event('changesincoursecat');
+            break;
+
+        case 'reset_moodle':
+            // Reset Moodle bertahap (dipanggil berulang sampai sisa = 0, tiap panggilan dibatasi `batas` detik):
+            //  - siswa : hapus semua user kecuali admin situs, guest, dan (simpan_guru) pemegang peran guru/manager
+            //  - ujian : hapus semua mapel (course) lalu semua kategori tingkat atas kecuali satu (Moodle wajib punya 1)
+            //  - log   : kosongkan log Moodle (logstore_standard_log)
+            require_once $CFG->dirroot . '/course/lib.php';
+            $mulai = microtime(true);
+            $batas = max(5, min(60, (int) ($in['batas'] ?? 20)));
+            $habis = static fn (): bool => microtime(true) - $mulai > $batas;
+            $hapus = 0;
+            $sisa  = 0;
+            switch ((string) $in['tahap']) {
+                case 'siswa':
+                    $simpan = array_map('intval', explode(',', (string) $CFG->siteadmins));
+                    $simpan[] = (int) $CFG->siteguest;
+                    if (! empty($in['simpan_guru'])) {
+                        $guru = $DB->get_fieldset_sql(
+                            "SELECT DISTINCT ra.userid FROM {role_assignments} ra JOIN {role} r ON r.id = ra.roleid
+                              WHERE r.shortname IN ('editingteacher', 'teacher', 'manager', 'coursecreator')"
+                        );
+                        $simpan = array_merge($simpan, array_map('intval', $guru));
+                    }
+                    [$tidak, $param] = $DB->get_in_or_equal(array_unique($simpan), SQL_PARAMS_NAMED, 'u', false);
+                    $ids = $DB->get_fieldset_select('user', 'id', "deleted = 0 AND id $tidak", $param);
+                    foreach ($ids as $i => $id) {
+                        if ($habis()) {
+                            $sisa = count($ids) - $i;
+                            break;
+                        }
+                        $user = $DB->get_record('user', ['id' => (int) $id, 'deleted' => 0]);
+                        if ($user && ! is_siteadmin($user) && ! isguestuser($user)) {
+                            delete_user($user);
+                            $hapus++;
+                        }
+                    }
+                    break;
+
+                case 'ujian':
+                    $ids = $DB->get_fieldset_select('course', 'id', 'id <> ?', [SITEID]);
+                    foreach ($ids as $i => $id) {
+                        if ($habis()) {
+                            $sisa = count($ids) - $i;
+                            break;
+                        }
+                        $course = $DB->get_record('course', ['id' => (int) $id]);
+                        if ($course) {
+                            delete_course($course, false);
+                            $hapus++;
+                        }
+                    }
+                    if ($sisa === 0) {
+                        // Mapel sudah habis: hapus kategori (kosong). Kategori tingkat atas ber-id terkecil disisakan.
+                        $atas  = $DB->get_fieldset_select('course_categories', 'id', 'parent = 0', null, 'id');
+                        $sisakan = (int) array_shift($atas);
+                        foreach ($DB->get_fieldset_select('course_categories', 'id', 'parent = ?', [$sisakan]) as $sub) {
+                            core_course_category::get((int) $sub, MUST_EXIST, true)->delete_full(false);
+                        }
+                        foreach ($atas as $kat) {
+                            core_course_category::get((int) $kat, MUST_EXIST, true)->delete_full(false);
+                        }
+                        fix_course_sortorder();
+                    }
+                    break;
+
+                case 'log':
+                    $hapus = (int) $DB->count_records('logstore_standard_log');
+                    $DB->delete_records('logstore_standard_log');
+                    break;
+
+                default:
+                    throw new RuntimeException('Tahap reset tidak dikenal.');
+            }
+            $result['items'][] = ['tahap' => (string) $in['tahap'], 'hapus' => $hapus, 'sisa' => $sisa];
+            break;
+
         case 'enrol_users':
             // Daftarkan user ke course (shortname) sebagai siswa lewat metode enrol manual.
             // Masukan: users = [{userid, courses: [shortname, ...]}]; yang sudah terdaftar dilewati.
             require_once $CFG->dirroot . '/lib/enrollib.php';
-            $manual = enrol_get_plugin('manual');
-            $role   = $DB->get_record('role', ['shortname' => 'student'], 'id', MUST_EXIST);
+            $manual  = enrol_get_plugin('manual');
+            $role    = $DB->get_record('role', ['shortname' => 'student'], 'id', MUST_EXIST);
             $courses = $instances = [];
             foreach ($DB->get_records('course', null, '', 'id, shortname') as $c) {
                 $courses[core_text::strtolower($c->shortname)] = $c;
@@ -406,9 +631,13 @@ try {
             foreach ($in['users'] as $u) {
                 $item = ['userid' => (int) $u['userid'], 'baru' => 0, 'sudah' => 0, 'tidak_ada' => []];
                 try {
+                    $user = $DB->get_record('user', ['id' => $item['userid'], 'deleted' => 0], '*', MUST_EXIST);
+                    if (is_siteadmin($user) || isguestuser($user)) {
+                        throw new RuntimeException('Akun admin tidak didaftarkan dari panel.');
+                    }
                     foreach ((array) $u['courses'] as $sn) {
                         $course = $courses[core_text::strtolower(trim((string) $sn))] ?? null;
-                        if ($course === null || (int) $course->id === SITEID) {
+                        if ($course === null || (int) $course->id === (int) SITEID) {
                             $item['tidak_ada'][] = (string) $sn;
 
                             continue;

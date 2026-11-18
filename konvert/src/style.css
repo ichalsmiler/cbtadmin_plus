@@ -1,24 +1,32 @@
-/* Arah desain: lihat DESIGN.md. Semua warna lewat token di bawah. */
+/* Arah desain: mengikuti tema CBT Admin Plus (DESIGN.md di akar repo): slate + aksen hijau, Fira Sans.
+   Semua warna lewat token di bawah; pasangan teks dicek dengan contrast-check.py (>= 4,5:1). */
+@font-face { font-family: "Fira Sans"; font-weight: 400; font-display: swap; src: url("../assets/fonts/FiraSans-400.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 500; font-display: swap; src: url("../assets/fonts/FiraSans-500.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 600; font-display: swap; src: url("../assets/fonts/FiraSans-600.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 700; font-display: swap; src: url("../assets/fonts/FiraSans-700.woff2") format("woff2"); }
+
 :root {
   color-scheme: light;
-  --latar: #f6f7f4;
+  --latar: #f1f5f9;
   --kertas: #ffffff;
-  --tinta: #1d2420;
-  --redup: #56615b;
-  --garis: #d9ddd6;
+  --tinta: #0f172a;
+  --redup: #475569;
+  --garis: #e2e8f0;
   /* Garis tepi isian & tombol: kontras minimal 3:1 terhadap kertas. */
-  --garis-kuat: #7d8982;
-  --utama: #1f6f50;
-  --utama-gelap: #17553d;
-  --di-utama: #ffffff;
-  --merah: #b42318;
-  --merah-latar: #fdecea;
-  --kuning: #7a4f00;
-  --kuning-latar: #fff4d6;
-  --abu-latar: #eef0ec;
-  --sudut: 4px;
-  --huruf-judul: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  --garis-kuat: #64748b;
+  --utama: #15803d;          /* hijau sebagai teks/garis: 5,0:1 di atas putih */
+  --utama-gelap: #166534;
+  --di-utama: #0f172a;       /* teks di atas tombol hijau */
+  --isi-utama: #22c55e;      /* latar tombol utama, sama dengan tombol panel */
+  --isi-utama-hover: #16a34a;
+  --merah: #b91c1c;
+  --merah-latar: #fef2f2;
+  --kuning: #b45309;
+  --kuning-latar: #fef3c7;
+  --abu-latar: #f1f5f9;
+  --sudut: 0.4rem;
+  --huruf-judul: "Fira Sans", "Segoe UI", system-ui, sans-serif;
+  font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif;
   color: var(--tinta);
   background: var(--latar);
   line-height: 1.5;
@@ -26,20 +34,22 @@
 
 :root[data-tema="gelap"] {
   color-scheme: dark;
-  --latar: #141a17;
-  --kertas: #1c2420;
-  --tinta: #e6ebe7;
-  --redup: #a7b1ab;
-  --garis: #36423b;
-  --garis-kuat: #75837b;
-  --utama: #6cc79d;
-  --utama-gelap: #8ad6b3;
-  --di-utama: #0e1a14;
-  --merah: #ffb4a8;
-  --merah-latar: #4a1f1a;
-  --kuning: #f3cf7a;
-  --kuning-latar: #453710;
-  --abu-latar: #26302b;
+  --latar: #0f172a;
+  --kertas: #1b2336;
+  --tinta: #f8fafc;
+  --redup: #94a3b8;
+  --garis: #334155;
+  --garis-kuat: #64748b;
+  --utama: #4ade80;
+  --utama-gelap: #86efac;
+  --di-utama: #0f172a;
+  --isi-utama: #22c55e;
+  --isi-utama-hover: #16a34a;
+  --merah: #fca5a5;
+  --merah-latar: #3f1d1d;
+  --kuning: #fbbf24;
+  --kuning-latar: #3b3112;
+  --abu-latar: #272f42;
 }
 
 * { box-sizing: border-box; }
@@ -87,10 +97,10 @@ button.tombol, label.tombol {
   transition: background-color 0.12s, color 0.12s, border-color 0.12s;
 }
 button.tombol:hover:not(:disabled), label.tombol:hover { background: var(--abu-latar); }
-button.tombol.utama { background: var(--utama); color: var(--di-utama); font-weight: 600; }
-button.tombol.utama:hover:not(:disabled) { background: var(--utama-gelap); border-color: var(--utama-gelap); }
-button.tombol[aria-pressed="true"] { background: var(--utama); color: var(--di-utama); }
-button.tombol[aria-pressed="true"]:hover:not(:disabled) { background: var(--utama-gelap); }
+button.tombol.utama { background: var(--isi-utama); border-color: var(--isi-utama); color: var(--di-utama); font-weight: 600; }
+button.tombol.utama:hover:not(:disabled) { background: var(--isi-utama-hover); border-color: var(--isi-utama-hover); }
+button.tombol[aria-pressed="true"] { background: var(--isi-utama); border-color: var(--isi-utama); color: var(--di-utama); }
+button.tombol[aria-pressed="true"]:hover:not(:disabled) { background: var(--isi-utama-hover); }
 button.tombol:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Isian file disembunyikan; fokusnya ditampilkan pada label tombolnya. */
 label.tombol:has(+ input:focus-visible) { outline: 2px solid var(--utama); outline-offset: 2px; }
@@ -156,3 +166,7 @@ textarea.daftar-kode { font: 0.85rem/1.4 Consolas, "Courier New", monospace; col
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Di dalam panel CBT Admin (bingkai): judul dan tombol tema milik panel yang dipakai, jadi kepala aplikasi disembunyikan. */
+:root.di-panel body { padding-top: 0.5rem; max-width: none; }
+:root.di-panel .kepala { display: none; }

@@ -102,7 +102,7 @@ export function keMoodle(
     const n = baris.filter((b) => (b.tingkat || '(tidak diketahui)') === t).length;
     peringatan.push({
       tingkat: 'galat',
-      pesan: `${n} siswa kelas ${t} belum punya daftar mapel. Konvert jadwal kelas ${t} (atau "Konvert semua kelas") di tab Jadwal → Mapel`,
+      pesan: `${n} siswa kelas ${t} belum punya daftar mapel. Tekan Konvert di tab Jadwal`,
     });
   }
   // Pengecualian yang tidak ada di daftar mapel kemungkinan salah ketik.

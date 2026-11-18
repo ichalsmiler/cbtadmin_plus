@@ -67,6 +67,7 @@ class Ruang extends PanelController
             'tukar_dari' => (int) $session->get('admin_id'),
             'admin_id'   => (int) $akun['id'],
             'admin_user' => $akun['username'],
+            'cred'       => \App\Filters\Guard::cap((string) $akun['password_hash']),
         ]);
 
         return redirect()->to(site_url('/'))->with('success', 'Anda sekarang masuk sebagai ' . $akun['nama'] . '.');
@@ -82,7 +83,7 @@ class Ruang extends PanelController
             return redirect()->to(site_url('/'));
         }
         $session->remove('tukar_dari');
-        $session->set(['admin_id' => (int) $admin['id'], 'admin_user' => $admin['username']]);
+        $session->set(['admin_id' => (int) $admin['id'], 'admin_user' => $admin['username'], 'cred' => \App\Filters\Guard::cap((string) $admin['password_hash'])]);
         ActivityLog::add('tukar_akses', 'kembali ke ' . $admin['username']);
 
         return redirect()->to(site_url('daftar_ruang'));

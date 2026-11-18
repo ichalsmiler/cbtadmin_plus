@@ -42,20 +42,34 @@ export async function tulisMapelXlsx(baris: BarisMapel[]): Promise<ArrayBuffer> 
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer;
 }
 
-/** Urutan kelas di dalam setiap category pada file gabungan (permintaan sekolah): XII, X, lalu XI. */
+/** Urutan sesi bawaan (permintaan sekolah): sesi 1 kelas XII, sesi 2 kelas X, sesi 3 kelas XI. */
 export const URUTAN_GABUNG = ['XII', 'X', 'XI'];
 
-/** Tingkat yang dikonvert untuk "semua kelas": XII, X, XI dulu, tingkat lain menyusul sesuai urutan di file. */
-export function urutGabung(tingkat: readonly string[]): string[] {
-  return [...URUTAN_GABUNG.filter((t) => tingkat.includes(t)), ...tingkat.filter((t) => !URUTAN_GABUNG.includes(t))];
+/**
+ * Tingkat yang dikonvert untuk "semua kelas" menurut urutan sesi (`urutan[0]` = sesi 1), tingkat lain
+ * menyusul sesuai urutan di file.
+ */
+export function urutGabung(tingkat: readonly string[], urutan: readonly string[] = URUTAN_GABUNG): string[] {
+  const sesi = urutan.filter((t, i) => tingkat.includes(t) && urutan.indexOf(t) === i);
+  return [...sesi, ...tingkat.filter((t) => !sesi.includes(t))];
+}
+
+/** Urutan sesi yang sah: setiap tingkat sekali; isian lain diabaikan, kekurangannya diisi urutan bawaan. */
+export function rapikanUrutanSesi(urutan: readonly unknown[]): string[] {
+  const hasil = urutan.filter((t, i): t is string => typeof t === 'string' && URUTAN_GABUNG.includes(t) && urutan.indexOf(t) === i);
+  return [...hasil, ...URUTAN_GABUNG.filter((t) => !hasil.includes(t))];
 }
 
 /**
  * Menggabungkan hasil semua kelas ke satu daftar mapel. Urut berdasarkan category (hari ke-N),
  * lalu kelas sesuai `urutGabung`, lalu urutan kemunculan di jadwal.
  */
-export function susunBarisMapelSemua(perTingkat: { tingkat: string; hasil: HasilCocok[] }[], kamus: Kamus): BarisMapel[] {
-  const urutan = urutGabung(perTingkat.map((p) => p.tingkat));
+export function susunBarisMapelSemua(
+  perTingkat: { tingkat: string; hasil: HasilCocok[] }[],
+  kamus: Kamus,
+  urutanSesi: readonly string[] = URUTAN_GABUNG,
+): BarisMapel[] {
+  const urutan = urutGabung(perTingkat.map((p) => p.tingkat), urutanSesi);
   const semua = urutan.flatMap((t, rank) => {
     const p = perTingkat.find((x) => x.tingkat === t)!;
     return susunBarisMapel(p.hasil, t, kamus).map((b, i) => ({ b, rank, i }));
@@ -117,7 +131,7 @@ export function terapkanEditMapel(baris: BarisMapel[], edit: EditMapel): BarisDi
 export function periksaEditMapel(baris: BarisMapel[]): string[] {
   const masalah: string[] = [];
   const kategoriSalah = baris.filter((b) => !Number.isInteger(b.category) || b.category < 1);
-  if (kategoriSalah.length) masalah.push(`category harus angka bulat 1 atau lebih (${kategoriSalah.map((b) => b.shortname || '?').join(', ')})`);
+  if (kategoriSalah.length) masalah.push(`hari harus angka bulat 1 atau lebih (${kategoriSalah.map((b) => b.shortname || '?').join(', ')})`);
   const kosong = baris.filter((b) => !b.format || !b.shortname || !b.fullname);
   if (kosong.length) masalah.push(`${kosong.length} baris punya format, shortname, atau fullname yang kosong`);
   const hitung = new Map<string, number>();

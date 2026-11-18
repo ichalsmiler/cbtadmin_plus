@@ -29,6 +29,9 @@ log()  { echo -e "\n\033[1;32m==> $*\033[0m"; }
 warn() { echo -e "\033[1;33m[PERINGATAN] $*\033[0m"; }
 die()  { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
 
+# IP jaringan lokal (RFC 1918): server di belakang NAT sekolah, tidak bisa dihubungi dari internet.
+ip_lokal() { [[ "$1" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.) ]]; }
+
 # ----------------------------------------------------------------- umum
 load_conf() {
     local src=""
@@ -43,15 +46,20 @@ load_conf() {
         [ -n "${!v:-}" ] || die "$v di ha.conf belum diisi."
     done
     [ "${#HA_SECRET}" -ge 32 ] || die "HA_SECRET terlalu pendek. Buat dengan: openssl rand -hex 32"
-    # Alamat berupa IP (jaringan lokal) memakai http biasa; domain Cloudflare memakai https.
-    if [ -z "${PAKAI_HTTPS:-}" ]; then
-        if [[ "$DOMAIN_UTAMA" =~ ^[0-9.]+$ ]]; then PAKAI_HTTPS=tidak; else PAKAI_HTTPS=ya; fi
-    fi
-    local s=http; [ "$PAKAI_HTTPS" = ya ] && s=https
-    URL_UTAMA="$s://$DOMAIN_UTAMA"; URL_CADANGAN="$s://$DOMAIN_CADANGAN"
-    # Jaringan lokal: kedua server langsung terhubung lewat IP LAN, tanpa WireGuard.
+    # Alamat berupa IP memakai http biasa; domain Cloudflare memakai https. Dihitung per server,
+    # jadi utama di LAN (IP, http) dan cadangan di VPS (domain, https) boleh dicampur.
+    skema() { if [ -n "${PAKAI_HTTPS:-}" ]; then [ "$PAKAI_HTTPS" = ya ] && echo https || echo http;
+              elif [[ "$1" =~ ^[0-9.]+$ ]]; then echo http; else echo https; fi; }
+    URL_UTAMA="$(skema "$DOMAIN_UTAMA")://$DOMAIN_UTAMA"; URL_CADANGAN="$(skema "$DOMAIN_CADANGAN")://$DOMAIN_CADANGAN"
+    local domain_sini="$DOMAIN_UTAMA"; [ "$PERAN" = cadangan ] && domain_sini="$DOMAIN_CADANGAN"
+    [ "$(skema "$domain_sini")" = https ] && PAKAI_HTTPS=ya || PAKAI_HTTPS=tidak
+    # Kedua server di jaringan lokal: terhubung langsung lewat IP LAN, tanpa WireGuard.
+    # Salah satu di internet (mis. utama di sekolah, cadangan di VPS): lewat WireGuard.
     if [ -z "${PAKAI_WIREGUARD:-}" ]; then
-        if [ "$PAKAI_HTTPS" = ya ]; then PAKAI_WIREGUARD=ya; else PAKAI_WIREGUARD=tidak; fi
+        if ip_lokal "$UTAMA_IP" && ip_lokal "$CADANGAN_IP"; then PAKAI_WIREGUARD=tidak; else PAKAI_WIREGUARD=ya; fi
+    fi
+    if [ "$PAKAI_HTTPS" != ya ] && ! ip_lokal "$([ "$PERAN" = utama ] && echo "$UTAMA_IP" || echo "$CADANGAN_IP")"; then
+        warn "Server ini di internet tetapi memakai http biasa ($domain_sini). Pakai domain + Cloudflare sebelum ujian."
     fi
     if [ "$PAKAI_WIREGUARD" != ya ]; then WG_IP="$UTAMA_IP"; PEER_WG_IP="$CADANGAN_IP"; fi
     mkdir -p "$HA_DIR"; chmod 700 "$HA_DIR"
@@ -77,6 +85,12 @@ setup_wireguard() {
     log "WireGuard: $WG_IP (server ini) <-> $PEER_WG_IP ($peer_ip)"
     apt-get install -y wireguard-tools rsync >/dev/null
     peer_pub="$(derive "wg-$PEER_PERAN" | wg pubkey)"
+    # Pasangan di belakang NAT (IP lokal, mis. utama di sekolah) tidak bisa dihubungi dari sini:
+    # tanpa Endpoint, dialah yang menghubungi server ini (keepalive 25 dtk menjaga jalur NAT tetap terbuka).
+    local endpoint="Endpoint = $peer_ip:$WG_PORT"
+    if ip_lokal "$peer_ip"; then
+        endpoint="# Endpoint tidak diisi: $peer_ip di belakang NAT, ia yang menghubungi server ini."
+    fi
     cat > "/etc/wireguard/$WG_IF.conf" <<EOF
 # Jalur pribadi CBT HA (dibuat oleh ha-$PERAN.sh)
 [Interface]
@@ -86,7 +100,7 @@ PrivateKey = $(derive "wg-$PERAN")
 
 [Peer]
 PublicKey = $peer_pub
-Endpoint = $peer_ip:$WG_PORT
+$endpoint
 AllowedIPs = $PEER_WG_IP/32
 PersistentKeepalive = 25
 EOF
@@ -94,7 +108,10 @@ EOF
     systemctl enable "wg-quick@$WG_IF" >/dev/null 2>&1
     systemctl restart "wg-quick@$WG_IF"
     if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
-        ufw allow from "$peer_ip" to any port "$WG_PORT" proto udp >/dev/null
+        # Pasangan di belakang NAT datang dari IP publik sekolah yang bisa berubah; kunci WireGuard
+        # yang menyaring (paket tanpa kunci yang benar diabaikan diam-diam).
+        if ip_lokal "$peer_ip"; then ufw allow "$WG_PORT"/udp >/dev/null
+        else ufw allow from "$peer_ip" to any port "$WG_PORT" proto udp >/dev/null; fi
     fi
     # Layanan yang mendengarkan di IP WireGuard boleh start sebelum jalurnya naik.
     echo "net.ipv4.ip_nonlocal_bind = 1" > /etc/sysctl.d/90-cbt-ha.conf

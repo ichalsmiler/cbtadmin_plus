@@ -2,7 +2,7 @@
 // Data siswa dan file jadwal TIDAK pernah disimpan di sini.
 
 import { kamusAwal, kodeTerbaru, lengkapiKamus, shortnameTerbaru } from '../core/kamus';
-import type { EditMapel } from '../core/mapel';
+import { rapikanUrutanSesi, type EditMapel } from '../core/mapel';
 import type { Kamus, PesertaMasuk, Peringatan, PilihanMapel } from '../core/tipe';
 
 const KUNCI_KAMUS = 'web-ujian.kamus';
@@ -116,14 +116,54 @@ export function simpanEditMapel(namaSheet: string, edit: EditMapel): void {
   }
 }
 
-// ---- Hasil konversi mapel terakhir (hanya di memori), dipakai tab User untuk cek kode mapel ----
+// ---- Hasil konversi mapel terakhir, dipakai tab User (cek kode) dan User → Moodle (kolom course) ----
+// Disimpan di localStorage: di panel, tab Jadwal (menu Jadwal) dan Konvert User adalah halaman berbeda,
+// jadi hasil konversi jadwal harus bisa dibaca halaman lain (juga setelah dimuat ulang).
 
 type PendengarMapel = (hasil: ReadonlyMap<string, readonly string[]>) => void;
+const KUNCI_HASIL_MAPEL = 'web-ujian.hasil-mapel.v1';
 const hasilMapel = new Map<string, string[]>();
 const pendengarMapel = new Set<PendengarMapel>();
 
 /** Tingkat yang hasil konversinya masih punya nama mapel belum dikenal (baris merah). */
 const mapelBelumLengkap = new Set<string>();
+
+/** Isi ulang hasil mapel dari localStorage: { tingkat: { shortname: [...], lengkap: bool } }. */
+function muatHasilMapel(): void {
+  hasilMapel.clear();
+  mapelBelumLengkap.clear();
+  try {
+    const d = JSON.parse(localStorage.getItem(KUNCI_HASIL_MAPEL) ?? '{}') as unknown;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return;
+    for (const [t, v] of Object.entries(d as Record<string, unknown>)) {
+      const x = v as { shortname?: unknown; lengkap?: unknown };
+      if (!x || !Array.isArray(x.shortname) || !x.shortname.every((y) => typeof y === 'string')) continue;
+      hasilMapel.set(t, [...(x.shortname as string[])]);
+      if (x.lengkap === false) mapelBelumLengkap.add(t);
+    }
+  } catch {
+    // localStorage tidak tersedia / rusak: mulai kosong.
+  }
+}
+
+function tulisHasilMapel(): void {
+  try {
+    const d = Object.fromEntries([...hasilMapel].map(([t, sn]) => [t, { shortname: sn, lengkap: !mapelBelumLengkap.has(t) }]));
+    localStorage.setItem(KUNCI_HASIL_MAPEL, JSON.stringify(d));
+  } catch {
+    // abaikan (mis. mode privat): tetap berlaku di halaman ini.
+  }
+}
+
+if (typeof window !== 'undefined') {
+  muatHasilMapel();
+  // Halaman lain (menu Jadwal) mengonversi jadwal: perbarui tanpa memuat ulang.
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KUNCI_HASIL_MAPEL) return;
+    muatHasilMapel();
+    for (const f of pendengarMapel) f(hasilMapel);
+  });
+}
 
 /** Dicatat tab Jadwal setiap kali pratinjau mapel suatu tingkat dibuat. */
 export function catatHasilMapel(tingkat: string, shortname: string[], lengkap = true): void {
@@ -133,6 +173,7 @@ export function catatHasilMapel(tingkat: string, shortname: string[], lengkap = 
   hasilMapel.set(tingkat, [...shortname]);
   if (lengkap) mapelBelumLengkap.delete(tingkat);
   else mapelBelumLengkap.add(tingkat);
+  tulisHasilMapel();
   for (const f of pendengarMapel) f(hasilMapel);
 }
 
@@ -306,6 +347,19 @@ export function muatSesi(): Record<string, number> {
   return {};
 }
 
+type PendengarSesi = (sesi: Record<string, number>) => void;
+const pendengarSesi = new Set<PendengarSesi>();
+
+/** Di panel: simpan juga ke menu Sesi (server), supaya halaman lain dan komputer lain memakai pengaturan yang sama. */
+let simpanSesiJauh: ((sesi: Record<string, number>) => void) | null = null;
+export function aturSimpanSesiJauh(f: ((sesi: Record<string, number>) => void) | null): void {
+  simpanSesiJauh = f;
+}
+
+/**
+ * Satu pengaturan sesi untuk tab Jadwal (urutan mapel) dan User → CBTAdmin (Kel. Sesi):
+ * mengubah di salah satu tab langsung dipakai tab lainnya.
+ */
 export function simpanSesi(sesi: Record<string, number>): void {
   try {
     if (Object.keys(sesi).length) localStorage.setItem(KUNCI_SESI, JSON.stringify(sesi));
@@ -313,6 +367,20 @@ export function simpanSesi(sesi: Record<string, number>): void {
   } catch {
     // abaikan
   }
+  simpanSesiJauh?.({ ...sesi });
+  for (const f of pendengarSesi) f({ ...sesi });
+}
+
+export function saatSesiBerubah(f: PendengarSesi): () => void {
+  pendengarSesi.add(f);
+  return () => pendengarSesi.delete(f);
+}
+
+// Menu Jadwal dan Konvert User di panel adalah dua halaman berbeda: ikuti perubahan dari halaman lain.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === KUNCI_SESI) for (const f of pendengarSesi) f(muatSesi());
+  });
 }
 
 // ---------- tema tampilan ----------
@@ -336,4 +404,32 @@ export function simpanTema(t: Tema): void {
   } catch {
     // localStorage tidak tersedia: tema hanya berlaku sampai halaman ditutup.
   }
+}
+
+// ---------- urutan sesi (tab Jadwal) ----------
+
+/** Kunci lama (sebelum disatukan dengan Kel. Sesi): hanya dibaca bila pengaturan sesi belum pernah diisi. */
+const KUNCI_URUTAN_SESI = 'web-ujian.urutan-sesi';
+
+/**
+ * Urutan tingkat per sesi (indeks 0 = sesi 1) dari pengaturan Kel. Sesi bersama: tingkat diurutkan menurut
+ * nomor sesinya; nomor sama atau kosong mengikuti urutan bawaan XII, X, XI.
+ */
+export function muatUrutanSesi(): string[] {
+  const sesi = muatSesi();
+  const bawaan = rapikanUrutanSesi([]);
+  if (bawaan.some((t) => sesi[t] !== undefined)) {
+    return [...bawaan].sort((a, b) => (sesi[a] ?? Number.MAX_SAFE_INTEGER) - (sesi[b] ?? Number.MAX_SAFE_INTEGER));
+  }
+  try {
+    const data = JSON.parse(localStorage.getItem(KUNCI_URUTAN_SESI) ?? '[]') as unknown;
+    return rapikanUrutanSesi(Array.isArray(data) ? data : []);
+  } catch {
+    return bawaan;
+  }
+}
+
+/** Sesi 1..n dari tab Jadwal ditulis ke pengaturan Kel. Sesi bersama (tingkat lain tidak diubah). */
+export function simpanUrutanSesi(urutan: readonly string[]): void {
+  simpanSesi({ ...muatSesi(), ...Object.fromEntries(urutan.map((t, i) => [t, i + 1])) });
 }

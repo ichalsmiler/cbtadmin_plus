@@ -1,4 +1,4 @@
-// Tab "Jadwal → Mapel": upload jadwal → pilih sheet & tingkat → Konvert → pratinjau → unduh.
+// Tab "Jadwal" (jadwal → mapel): upload jadwal → pilih sheet & tingkat → Konvert → pratinjau → unduh.
 // Perilaku sesuai specs/001-konverter-cbt/contracts/ui.md
 
 import { bacaJadwal, daftarSheet, urutTingkat } from '../core/jadwal';
@@ -6,7 +6,8 @@ import { cocokkanJadwal, kunciPilihan, tambahAlias, tambahMapel } from '../core/
 import { periksaEditMapel, susunBarisMapel, susunBarisMapelSemua, terapkanEditMapel, tulisMapelCsv, tulisMapelXlsx, ubahSelMapel, urutGabung, type BarisDiedit, type EditMapel, type KolomMapel } from '../core/mapel';
 import { formatTanggal } from '../core/tanggal';
 import { GalatFormat, type HasilCocok, type JadwalUjian, type Kamus, type Peringatan, type PilihanMapel } from '../core/tipe';
-import { catatHasilMapel, muatEditMapel, muatKamus, muatPilihan, saatKamusBerubah, simpanEditMapel, simpanKamus, simpanPilihan, unduhCsv, unduhFile } from './simpan';
+import { catatHasilMapel, muatEditMapel, muatKamus, muatPilihan, muatUrutanSesi, saatKamusBerubah, saatSesiBerubah, simpanEditMapel, simpanKamus, simpanPilihan, simpanUrutanSesi, unduhCsv, unduhFile } from './simpan';
+import { alamatKategori, kirimMapel, panelTersedia } from './panel';
 import { daftarPesan, el, tabel, type BarisTabel } from './tabel';
 
 interface Status {
@@ -25,6 +26,8 @@ interface Status {
   pilihan: Record<string, PilihanMapel>;
   /** Isi sel pratinjau yang diubah operator (kunci = shortname asli), per sheet. */
   edit: EditMapel;
+  /** Tingkat per sesi (indeks 0 = sesi 1): urutan mapel di setiap hari untuk "semua kelas". */
+  urutanSesi: string[];
 }
 
 const PILIH_BARU = '__baru__';
@@ -39,15 +42,21 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     jadwal: null,
     galat: [],
     tingkat: '',
-    mode: 'satu',
+    mode: 'semua',
     sudahKonvert: false,
     kamus: muatKamus(),
     pilihan: {},
     edit: {},
+    urutanSesi: muatUrutanSesi(),
   };
 
   saatKamusBerubah((k) => {
     s.kamus = k;
+    gambar();
+  });
+  // Pengaturan sesi dipakai bersama tab User → CBTAdmin (Kel. Sesi).
+  saatSesiBerubah(() => {
+    s.urutanSesi = muatUrutanSesi();
     gambar();
   });
 
@@ -172,39 +181,37 @@ export function pasangTabJadwal(akar: HTMLElement): void {
   }
 
   function kartuKonvert(j: JadwalUjian): HTMLElement {
-    const tombolTingkat = urutTingkat(j.tingkat).map((t) => {
-      const b = el('button', { class: 'tombol', type: 'button', 'aria-pressed': String(s.mode === 'satu' && t === s.tingkat) }, `Kelas ${t}`);
-      b.addEventListener('click', () => {
-        s.tingkat = t;
-        s.mode = 'satu';
-        s.sudahKonvert = false;
+    // Selalu semua kelas sekaligus; urutan mapel di setiap hari mengikuti penetapan sesi.
+    const urutan = urutGabung(j.tingkat, s.urutanSesi);
+    // Penetapan sesi: Sesi 1..n memilih tingkat; menukar tingkat dengan sesi lain supaya tiap tingkat tetap sekali.
+    const pilihSesi = s.urutanSesi.map((t, i) => {
+      const id = `sesi-${i + 1}`;
+      const sel = el('select', { id }, ...s.urutanSesi.map((x) => el('option', { value: x, selected: x === t }, `Kelas ${x}`)));
+      sel.addEventListener('change', () => {
+        const baru = [...s.urutanSesi];
+        const lama = baru.indexOf(sel.value);
+        [baru[i], baru[lama]] = [sel.value, baru[i]];
+        s.urutanSesi = baru;
+        simpanUrutanSesi(baru);
         gambar();
       });
-      return b;
+      return el('span', { class: 'baris-kontrol' }, el('label', { for: id }, `Sesi ${i + 1}`), sel);
     });
-    const konvert = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-konvert', disabled: !s.tingkat }, 'Konvert');
-    const jalankan = (mode: Status['mode']) => {
-      s.mode = mode;
+    const konvert = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-konvert', 'aria-pressed': String(s.sudahKonvert) }, 'Konvert');
+    konvert.addEventListener('click', () => {
+      s.mode = 'semua';
       s.sudahKonvert = true;
       gambar();
       document.getElementById('kartu-hasil')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-    konvert.addEventListener('click', () => jalankan('satu'));
-    const urutan = urutGabung(j.tingkat);
-    const semua = el(
-      'button',
-      { class: 'tombol utama', type: 'button', id: 'tombol-konvert-semua', 'aria-pressed': String(s.mode === 'semua' && s.sudahKonvert) },
-      'Konvert semua kelas',
-    );
-    semua.addEventListener('click', () => jalankan('semua'));
+    });
     return el(
       'div',
       { class: 'kartu' },
-      el('h2', {}, el('span', { class: 'langkah' }, '3'), 'Pilih tingkat lalu konvert'),
-      el('div', { class: 'baris-kontrol', role: 'group', 'aria-label': 'Tingkat kelas' }, ...tombolTingkat, konvert),
-      el('p', { class: 'bantu' }, 'atau gabungkan semua kelas dalam satu file:'),
-      el('div', { class: 'baris-kontrol' }, semua),
-      el('p', { class: 'bantu' }, `Satu file berisi kelas ${urutan.join(', ')}. category = hari ujian ke-N; di setiap category, urutan mapel kelas ${urutan.join(' → ')}.`),
+      el('h2', {}, el('span', { class: 'langkah' }, '3'), 'Atur sesi lalu konvert'),
+      el('p', { class: 'bantu' }, 'Pilih kelas di setiap sesi (sama dengan Pengaturan sesi di Konvert User). Mapel di setiap hari diurutkan menurut sesi.'),
+      el('div', { class: 'baris-kontrol', role: 'group', 'aria-label': 'Penetapan sesi' }, ...pilihSesi),
+      el('div', { class: 'baris-kontrol' }, konvert),
+      el('p', { class: 'bantu' }, `Satu file berisi kelas ${urutan.join(', ')}. category = hari ujian ke-N; di setiap category, urutan mapel ${urutan.map((x, i) => `sesi ${i + 1} kelas ${x}`).join(' → ')}. Urutan yang sama dipakai di Moodle.`),
     );
   }
 
@@ -268,14 +275,14 @@ export function pasangTabJadwal(akar: HTMLElement): void {
 
   function kartuHasil(j: JadwalUjian): HTMLElement {
     const semuaKelas = s.mode === 'semua';
-    const daftar = semuaKelas ? urutGabung(j.tingkat) : [s.tingkat];
+    const daftar = semuaKelas ? urutGabung(j.tingkat, s.urutanSesi) : [s.tingkat];
     const per = daftar.map((t) => ({ tingkat: t, hasil: cocokkanJadwal(j, t, s.kamus, s.pilihan[t] ?? {}) }));
     for (const p of per) {
       const lengkap = !p.hasil.some((h) => h.status === 'tidak-dikenal');
       // shortname yang diedit di pratinjau juga dipakai sebagai kode course di tab User → Moodle
       catatHasilMapel(p.tingkat, susunBarisMapel(p.hasil, p.tingkat, s.kamus).map((b) => s.edit[b.shortname]?.shortname ?? b.shortname), lengkap);
     }
-    const diedit = terapkanEditMapel(semuaKelas ? susunBarisMapelSemua(per, s.kamus) : susunBarisMapel(per[0].hasil, s.tingkat, s.kamus), s.edit);
+    const diedit = terapkanEditMapel(semuaKelas ? susunBarisMapelSemua(per, s.kamus, s.urutanSesi) : susunBarisMapel(per[0].hasil, s.tingkat, s.kamus), s.edit);
     const baris = diedit.map((d) => d.hasil);
     const masalahEdit = periksaEditMapel(baris);
     const jumlahDiedit = diedit.filter((d) => s.edit[d.asli.shortname]).length;
@@ -330,6 +337,41 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     const unduhCsvTombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-unduh-csv', disabled: unduh.disabled }, `Unduh ${namaCsv}`);
     unduhCsvTombol.addEventListener('click', () => unduhCsv(namaCsv, tulisMapelCsv(baris)));
 
+    // Di dalam panel CBT Admin: buat mapel langsung di Moodle. Hari N masuk ke kategori bernama H<N> (bukan id),
+    // (Tools::mapelJson); satu-satunya jalan membuat mapel dari jadwal.
+    let kirimMoodle: HTMLElement | null = null;
+    if (panelTersedia()) {
+      const jumlahHari = new Set(baris.map((b) => b.category)).size;
+      const hasilKirim = el('div', { 'aria-live': 'polite' });
+      const tombol = el('button', { class: 'tombol utama', type: 'button', id: 'tombol-moodle', disabled: unduh.disabled }, `Buat ${baris.length} mapel di Moodle`);
+      tombol.addEventListener('click', async () => {
+        const hari = [...new Set(baris.map((b) => b.category))].sort((a, b) => a - b);
+        if (!confirm(`Buat ${baris.length} mapel di Moodle?\nHari ${hari.join(', ')} masuk ke kategori ${hari.map((h) => 'H' + h).join(', ')}.\nMapel yang shortname-nya sudah ada dilewati.`)) return;
+        tombol.disabled = true;
+        tombol.textContent = 'Membuat mapel di Moodle…';
+        hasilKirim.replaceChildren();
+        try {
+          const h = await kirimMapel(baris);
+          const tautan = alamatKategori();
+          const isi: Node[] = [daftarPesan([{ tingkat: h.ok ? 'info' : 'peringatan', pesan: h.pesan }])!];
+          if (tautan) isi.push(el('p', { class: 'bantu' }, el('a', { href: tautan, target: '_top' }, 'Buka Kategori Mapel')));
+          hasilKirim.replaceChildren(...isi);
+        } catch (e) {
+          hasilKirim.replaceChildren(daftarPesan([{ tingkat: 'galat', pesan: e instanceof Error ? e.message : String(e) }])!);
+        } finally {
+          tombol.disabled = false;
+          tombol.textContent = `Buat ${baris.length} mapel di Moodle`;
+        }
+      });
+      kirimMoodle = el(
+        'div',
+        {},
+        el('p', { class: 'bantu' }, `Atau langsung buat di Moodle: ${jumlahHari} hari → kategori H1, H2, … (buat dulu kategorinya lewat Jumlah hari di Kategori Mapel).`),
+        el('div', { class: 'baris-kontrol' }, tombol),
+        hasilKirim,
+      );
+    }
+
     return el(
       'div',
       { class: 'kartu', id: 'kartu-hasil' },
@@ -339,13 +381,16 @@ export function pasangTabJadwal(akar: HTMLElement): void {
       masalah.length ? el('p', {}) : null,
       el('p', { class: 'bantu' }, 'Klik sel untuk mengubah isinya. Perubahan dipakai di file unduhan dan diingat di browser ini; sel yang diubah berwarna kuning.'),
       tabel(
-        [{ judul: 'category', angka: true }, { judul: 'format' }, { judul: 'shortname' }, { judul: 'fullname' }],
-        diedit.map((d) => ({ sel: (['category', 'format', 'shortname', 'fullname'] as const).map((k) => selEdit(d, k)) })),
+        // Kolom "category" berisi nomor hari (hari N → kategori H<N> di Moodle), jadi ditampilkan sebagai "Hari";
+        // kolom format (selalu singleactivity) tidak perlu diubah sehingga tidak ditampilkan.
+        [{ judul: 'Hari', angka: true }, { judul: 'shortname' }, { judul: 'fullname' }],
+        diedit.map((d) => ({ sel: (['category', 'shortname', 'fullname'] as const).map((k) => selEdit(d, k)) })),
         `Hasil konversi mapel ${label}`,
       ),
       el('p', { class: 'jumlah' }, `${baris.length} mapel dalam ${new Set(baris.map((b) => b.category)).size} hari.${jumlahDiedit ? ` ${jumlahDiedit} baris diedit.` : ''}`),
       jumlahDiedit ? tombolKembalikan() : null,
       el('div', { class: 'baris-kontrol' }, unduh, unduhCsvTombol),
+      kirimMoodle,
     );
   }
 
@@ -360,7 +405,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
       id: `edit-${kolom}-${d.asli.shortname.replace(/[^A-Za-z0-9]/g, '_')}`,
       class: `sel-edit${berubah ? ' diedit' : ''}${kolom === 'category' ? ' angka' : ''}`,
       value: Number.isNaN(nilai) ? '' : String(nilai),
-      'aria-label': `${kolom} untuk ${d.asli.shortname}`,
+      'aria-label': `${kolom === 'category' ? 'hari' : kolom} untuk ${d.asli.shortname}`,
       title: berubah ? `Hasil konversi: ${asli}` : undefined,
     });
     input.addEventListener('change', () => {

@@ -12,7 +12,15 @@
 DOMAIN_UTAMA="utama.sekolah.sch.id"
 DOMAIN_CADANGAN="cadangan.sekolah.sch.id"
 
-# IP publik kedua VPS
+# IP kedua server. Tiga pola:
+#  - Dua VPS            : dua IP publik -> WireGuard
+#  - Dua server sekolah : dua IP LAN    -> langsung, tanpa WireGuard
+#  - Campuran (utama di sekolah, cadangan di VPS):
+#      UTAMA_IP="172.16.32.154"  (IP LAN), CADANGAN_IP="<IP publik VPS>"
+#      -> WireGuard; server sekolah yang menghubungi VPS (tidak perlu buka port
+#         di router sekolah), VPS cukup membuka UDP 51820.
+#      DOMAIN_UTAMA boleh IP LAN (http) dan DOMAIN_CADANGAN domain Cloudflare (https).
+#      Selama domain belum ada, DOMAIN_CADANGAN boleh diisi IP publik VPS (http, hanya untuk uji coba).
 UTAMA_IP=""
 CADANGAN_IP=""
 
