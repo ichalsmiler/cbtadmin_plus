@@ -476,109 +476,118 @@ class Peserta extends PanelController
             log_message('error', 'Data Moodle: ' . $e->getMessage());
         }
 
+        // Kelas user Moodle = department (dari Konvert/CSV), atau last name (konvensi "nama - kelas").
+        foreach ($rows as &$u) {
+            $u['kelas'] = trim((string) ($u['department'] ?? '')) !== '' ? trim((string) $u['department']) : trim((string) $u['lastname']);
+        }
+        unset($u);
+        $kelasList = array_values(array_unique(array_filter(array_column($rows, 'kelas'), static fn ($k) => Tingkat::of($k) !== '')));
+        natsort($kelasList);
+        // Filter Tingkatan & Kelas, bawaan Semua setiap halaman dibuka (sama dengan Data CBTAdmin).
+        $tingkat = $this->tingkatData();
+        $kelas   = trim((string) $this->request->getGet('kelas'));
+        $semua   = count($rows);
+        $rows    = array_values(array_filter($rows, static fn ($u) => Tingkat::cocok($u['kelas'], $tingkat) && ($kelas === '' || $u['kelas'] === $kelas)));
+
         $db     = db_connect();
         $linked = array_column($db->table('peserta')->select('username')->get()->getResultArray(), 'username');
 
         return $this->render('peserta/moodle', [
             'title'       => 'Daftar Peserta Moodle',
             'rows'        => $rows,
+            'semua'       => $semua,
+            'tingkat'     => $tingkat,
+            'filterKelas' => $kelas,
+            'kelasList'   => array_values($kelasList),
             'moodleError' => $error,
             'linked'      => array_flip($linked),
-            'pending'     => $db->table('peserta')->where('moodle_userid', null)->countAllResults(),
         ]);
     }
 
-    /** Salin user Moodle yang belum ada di Data CBTAdmin, dan tautkan yang sudah ada. */
-    public function sync()
+    /**
+     * Tambah satu user langsung ke Moodle (Daftar Peserta Moodle → Tambah user): buat akun, daftarkan ke mapel
+     * (opsional), dan simpan juga ke Data CBTAdmin bila dicentang. Username yang sudah ada di Moodle ditolak
+     * (pakai Reset password) supaya akun lain tidak tertimpa.
+     */
+    public function tambahMoodle()
     {
-        try {
-            $users = $this->moodleUsers();
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Database Moodle tidak bisa dibaca.');
+        $back     = site_url('daftar_peserta/moodle');
+        $username = strtolower(trim((string) $this->request->getPost('username')));
+        $nama     = mb_substr(trim((string) $this->request->getPost('nama')), 0, 100);
+        $kelas    = mb_substr(trim((string) $this->request->getPost('kelas')), 0, 60);
+        $ruang    = mb_substr(trim((string) $this->request->getPost('ruang')), 0, 60);
+        $password = mb_substr(trim((string) $this->request->getPost('password')), 0, 100);
+        $email    = mb_substr(trim((string) $this->request->getPost('email')), 0, 100);
+        $mapel    = array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $this->request->getPost('mapel'))))));
+        if ($nama === '' || ! preg_match(self::USERNAME_RE, $username)) {
+            return redirect()->to($back)->withInput()->with('error', 'Nama wajib diisi; username 2–100 karakter huruf kecil, angka, titik, strip, @ atau garis bawah.');
         }
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return redirect()->to($back)->withInput()->with('error', 'Format email tidak valid.');
+        }
+        try {
+            $ada = Moodle::db()->table(Moodle::t('user'))->where('username', $username)->where('deleted', 0)->countAllResults();
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->withInput()->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if ($ada > 0) {
+            return redirect()->to($back)->withInput()->with('error', 'Username "' . $username . '" sudah ada di Moodle. Pakai tombol Reset password di barisnya.');
+        }
+        $password = $password !== '' ? $password : self::randomPassword();
+        $email    = $email !== '' ? $email : (str_contains($username, '@') ? $username : $username . '@' . Settings::get('email_domain', 'cbt.local'));
 
-        $db   = db_connect();
-        $have = array_column($db->table('peserta')->select('id, username, moodle_userid')->get()->getResultArray(), null, 'username');
-        $now  = date('Y-m-d H:i:s');
-        $baru = $taut = 0;
+        try {
+            $item = MoodleBridge::call('create_users', ['users' => [[
+                'username' => $username, 'password' => $password, 'firstname' => $nama, 'lastname' => $kelas !== '' ? $kelas : '-',
+                'email' => $email, 'department' => $kelas, 'address' => $ruang, 'cohort' => $kelas,
+            ]]])[0] ?? [];
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->withInput()->with('error', 'Gagal membuat user Moodle: ' . $e->getMessage());
+        }
+        if (isset($item['error']) || empty($item['id'])) {
+            return redirect()->to($back)->withInput()->with('error', 'Gagal membuat user Moodle: ' . ($item['error'] ?? 'tanpa keterangan'));
+        }
+        $userId = (int) $item['id'];
 
-        foreach ($users as $u) {
-            if (isset($have[$u['username']])) {
-                if ((int) $have[$u['username']]['moodle_userid'] !== (int) $u['id']) {
-                    $db->table('peserta')->where('id', $have[$u['username']]['id'])->update(['moodle_userid' => $u['id']]);
-                    $taut++;
+        $pesan = "User $username dibuat di Moodle dengan password $password.";
+        if ($mapel !== []) {
+            try {
+                $e = MoodleBridge::call('enrol_users', ['users' => [['userid' => $userId, 'courses' => $mapel]]])[0] ?? [];
+                $pesan .= ' Didaftarkan ke ' . (int) ($e['baru'] ?? 0) . ' mapel.';
+                if (! empty($e['tidak_ada'])) {
+                    $pesan .= ' Mapel tidak ditemukan: ' . implode(', ', $e['tidak_ada']) . '.';
                 }
-
-                continue;
+                if (isset($e['error'])) {
+                    $pesan .= ' Pendaftaran mapel gagal: ' . $e['error'] . '.';
+                }
+            } catch (\Throwable $ex) {
+                $pesan .= ' Pendaftaran mapel gagal: ' . $ex->getMessage() . '.';
             }
-            $kelas = trim(explode(',', (string) $u['cohort'])[0]);
-            $last  = trim((string) $u['lastname']);
-            $db->table('peserta')->insert([
-                'nama'          => mb_substr(trim($u['firstname'] . (in_array($last, ['', '-', '.', $kelas], true) ? '' : ' ' . $last)), 0, 150),
-                'kelas'         => mb_substr($kelas, 0, 60),
-                'username'      => $u['username'],
-                'moodle_userid' => $u['id'],
-                'created_at'    => $now,
-                'updated_at'    => $now,
-            ]);
-            $baru++;
-        }
-        ActivityLog::add('sinkron_moodle', "$baru baru, $taut ditautkan");
-
-        return redirect()->back()->with('success', "$baru user Moodle disalin ke Data CBTAdmin, $taut ditautkan. Password user yang disalin tidak diketahui panel; reset dulu bila perlu dicetak di kartu.");
-    }
-
-    /** Buat akun Moodle untuk peserta Data CBTAdmin yang belum punya. */
-    public function createMoodle()
-    {
-        $db      = db_connect();
-        $pending = $db->table('peserta')->where('moodle_userid', null)->orderBy('id')->get()->getResultArray();
-        if ($pending === []) {
-            return redirect()->back()->with('success', 'Semua peserta Data CBTAdmin sudah punya akun Moodle.');
         }
 
-        $domain = Settings::get('email_domain', 'cbt.local');
-        $users  = [];
-        foreach ($pending as $p) {
-            if ((string) $p['password_plain'] === '') {
-                $p['password_plain'] = self::randomPassword();
-                $db->table('peserta')->where('id', $p['id'])->update(['password_plain' => $p['password_plain']]);
+        if ($this->request->getPost('simpan_data') === '1') {
+            $db   = db_connect();
+            $data = ['nama' => mb_substr($nama, 0, 150), 'kelas' => $kelas, 'password_plain' => $password, 'moodle_userid' => $userId, 'updated_at' => date('Y-m-d H:i:s')];
+            if ($ruang !== '') {
+                $r = $db->table('ruang')->where('nama', $ruang)->get()->getRowArray();
+                if (! $r) {
+                    $db->table('ruang')->insert(['nama' => $ruang]);
+                    $data['ruang_id'] = $db->insertID();
+                    Pengawas::sync();
+                } else {
+                    $data['ruang_id'] = (int) $r['id'];
+                }
             }
-            $users[] = [
-                'username'  => $p['username'],
-                'password'  => $p['password_plain'],
-                'firstname' => $p['nama'],
-                'lastname'  => $p['kelas'] !== '' ? $p['kelas'] : '-',
-                'email'     => str_contains($p['username'], '@') ? $p['username'] : $p['username'] . '@' . $domain,
-                'cohort'    => $p['kelas'],
-            ];
-        }
-
-        try {
-            $items = MoodleBridge::call('create_users', ['users' => $users]);
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Gagal membuat user Moodle: ' . $e->getMessage());
-        }
-
-        $dibuat = $diperbarui = 0;
-        $gagal  = [];
-        foreach ($items as $item) {
-            if (isset($item['error']) || empty($item['id'])) {
-                $gagal[] = $item['username'] . ' (' . ($item['error'] ?? 'tanpa keterangan') . ')';
-
-                continue;
+            if ($db->table('peserta')->where('username', $username)->countAllResults() > 0) {
+                $db->table('peserta')->where('username', $username)->update($data);
+            } else {
+                $db->table('peserta')->insert($data + ['username' => $username, 'nomor_peserta' => $username, 'created_at' => date('Y-m-d H:i:s')]);
             }
-            $db->table('peserta')->where('username', $item['username'])->update(['moodle_userid' => $item['id']]);
-            $item['status'] === 'dibuat' ? $dibuat++ : $diperbarui++;
+            $pesan .= ' Disimpan juga di Data CBTAdmin.';
         }
-        ActivityLog::add('buat_user_moodle', "$dibuat dibuat, $diperbarui diperbarui, " . count($gagal) . ' gagal');
+        ActivityLog::add('tambah_user_moodle', $username . ($mapel !== [] ? ' (' . count($mapel) . ' mapel)' : ''));
 
-        $message = "$dibuat user Moodle dibuat, $diperbarui user yang sudah ada ditautkan dan passwordnya disamakan.";
-        if ($gagal !== []) {
-            $message .= ' Gagal: ' . implode('; ', array_slice($gagal, 0, 5)) . (count($gagal) > 5 ? '; …' : '');
-        }
-
-        return redirect()->back()->with($gagal === [] ? 'success' : 'error', $message);
+        return redirect()->to($back)->with('success', $pesan);
     }
 
     public function resetPassword()
@@ -640,7 +649,7 @@ class Peserta extends PanelController
         $cohort  = Moodle::t('cohort');
 
         return Moodle::db()->query(
-            "SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended,
+            "SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.department, u.lastaccess, u.suspended,
                     (SELECT GROUP_CONCAT(c.name ORDER BY c.name SEPARATOR ', ')
                        FROM {$members} cm JOIN {$cohort} c ON c.id = cm.cohortid
                       WHERE cm.userid = u.id) AS cohort

@@ -433,3 +433,25 @@ export function muatUrutanSesi(): string[] {
 export function simpanUrutanSesi(urutan: readonly string[]): void {
   simpanSesi({ ...muatSesi(), ...Object.fromEntries(urutan.map((t, i) => [t, i + 1])) });
 }
+
+// ---------- reset per menu (tombol Reset di panel) ----------
+
+/** Hapus kunci localStorage yang persis atau berawalan tertentu. */
+function hapusKunci(persis: string[], awalan: string[] = []): void {
+  try {
+    const semua = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter((k): k is string => k !== null);
+    for (const k of semua) if (persis.includes(k) || awalan.some((a) => k.startsWith(a))) localStorage.removeItem(k);
+  } catch {
+    // abaikan
+  }
+}
+
+/** Menu Jadwal: hasil konversi, pilihan mapel tak dikenal, dan edit pratinjau (kamus & sesi tetap). */
+export function resetDataJadwal(): void {
+  hapusKunci([KUNCI_HASIL_MAPEL], ['web-ujian.pilihan.', 'web-ujian.edit-mapel.']);
+}
+
+/** Menu Konvert User: data peserta, pencocokan & entri manual kelas moving (sesi & daftar mapel pilihan tetap). */
+export function resetDataUser(): void {
+  hapusKunci([KUNCI_PESERTA, KUNCI_MOVING]);
+}

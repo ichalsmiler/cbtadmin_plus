@@ -170,3 +170,6 @@ textarea.daftar-kode { font: 0.85rem/1.4 Consolas, "Courier New", monospace; col
 /* Di dalam panel CBT Admin (bingkai): judul dan tombol tema milik panel yang dipakai, jadi kepala aplikasi disembunyikan. */
 :root.di-panel body { padding-top: 0.5rem; max-width: none; }
 :root.di-panel .kepala { display: none; }
+
+/* Tombol Reset menu di atas deretan tab */
+.bar-reset { margin-bottom: 0.75rem; }

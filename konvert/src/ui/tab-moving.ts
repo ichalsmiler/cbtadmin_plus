@@ -7,6 +7,7 @@ import { PETA_MAPEL_MOVING, bacaFileMoving, tingkatDariKelasMoving, tingkatDariN
 import { tingkatPeserta } from '../core/moodle';
 import { GalatFormat, type PesertaMasuk, type Peringatan } from '../core/tipe';
 import { ambilPeserta, catatMoving, muatKamus, muatMoving, saatKamusBerubah, saatPesertaBerubah, simpanMoving, unduhFile } from './simpan';
+import { muatBerkas, simpanBerkas } from './berkas';
 import { daftarPesan, el, tabel } from './tabel';
 
 const BATAS_BARIS = 200;
@@ -84,6 +85,18 @@ export function pasangTabMoving(akar: HTMLElement): void {
   /** Teks status selama file dibaca; '' = tidak sedang membaca. */
   let memuat = '';
 
+  /** File moving yang sudah dibaca disimpan di browser (IndexedDB) sampai tombol Reset ditekan. */
+  function simpanKelompok(): void {
+    void simpanBerkas('moving', { kelompok: s.kelompok, alur: s.alur });
+  }
+  async function pulihkanKelompok(): Promise<void> {
+    const d = await muatBerkas<{ kelompok: KelompokMoving[]; alur: string }>('moving');
+    if (!d || !Array.isArray(d.kelompok) || s.kelompok.length) return;
+    s.kelompok = d.kelompok;
+    if (!s.alur && typeof d.alur === 'string') s.alur = d.alur;
+    gambar();
+  }
+
   async function pilihFile(files: FileList): Promise<void> {
     s.galat = [];
     for (const f of Array.from(files)) {
@@ -108,6 +121,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       }
     }
     s.kelompok.sort((a, b) => a.judul.localeCompare(b.judul, 'id', { numeric: true }));
+    simpanKelompok();
     memuat = '';
     gambar();
   }
@@ -123,6 +137,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
     const hapus = el('button', { class: 'tombol', type: 'button' }, 'Lepas semua file');
     hapus.addEventListener('click', () => {
       Object.assign(s, { kelompok: s.kelompok.filter((k) => k.tingkat !== s.alur), galat: [] }); // hanya file alur ini; pilihan & entri manual tetap tersimpan
+      simpanKelompok();
       gambar();
     });
     const jumlahTersimpan = Object.keys(s.pilihan).length + s.manual.length;
@@ -534,6 +549,7 @@ export function pasangTabMoving(akar: HTMLElement): void {
       b.addEventListener('click', () => {
         s.alur = t;
         s.galat = [];
+        simpanKelompok();
         gambar();
       });
       return b;
@@ -572,4 +588,5 @@ export function pasangTabMoving(akar: HTMLElement): void {
   }
 
   gambar();
+  void pulihkanKelompok();
 }

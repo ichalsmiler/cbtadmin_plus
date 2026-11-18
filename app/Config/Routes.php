@@ -71,8 +71,7 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('sesi_tingkat/json', 'SesiTingkat::json');
     $routes->get('konvert/app', 'Konvert::app');
     $routes->get('daftar_peserta/moodle', 'Peserta::moodle');
-    $routes->post('daftar_peserta/moodle/sinkron', 'Peserta::sync');
-    $routes->post('daftar_peserta/moodle/buat', 'Peserta::createMoodle');
+    $routes->post('daftar_peserta/moodle/tambah', 'Peserta::tambahMoodle');
     $routes->post('daftar_peserta/moodle/kirim_json', 'Peserta::kirimMoodleJson');
     $routes->post('daftar_peserta/moodle/reset_password', 'Peserta::resetPassword');
 

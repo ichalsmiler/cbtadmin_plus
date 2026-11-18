@@ -6,7 +6,8 @@ import { pasangTabMoodle } from './ui/tab-moodle';
 import { pasangTabMoving } from './ui/tab-moving';
 import { pasangTabUser } from './ui/tab-user';
 import { kirimSesiPanel, sesiDariPanel } from './ui/panel';
-import { aturSimpanSesiJauh, muatSesi, simpanSesi } from './ui/simpan';
+import { aturSimpanSesiJauh, muatSesi, resetDataJadwal, resetDataUser, simpanSesi } from './ui/simpan';
+import { hapusBerkas } from './ui/berkas';
 
 /** Tab menu Jadwal di panel: jadwal → mapel dan kamus mapel yang dipakainya. */
 const TAB_JADWAL = ['tab-btn-jadwal', 'tab-btn-kamus'];
@@ -99,11 +100,57 @@ function sinkronSesiPanel(): void {
   if (document.querySelector('meta[name="cbt-sesi-url"]')) aturSimpanSesiJauh((s) => void kirimSesiPanel(s));
 }
 
+/**
+ * Tombol Reset di atas tab (menu Jadwal atau Konvert User di panel): berkas yang diunggah tetap tersimpan di browser
+ * sampai tombol ini ditekan. Tanpa parameter bagian (berkas lepas): reset keduanya.
+ */
+function pasangReset(): void {
+  const bagian = new URLSearchParams(location.search).get('bagian');
+  const nav = document.querySelector<HTMLElement>('.tab');
+  if (!nav) return;
+  const jadwal = bagian !== 'user';
+  const user = bagian !== 'jadwal';
+  const isi = [jadwal ? 'berkas jadwal, hasil konversi, dan pilihan/edit mapel' : '', user ? 'data peserta, file kelas moving, dan pencocokannya' : '']
+    .filter(Boolean)
+    .join('; ');
+  const tombol = document.createElement('button');
+  tombol.type = 'button';
+  tombol.className = 'tombol';
+  tombol.textContent = 'Reset';
+  tombol.addEventListener('click', async () => {
+    if (!confirm(`Reset menu ini?\n\nYang dihapus dari browser ini: ${isi}.\nKamus mapel dan pengaturan sesi tetap. Data yang sudah dikirim ke panel/Moodle tidak berubah.`)) return;
+    if (jadwal) {
+      resetDataJadwal();
+      await hapusBerkas('jadwal');
+    }
+    if (user) {
+      resetDataUser();
+      await hapusBerkas('moving');
+    }
+    location.reload();
+  });
+  const bantu = document.createElement('span');
+  bantu.className = 'bantu';
+  bantu.textContent = 'Berkas yang sudah diunggah tetap tersimpan di browser ini (juga setelah pindah menu atau memuat ulang) sampai Reset ditekan.';
+  const bar = document.createElement('div');
+  bar.className = 'baris-kontrol bar-reset';
+  bar.append(tombol, bantu);
+  nav.before(bar);
+}
+
 pasangTema();
 sinkronSesiPanel();
+pasangReset();
 pasangTab();
-pasangTabJadwal(document.getElementById('tab-jadwal')!);
-pasangTabUser(document.getElementById('tab-user')!);
-pasangTabMoving(document.getElementById('tab-moving')!);
-pasangTabMoodle(document.getElementById('tab-moodle')!);
-pasangTabKamus(document.getElementById('tab-kamus')!);
+// Hanya tab yang tampil di menu ini yang dipasang (di panel: Jadwal + Kamus, atau tab Konvert User), supaya
+// berkas tersimpan menu lain tidak ikut dibaca ulang di sini.
+const pasang: [string, (akar: HTMLElement) => void][] = [
+  ['jadwal', pasangTabJadwal],
+  ['user', pasangTabUser],
+  ['moving', pasangTabMoving],
+  ['moodle', pasangTabMoodle],
+  ['kamus', pasangTabKamus],
+];
+for (const [id, f] of pasang) {
+  if (document.getElementById(`tab-btn-${id}`)) f(document.getElementById(`tab-${id}`)!);
+}

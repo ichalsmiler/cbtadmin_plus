@@ -8,6 +8,7 @@ import { formatTanggal } from '../core/tanggal';
 import { GalatFormat, type HasilCocok, type JadwalUjian, type Kamus, type Peringatan, type PilihanMapel } from '../core/tipe';
 import { catatHasilMapel, muatEditMapel, muatKamus, muatPilihan, muatUrutanSesi, saatKamusBerubah, saatSesiBerubah, simpanEditMapel, simpanKamus, simpanPilihan, simpanUrutanSesi, unduhCsv, unduhFile } from './simpan';
 import { alamatKategori, kirimMapel, panelTersedia } from './panel';
+import { muatBerkas, simpanBerkas } from './berkas';
 import { daftarPesan, el, tabel, type BarisTabel } from './tabel';
 
 interface Status {
@@ -68,6 +69,33 @@ export function pasangTabJadwal(akar: HTMLElement): void {
   /** Teks status selama file dibaca; '' = tidak sedang membaca. */
   let memuat = '';
 
+  /** Berkas jadwal yang sudah diunggah disimpan di browser (IndexedDB) sampai tombol Reset ditekan. */
+  interface SimpananJadwal {
+    namaFile: string;
+    file: ArrayBuffer;
+    sheetDipilih: string;
+    sudahKonvert: boolean;
+  }
+  function simpanJadwal(): void {
+    if (s.file) void simpanBerkas('jadwal', { namaFile: s.namaFile, file: s.file, sheetDipilih: s.sheetDipilih, sudahKonvert: s.sudahKonvert } satisfies SimpananJadwal);
+  }
+  async function pulihkanJadwal(): Promise<void> {
+    const d = await muatBerkas<SimpananJadwal>('jadwal');
+    if (!d?.file || s.file) return;
+    memuat = `Memuat ${d.namaFile} yang tersimpan…`;
+    gambar();
+    try {
+      Object.assign(s, { file: d.file, namaFile: d.namaFile });
+      s.sheet = await daftarSheet(d.file);
+      await bacaSheet(s.sheet.includes(d.sheetDipilih) ? d.sheetDipilih : s.sheet[0]);
+      s.sudahKonvert = d.sudahKonvert && !!s.jadwal;
+    } catch (e) {
+      s.galat = pesanGalat(e);
+    }
+    memuat = '';
+    gambar();
+  }
+
   async function pilihFile(f: File): Promise<void> {
     Object.assign(s, { file: null, namaFile: f.name, sheet: [], sheetDipilih: '', jadwal: null, galat: [], tingkat: '', sudahKonvert: false });
     memuat = `Membaca ${f.name}…`;
@@ -76,6 +104,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
       s.file = await f.arrayBuffer();
       s.sheet = await daftarSheet(s.file);
       await bacaSheet(s.sheet[0]);
+      simpanJadwal();
     } catch (e) {
       s.galat = pesanGalat(e);
     }
@@ -96,6 +125,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     } catch (e) {
       s.galat = pesanGalat(e);
     }
+    simpanJadwal();
     gambar();
   }
 
@@ -201,6 +231,7 @@ export function pasangTabJadwal(akar: HTMLElement): void {
     konvert.addEventListener('click', () => {
       s.mode = 'semua';
       s.sudahKonvert = true;
+      simpanJadwal();
       gambar();
       document.getElementById('kartu-hasil')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -439,4 +470,5 @@ export function pasangTabJadwal(akar: HTMLElement): void {
   }
 
   gambar();
+  void pulihkanJadwal();
 }
