@@ -13,25 +13,18 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
 <div class="card">
     <div class="card-header d-flex align-items-center">
         <span class="fw-semibold"><i class="bi bi-check-square me-1"></i>Setting Ujian</span>
-        <div class="dropdown ms-auto">
-            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-gear me-1"></i>Setting
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#tokenModal"><i class="bi bi-key me-2"></i>Setting Token</a></li>
-                <li>
-                    <button class="dropdown-item" type="button" <?= $catId ? '' : 'disabled' ?>
-                            data-post="<?= site_url('status_tes/reset') ?>"
-                            data-confirm-text="Kembalikan status tes ke pengaturan awal? Seluruh mata pelajaran di tes ini akan dibuka kembali (bisa dipakai untuk ujian susulan).">
-                        <i class="bi bi-arrow-counterclockwise me-2"></i>Reset Default
-                    </button>
-                </li>
-            </ul>
-        </div>
     </div>
     <div class="card-body">
-        <label class="tes-judul" for="tokenValue">Token</label>
-        <p class="tes-ket">Dipasang sebagai password semua quiz di tes aktif.</p>
+        <div class="d-flex flex-wrap align-items-start gap-2">
+            <div>
+                <label class="tes-judul" for="tokenValue">Token</label>
+                <p class="tes-ket">Dipasang sebagai password semua quiz di tes aktif.</p>
+            </div>
+            <?php // Pengaturan token (dulu di tombol gerigi "Setting" di judul kotak). ?>
+            <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#tokenModal">
+                <i class="bi bi-key me-1"></i>Setting Token
+            </button>
+        </div>
         <form class="row g-2 mb-1" method="post" data-no-dirty action="<?= site_url('status_tes/release') ?>">
             <?= csrf_field() ?>
             <div class="col-md-9">

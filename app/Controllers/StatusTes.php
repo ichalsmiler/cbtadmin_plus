@@ -305,29 +305,4 @@ class StatusTes extends PanelController
 
         return redirect()->to(site_url('status_tes'))->with('success', $message);
     }
-
-    /** Reset Default: buka kembali semua mata pelajaran di kategori aktif (ujian susulan). */
-    public function reset()
-    {
-        $catId = ActiveTest::categoryId();
-        if ($catId === 0) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Belum ada tes yang dipilih.');
-        }
-        try {
-            $changes = [];
-            foreach (Moodle::coursesInCategory($catId) as $c) {
-                if (! (int) $c['visible']) {
-                    $changes[] = ['id' => (int) $c['id'], 'visible' => true];
-                }
-            }
-            if ($changes !== []) {
-                MoodleBridge::call('course_visibility', ['courses' => $changes]);
-            }
-        } catch (\Throwable $e) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Reset default gagal: ' . $e->getMessage());
-        }
-        ActivityLog::add('reset_status_tes', count($changes) . ' mapel dibuka kembali');
-
-        return redirect()->to(site_url('status_tes'))->with('success', 'Status tes dikembalikan: semua mata pelajaran dibuka kembali.');
-    }
 }
