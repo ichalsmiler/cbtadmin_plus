@@ -40,7 +40,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
     <div class="card-body">
         <label class="tes-judul" for="tokenValue">Token</label>
         <p class="tes-ket">Dipasang sebagai password semua quiz di tes aktif.</p>
-        <form class="row g-2 mb-1" method="post" action="<?= site_url('status_tes/release') ?>">
+        <form class="row g-2 mb-1" method="post" data-no-dirty action="<?= site_url('status_tes/release') ?>">
             <?= csrf_field() ?>
             <div class="col-md-9">
                 <input class="form-control form-control-lg font-monospace fw-bold text-center token-box" id="tokenValue" readonly
@@ -63,7 +63,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
             <?php endif ?>
         </p>
 
-        <form method="post" action="<?= site_url('status_tes/kategori') ?>">
+        <form method="post" data-no-dirty action="<?= site_url('status_tes/kategori') ?>">
             <?= csrf_field() ?>
             <div class="tes-bagian">
                 <label class="tes-judul" for="sesi_id">Sesi ujian</label>
