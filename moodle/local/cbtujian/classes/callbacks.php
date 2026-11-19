@@ -307,6 +307,24 @@ class callbacks {
             ));
         }
 
+        // Halaman awal ujian seperti LMS sekolah: kartu "Percobaan 1" (Moodle 4.4+) diganti tabel "Status | Review"
+        // (urutan dan gaya di boost.scss).
+        if ($PAGE->pagetype === 'mod-quiz-view') {
+            $j = fn(string $s) => json_encode($s, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $status = $j(get_string('attemptstate', 'quiz'));
+            $review = $j(get_string('review', 'quiz'));
+            $hook->add_html(\html_writer::script(
+                "document.addEventListener('DOMContentLoaded',function(){var ul=document.querySelector('[role=main] > h3 + ul.list-unstyled');"
+                . "if(!ul)return;var S={$status},t=document.createElement('table');t.className='cbt-percobaan';"
+                . "var hr=t.createTHead().insertRow();[S,{$review}].forEach(function(x,i){var th=document.createElement('th');"
+                . "th.className='c'+i;th.textContent=x;hr.appendChild(th);});var tb=t.createTBody();"
+                . "ul.querySelectorAll('.card').forEach(function(c){var r=tb.insertRow(),a=r.insertCell(),b=r.insertCell();b.className='c1';"
+                . "c.querySelectorAll('.quizreviewsummary tr').forEach(function(tr){var h=tr.querySelector('th'),d=tr.querySelector('td');"
+                . "if(h&&d&&h.textContent.trim()===S){a.innerHTML=d.innerHTML;}});var rv=c.querySelector('.card-body');if(rv){b.innerHTML=rv.innerHTML;}});"
+                . "ul.parentNode.replaceChild(t,ul);});"
+            ));
+        }
+
         // Anti Newtab: hanya saat mengerjakan quiz.
         if (!get_config('local_cbtujian', 'antinewtab') || !in_array($PAGE->pagetype, ['mod-quiz-attempt', 'mod-quiz-summary'], true)
                 || !isloggedin() || is_siteadmin()) {

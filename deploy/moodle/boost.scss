@@ -88,3 +88,33 @@ body.cbt-siswa #page.drawers.show-drawer-right,
     body.cbt-siswa .navbar .primary-navigation { display: block !important; }
     body.cbt-siswa .navbar .navbar-toggler[data-target="theme_boost-drawers-primary"] { display: none !important; }
 }
+
+/* CBT: halaman awal ujian (mod/quiz/view.php) seperti LMS sekolah (Moodle 3.9): judul dan isi dalam kotak bergaris
+   selebar halaman, info di tengah, tabel "Status | Review" (dibuat local_cbtujian dari kartu percobaan),
+   tombol mulai/lanjutkan abu-abu di bawah tabel. */
+#page-mod-quiz-view.limitedwidth .main-inner,
+#page-mod-quiz-view .header-maxwidth { max-width: none !important; }
+#page-mod-quiz-view #page-header,
+#page-mod-quiz-view #region-main { border: 1px solid rgba(0, 0, 0, .125); background: #fff; padding: 1.25rem; }
+#page-mod-quiz-view #page-header { margin-bottom: 1rem; }
+#page-mod-quiz-view #page-header h1 { font-weight: 300; font-size: 2.1rem; }
+#page-mod-quiz-view [role="main"] { display: flex; flex-direction: column; }
+#page-mod-quiz-view [role="main"] > .quizinfo { order: 1; padding-top: 2.5rem !important; }
+#page-mod-quiz-view [role="main"] > .quizinfo p { text-align: center !important; }
+#page-mod-quiz-view [role="main"] > .quizattemptcounts { order: 2; text-align: center; }
+#page-mod-quiz-view [role="main"] > h3 { order: 3; font-weight: 300; font-size: 1.75rem; margin-top: .5rem; }
+#page-mod-quiz-view [role="main"] > ul.list-unstyled,
+#page-mod-quiz-view [role="main"] > .cbt-percobaan { order: 4; }
+#page-mod-quiz-view [role="main"] > .tertiary-navigation { order: 5; padding: 1rem 0; }
+#page-mod-quiz-view [role="main"] > .tertiary-navigation .d-flex { justify-content: center; }
+#page-mod-quiz-view [role="main"] > :not(.quizinfo):not(.quizattemptcounts):not(h3):not(.list-unstyled):not(.cbt-percobaan):not(.tertiary-navigation) { order: 6; }
+#page-mod-quiz-view .cbt-percobaan { width: 100%; margin-bottom: 1rem; border-collapse: collapse; }
+#page-mod-quiz-view .cbt-percobaan th,
+#page-mod-quiz-view .cbt-percobaan td { padding: .75rem; border: 0; border-top: 1px solid #dee2e6; vertical-align: top; }
+#page-mod-quiz-view .cbt-percobaan thead th { border-bottom: 2px solid #dee2e6; border-top: 0; font-weight: 700; }
+#page-mod-quiz-view .cbt-percobaan .c1 { text-align: center; width: 25%; }
+#page-mod-quiz-view .cbt-percobaan tbody tr:nth-of-type(odd) { background: rgba(0, 0, 0, .05); }
+#page-mod-quiz-view .cbt-percobaan .statedetails { display: block; font-size: .875em; color: #6a737b; }
+#page-mod-quiz-view .quizstartbuttondiv .btn { background: #ced4da; border-color: #ced4da; color: #212529; border-radius: 0; }
+#page-mod-quiz-view .quizstartbuttondiv .btn:hover,
+#page-mod-quiz-view .quizstartbuttondiv .btn:focus { background: #b8c1ca; border-color: #b1bbc4; color: #212529; }

@@ -101,6 +101,10 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - `cbtujian` juga: menu sekunder course/quiz disembunyikan untuk yang tak punya `moodle/course:update` (hook
   `before_http_headers` → `set_secondary_navigation(false)`); laci blok kanan disembunyikan untuk siswa (body `cbt-siswa`) dan di attempt/summary
   (boost.scss), navigasi nomor soal `.qn_buttons` disalin ke `#cbt-nav-soal` di bawah `#responseform` (awal_halaman) berjudul "Daftar Soal" (lang/quiz.php quiznavigation) dengan gaya LMS sekolah 3.9: tombol 30x40, merah #ff7f7f belum, hijau #bdda57 tersimpan, kuning ragu, nomor aktif garis 3px, `#quiz-timer-wrapper` dipindah ke kotak itu.
+- Halaman awal ujian (`mod/quiz/view.php`) meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
+  untuk memulai ujian", "Waktu mengerjakan : …" (lang quizaccess_numattempts/password/timelimit, `min(s)`=menit), kartu
+  percobaan diganti tabel `.cbt-percobaan` Status | Review oleh JS di `cbtujian` awal_halaman, urutan/kotak/tombol abu-abu
+  di boost.scss (`#page-mod-quiz-view`). Cek poin = tag git `cekpoin-N` (kembali: checkout tag lalu deploy + setelan-moodle).
 - Bahasa Indonesia: kata "kuis" → "ujian" di paket `id` (quiz, quiz_*, quizaccess_*, moodle) dibuat otomatis oleh
   setelan.php ke `lang/id_local`, lalu teks kustom `deploy/moodle/lang/<berkas>` ditambahkan di belakangnya (menang).
 - Dialog mulai quiz berwaktu (ajakan berdoa + peringatan kecurangan): `deploy/moodle/lang/quizaccess_timelimit.php`.

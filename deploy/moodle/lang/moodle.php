@@ -5,3 +5,6 @@ $string['mycourses'] = 'Daftar Ujian';
 // Sapaan setelah login hanya nama (first name) dan kelas (last name).
 $string['welcomeback'] = '{$a->firstname} - {$a->lastname}';
 $string['welcometosite'] = '{$a->firstname} - {$a->lastname}';
+// Durasi "1 jam 30 menit" (bawaan paket id: "min").
+$string['min'] = 'menit';
+$string['mins'] = 'menit';
