@@ -87,3 +87,28 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
 
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+(function () {
+    'use strict';
+    // Jam selesai hanya boleh setelah jam mulai tingkatan yang sama: pilihan yang sama/lebih awal disembunyikan,
+    // dan jam selesai yang sudah tidak cocok dikosongkan.
+    document.querySelectorAll('select[name$="[mulai]"]').forEach(function (mulai) {
+        var selesai = document.querySelector('select[name="' + mulai.name.replace('[mulai]', '[selesai]') + '"]');
+        if (!selesai) { return; }
+        var saring = function () {
+            var batas = mulai.value;
+            Array.prototype.forEach.call(selesai.options, function (opt) {
+                var tutup = batas !== '' && opt.value !== '' && opt.value <= batas;
+                opt.hidden = tutup;
+                opt.disabled = tutup;
+            });
+            if (batas !== '' && selesai.value !== '' && selesai.value <= batas) { selesai.value = ''; }
+        };
+        mulai.addEventListener('change', saring);
+        saring();
+    });
+})();
+</script>
+<?= $this->endSection() ?>

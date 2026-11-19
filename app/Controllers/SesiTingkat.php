@@ -75,13 +75,23 @@ class SesiTingkat extends PanelController
         if ($sesi === null) {
             return redirect()->to($back)->with('error', 'Isi nomor sesi 1–20 untuk setiap tingkatan.');
         }
-        Settings::set('sesi_tingkat', json_encode($sesi));
         // Jam ujian per tingkatan (HH:MM atau kosong) untuk kartu peserta, daftar hadir, dan berita acara.
-        $jam = (array) $this->request->getPost('jam');
+        // Jam selesai wajib setelah jam mulai; dicek dulu sebelum apa pun disimpan.
+        $jam   = (array) $this->request->getPost('jam');
+        $bersih = [];
         foreach (Tingkat::LIST as $t) {
             foreach (['mulai', 'selesai'] as $k) {
-                $v = trim((string) ($jam[$t][$k] ?? ''));
-                Settings::set('jam_' . $t . '_' . $k, preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : '');
+                $v               = trim((string) ($jam[$t][$k] ?? ''));
+                $bersih[$t][$k]  = preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : '';
+            }
+            if ($bersih[$t]['mulai'] !== '' && $bersih[$t]['selesai'] !== '' && $bersih[$t]['selesai'] <= $bersih[$t]['mulai']) {
+                return redirect()->to($back)->with('error', 'Jam selesai Kelas ' . $t . ' (' . $bersih[$t]['selesai'] . ') harus setelah jam mulai (' . $bersih[$t]['mulai'] . '). Tidak ada yang disimpan.');
+            }
+        }
+        Settings::set('sesi_tingkat', json_encode($sesi));
+        foreach ($bersih as $t => $pasangan) {
+            foreach ($pasangan as $k => $v) {
+                Settings::set('jam_' . $t . '_' . $k, $v);
             }
         }
         $pesan = 'Sesi dan jam ujian disimpan: ' . $this->teks($sesi) . '. Konvert (Jadwal & User → CBTAdmin) memakai pengaturan ini.';
