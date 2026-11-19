@@ -191,6 +191,7 @@ code { color: #f472b6; }
 .sidebar .nav-link.active > .bi { color: var(--brand); }
 .sidebar .caret { margin-left: auto; font-size: .75rem; transition: transform .15s; }
 .sidebar .has-sub:not(.collapsed) .caret { transform: rotate(90deg); }
+.sidebar .submenu.collapsing { transition: height .12s ease-out; } /* bawaan Bootstrap .35s terasa lambat */
 .sidebar .submenu .nav-link { padding-left: 2.85rem; font-size: .9rem; min-height: 38px; }
 .sidebar .nav-keluar { margin-top: .5rem; border-top: 1px solid var(--line); padding-top: .5rem; }
 
