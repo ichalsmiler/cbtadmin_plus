@@ -196,7 +196,8 @@ class StatusTes extends PanelController
     /**
      * Aktifkan sesi terpilih atau nonaktifkan sesi (semua sesi tertutup): tanpa sesi aktif semua quiz dikunci
      * password bawaan, token pengawas disembunyikan, dan pengawas tidak melihat daftar siswa.
-     * Siswa yang sudah mulai tetap bisa melanjutkan (password hanya diminta saat mulai).
+     * Tes aktif pindah ke SESI NONAKTIF: semua mapel tersembunyi, jadi siswa yang sedang mengerjakan langsung terhenti
+     * (jawaban tersimpan tetap ada; attempt dikirim otomatis oleh cron Moodle saat waktunya habis).
      */
     public function sesi()
     {
@@ -222,7 +223,7 @@ class StatusTes extends PanelController
             }
             ActivityLog::add('sesi_nonaktif', $lama['label'] ?? '-');
 
-            return redirect()->to(site_url('status_tes'))->with('success', $message . ' Siswa yang sedang mengerjakan tetap bisa melanjutkan.');
+            return redirect()->to(site_url('status_tes'))->with('success', $message . ' Siswa yang sedang mengerjakan langsung terhenti; jawaban yang sudah tersimpan tetap ada dan dikirim otomatis saat waktunya habis.');
         }
 
         $sesiId = (int) $this->request->getPost('sesi_id');

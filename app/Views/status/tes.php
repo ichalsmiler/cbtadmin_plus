@@ -67,13 +67,13 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
             <?= csrf_field() ?>
             <div class="tes-bagian">
                 <label class="tes-judul" for="sesi_id">Sesi ujian</label>
-                <p class="tes-ket">Wajib dipilih. Pengawas hanya melihat siswa sesi ini. Bila sesi dinonaktifkan, semua sesi tertutup: semua quiz dikunci password bawaan dan token pengawas disembunyikan.</p>
+                <p class="tes-ket">Wajib dipilih. Pengawas hanya melihat siswa sesi ini. Bila sesi dinonaktifkan, semua sesi tertutup: semua mapel disembunyikan (siswa yang sedang mengerjakan terhenti), quiz dikunci password bawaan, dan token pengawas disembunyikan.</p>
                 <?php $sesiAktifRow = null; foreach ($sesiList as $s) { if ($s['id'] === $sesiAktif) { $sesiAktifRow = $s; } } ?>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <?php if ($sesiAktifRow !== null): ?>
                         <span class="badge text-bg-success fs-6 fw-normal"><i class="bi bi-broadcast me-1"></i>Aktif: <?= esc($sesiAktifRow['label']) ?></span>
                         <button class="btn btn-outline-danger btn-sm ms-auto" type="submit" formaction="<?= site_url('status_tes/sesi') ?>" formnovalidate name="aksi" value="nonaktifkan"
-                                onclick="return confirm('Nonaktifkan <?= esc($sesiAktifRow['label'], 'js') ?>? Semua sesi tertutup: quiz dikunci password bawaan sehingga siswa tidak bisa mulai. Siswa yang sedang mengerjakan tetap bisa melanjutkan.')">
+                                onclick="return confirm('Nonaktifkan <?= esc($sesiAktifRow['label'], 'js') ?>? Semua sesi tertutup: semua mapel disembunyikan dan quiz dikunci password bawaan. Siswa yang sedang mengerjakan LANGSUNG TERHENTI (jawaban tersimpan tetap ada).')">
                             <i class="bi bi-stop-circle me-1"></i>Nonaktifkan sesi
                         </button>
                     <?php else: ?>
