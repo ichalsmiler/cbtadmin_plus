@@ -97,7 +97,7 @@ $jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
                 <p class="mb-2"><strong>Kartu peserta</strong>: 8 kartu per halaman A4, berisi nama, nomor peserta, username, password, ruang, sesi, nama kegiatan, logo, dan tanda tangan kepala sekolah.</p>
                 <p class="mb-2"><strong>Per Ruang / Per Kelas</strong>: kartu dikelompokkan menurut ruang atau kelas; tiap ruang/kelas mulai di halaman baru dengan namanya tertulis di atas, jadi mudah dipotong dan dibagikan. Pilih "Semua" untuk mencetak semuanya sekaligus.</p>
                 <p class="mb-2"><strong>Daftar hadir</strong>: satu halaman per ruang dan sesi, dengan kolom tanda tangan dan tempat tanda tangan pengawas.</p>
-                <p class="mb-0">Nama kegiatan, identitas sekolah, logo, dan kepala sekolah diatur di <a href="<?= site_url('tools/cbtadmin') ?>">Tools → CBTAdmin Tools</a>. <strong>Cetak Kartu Peserta</strong> membuka halaman siap cetak di tab baru lalu langsung memunculkan dialog print browser (pilih A4, skala 100%); <strong>Kartu PDF</strong> membuka pratinjau PDF.</p>
+                <p class="mb-0">Nama kegiatan, identitas sekolah, logo, dan kepala sekolah diatur di <a href="<?= site_url('tools/cbtadmin') ?>">Tools → Info Sekolah</a>. <strong>Cetak Kartu Peserta</strong> membuka halaman siap cetak di tab baru lalu langsung memunculkan dialog print browser (pilih A4, skala 100%); <strong>Kartu PDF</strong> membuka pratinjau PDF.</p>
             </div>
         </div>
     </div>

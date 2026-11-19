@@ -34,7 +34,7 @@ $bars = $isAdmin ? [
 
 <?php if ($isAdmin && $namaKegiatan === ''): ?>
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        Nama Kegiatan belum diatur (<a class="alert-link" href="<?= \App\Controllers\Tools::halaman('kegiatan') ?>">Tools → CBTAdmin Tools → Info Kegiatan</a>).
+        Nama Kegiatan belum diatur (<a class="alert-link" href="<?= \App\Controllers\Tools::halaman('kegiatan') ?>">Tools → Info Sekolah → Info Kegiatan</a>).
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
     </div>
 <?php endif ?>
