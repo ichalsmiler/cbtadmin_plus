@@ -72,6 +72,13 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
         </ul>
         <?php if (! $quiz && $filter === 'notstarted'): ?>
             <p class="small text-muted mt-2 mb-0">Pilih mapel dulu untuk melihat peserta yang belum mulai.</p>
+        <?php elseif ($quiz && $filter === 'notstarted'): ?>
+            <?php // Pengganti menu No Attempt Check: daftar peserta yang belum mengerjakan mapel ini, ke Excel. ?>
+            <div class="mt-2">
+                <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('status_peserta/export_belum') . $query() ?>">
+                    <i class="bi bi-download me-1"></i>Export Excel peserta belum mulai
+                </a>
+            </div>
         <?php endif ?>
     </div>
 </div>

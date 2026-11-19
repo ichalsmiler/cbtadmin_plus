@@ -67,6 +67,38 @@ class StatusPeserta extends PanelController
     }
 
     /**
+     * Export Excel peserta yang belum mulai mapel terpilih (pengganti menu No Attempt Check).
+     * Filter sama dengan halaman (ruang, tingkatan); pengawas hanya siswa ruangnya di sesi aktif.
+     */
+    public function exportBelum()
+    {
+        $quizId  = (int) $this->request->getGet('quiz');
+        $ruangId = $this->myRuang() !== null ? (string) $this->myRuang() : (string) $this->request->getGet('ruang');
+        $back    = site_url('status_peserta/notstarted');
+        try {
+            $quiz = $quizId > 0 ? QuizStatus::findQuiz($quizId) : null;
+            if (! $quiz) {
+                return redirect()->to($back)->with('error', 'Pilih mapel dulu.');
+            }
+            $rows = array_values(array_filter(
+                $this->saringSesi(QuizStatus::filter(QuizStatus::forQuiz($quiz), $ruangId, '', Tingkat::dariRequest())),
+                static fn ($r) => $r['status'] === 'notstarted'
+            ));
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        usort($rows, static fn ($a, $b) => strnatcasecmp((string) $a['ruang'], (string) $b['ruang']) ?: [$a['kelas'], $a['nama']] <=> [$b['kelas'], $b['nama']]);
+        $data = [];
+        foreach ($rows as $i => $r) {
+            $data[] = [$i + 1, $r['nomor_peserta'] ?? '', $r['nama'], $r['kelas'], $r['ruang'] ?? ''];
+        }
+        ActivityLog::add('export_belum_mulai', $quiz['name'] . ': ' . count($data) . ' peserta');
+        $file = 'belum_mengerjakan_' . preg_replace('/[^A-Za-z0-9]+/', '_', $quiz['name']) . '_' . date('Ymd_His') . '.xlsx';
+
+        return $this->response->download($file, \App\Libraries\Excel::build(['no', 'nomor_peserta', 'nama', 'kelas', 'ruang'], $data));
+    }
+
+    /**
      * Login ganda: akun peserta yang pada tanggal itu login dari lebih dari satu alamat IP (komputer),
      * dibaca dari log login Moodle. Pengawas hanya melihat siswa di ruangnya.
      */

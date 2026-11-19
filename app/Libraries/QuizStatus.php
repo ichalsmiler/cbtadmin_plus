@@ -2,7 +2,7 @@
 
 namespace App\Libraries;
 
-/** Status peserta per quiz (dipakai Status Peserta, No Attempt Check, dan menu laporan). */
+/** Status peserta per quiz (dipakai Status Peserta dan menu laporan). */
 class QuizStatus
 {
     public static function findQuiz(int $quizId): ?array
