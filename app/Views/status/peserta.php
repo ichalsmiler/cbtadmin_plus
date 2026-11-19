@@ -30,9 +30,9 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
     <div class="card-body">
         <form class="d-flex flex-wrap gap-2 align-items-end" method="get" action="<?= site_url('status_peserta' . ($filter !== '' ? '/' . $filter : '')) ?>">
             <div class="flex-grow-1" style="min-width: 240px">
-                <label class="form-label small mb-1" for="fQuiz">Quiz</label>
+                <label class="form-label small mb-1" for="fQuiz">Mapel</label>
                 <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
-                    <option value="">Semua quiz (hanya yang sudah mulai)</option>
+                    <option value="">Semua mapel (hanya yang sudah mulai)</option>
                     <?php foreach ($quizzes as $q): ?>
                         <option value="<?= (int) $q['id'] ?>" <?= $quiz && (int) $quiz['id'] === (int) $q['id'] ? 'selected' : '' ?>>
                             <?= esc($q['course_short'] . ' · ' . $q['name']) ?>
@@ -71,7 +71,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
             </li>
         </ul>
         <?php if (! $quiz && $filter === 'notstarted'): ?>
-            <p class="small text-muted mt-2 mb-0">Pilih quiz dulu untuk melihat peserta yang belum mulai.</p>
+            <p class="small text-muted mt-2 mb-0">Pilih mapel dulu untuk melihat peserta yang belum mulai.</p>
         <?php endif ?>
     </div>
 </div>
@@ -89,7 +89,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                 <input class="form-control" type="number" name="menit" value="10" min="1" max="600" style="width: 5rem" aria-label="Menit tambahan">
                 <span class="input-group-text">menit</span>
                 <button class="btn btn-outline-primary" type="submit" name="aksi" value="waktu"
-                        data-confirm-button="Tambah waktu untuk peserta yang dicentang? Batas waktu dan waktu tutup quiz mereka diperpanjang.">
+                        data-confirm-button="Tambah waktu untuk peserta yang dicentang? Batas waktu dan waktu tutup mapel mereka diperpanjang.">
                     <i class="bi bi-plus-circle me-1"></i>Tambah waktu
                 </button>
             </div>
@@ -100,7 +100,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
                     <th>Nama</th><th>Kelas</th><th>Ruang</th>
-                    <?php if (! $quiz): ?><th>Quiz</th><?php endif ?>
+                    <?php if (! $quiz): ?><th>Mapel</th><?php endif ?>
                     <th>Status</th><th>Mulai</th><th>Selesai</th><th title="Lama mengerjakan mapel ini (Selesai − Mulai); yang masih mengerjakan terus berjalan">Waktu Pengerjaan</th>
                 </tr>
                 </thead>
