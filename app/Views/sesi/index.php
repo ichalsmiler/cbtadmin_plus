@@ -17,7 +17,7 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
         $opsi .= '<option value="' . $j . '"' . ($j === $nilai ? ' selected' : '') . '>' . $j . '</option>';
     }
 
-    return '<select class="form-select" name="' . $name . '" aria-label="' . esc($label, 'attr') . '">' . $opsi . '</select>';
+    return '<select class="form-select" style="min-width:7rem;width:7rem" name="' . $name . '" aria-label="' . esc($label, 'attr') . '">' . $opsi . '</select>';
 };
 ?>
 <div class="row g-4">
