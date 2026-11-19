@@ -8,7 +8,7 @@
 <div class="alert alert-info d-flex gap-2" role="note">
     <i class="bi bi-info-circle-fill"></i>
     <div>
-        Untuk siswa yang melanggar atau mengganggu. Siswa yang diblokir <strong>langsung dikeluarkan</strong> dari Moodle,
+        Untuk siswa yang melanggar atau mengganggu. Siswa yang diblokir <strong>langsung dikeluarkan</strong> dari ujian,
         dan saat mencoba login muncul pesan <em>"User Anda terblokir. Silakan hubungi pengawas."</em>
         Jawaban yang sudah tersimpan tidak hilang. Blokir berlaku sampai dibuka di halaman ini.
     </div>
@@ -95,7 +95,7 @@
                 <input class="form-control-plaintext fw-semibold" id="bNama" name="nama_siswa" readonly tabindex="-1">
                 <label class="form-label mt-2" for="bAlasan">Alasan</label>
                 <input class="form-control" id="bAlasan" name="alasan" required minlength="3" maxlength="200" placeholder="mis. ribut di kelas, menyontek">
-                <p class="small text-muted mt-2 mb-0">Siswa langsung dikeluarkan dari Moodle dan tidak bisa login sampai blokir dibuka.</p>
+                <p class="small text-muted mt-2 mb-0">Siswa langsung dikeluarkan dari ujian dan tidak bisa login sampai blokir dibuka.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>

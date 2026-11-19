@@ -60,7 +60,7 @@ class BlokirSiswa extends PanelController
         $p = $this->peserta($pid);
         ActivityLog::add('blokir_siswa', $p['username'] . ' (' . $p['nama'] . '). Alasan: ' . $alasan);
 
-        return redirect()->back()->with('success', $p['nama'] . ' diblokir dan langsung dikeluarkan dari Moodle.');
+        return redirect()->back()->with('success', $p['nama'] . ' diblokir dan langsung dikeluarkan dari ujian.');
     }
 
     public function buka()
