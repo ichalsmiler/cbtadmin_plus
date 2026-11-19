@@ -1,6 +1,25 @@
 <?= $this->extend('layout/main') ?>
 
 <?= $this->section('content') ?>
+<?php
+// Pilihan jam ujian per 15 menit (06:00–18:00); nilai lama di luar kelipatan 15 tetap tampil agar tidak hilang.
+$pilihJam = static function (string $name, string $nilai, string $label): string {
+    $daftar = [];
+    for ($m = 6 * 60; $m <= 18 * 60; $m += 15) {
+        $daftar[] = sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+    }
+    if ($nilai !== '' && ! in_array($nilai, $daftar, true)) {
+        $daftar[] = $nilai;
+        sort($daftar);
+    }
+    $opsi = '<option value="">--:--</option>';
+    foreach ($daftar as $j) {
+        $opsi .= '<option value="' . $j . '"' . ($j === $nilai ? ' selected' : '') . '>' . $j . '</option>';
+    }
+
+    return '<select class="form-select" name="' . $name . '" aria-label="' . esc($label, 'attr') . '">' . $opsi . '</select>';
+};
+?>
 <div class="row g-4">
     <div class="col-lg-6">
         <form class="card" method="post" action="<?= site_url('sesi_tingkat/simpan') ?>">
@@ -22,9 +41,9 @@
                             <td><input class="form-control" type="number" min="1" max="20" required id="sesi_<?= esc($t) ?>" name="sesi[<?= esc($t) ?>]" value="<?= (int) $nilai[$t] ?>"></td>
                             <td>
                                 <div class="d-flex align-items-center gap-1">
-                                    <input class="form-control" type="time" name="jam[<?= esc($t) ?>][mulai]" value="<?= esc($jam[$t]['mulai'], 'attr') ?>" aria-label="Kelas <?= esc($t) ?> jam mulai">
+                                    <?= $pilihJam('jam[' . $t . '][mulai]', $jam[$t]['mulai'], 'Kelas ' . $t . ' jam mulai') ?>
                                     <span class="text-muted">–</span>
-                                    <input class="form-control" type="time" name="jam[<?= esc($t) ?>][selesai]" value="<?= esc($jam[$t]['selesai'], 'attr') ?>" aria-label="Kelas <?= esc($t) ?> jam selesai">
+                                    <?= $pilihJam('jam[' . $t . '][selesai]', $jam[$t]['selesai'], 'Kelas ' . $t . ' jam selesai') ?>
                                 </div>
                             </td>
                             <td class="text-end"><?= (int) ($ringkas[$t]['jumlah'] ?? 0) ?></td>
