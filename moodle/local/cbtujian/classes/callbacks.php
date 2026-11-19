@@ -312,6 +312,27 @@ class callbacks {
             ));
         }
 
+        // Halaman awal ujian: bila kesempatan mengerjakan sudah habis (semua percobaan selesai), kotak tombol di bawah
+        // tabel diganti keterangan + tombol Daftar Ujian (pesan bawaan "tidak ada lagi kesempatan" ikut diganti).
+        if ($PAGE->pagetype === 'mod-quiz-view' && isloggedin() && ! isguestuser() && ! empty($PAGE->cm->instance)) {
+            global $DB, $USER;
+            $maks    = (int) $DB->get_field('quiz', 'attempts', ['id' => (int) $PAGE->cm->instance]);
+            $selesai = $DB->count_records_select('quiz_attempts', "quiz = ? AND userid = ? AND state IN ('finished', 'abandoned')",
+                [(int) $PAGE->cm->instance, (int) $USER->id]);
+            if ($maks > 0 && $selesai >= $maks) {
+                $teks  = json_encode(get_string('sudahmengerjakan', 'local_cbtujian'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                $label = json_encode(get_string('mycourses'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                $url   = json_encode((new \moodle_url('/my/courses.php'))->out(false), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                $hook->add_html(\html_writer::script(
+                    "document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[role=main] > .quizattempt');"
+                    . "if(!b)return;b.innerHTML='';var d=document.createElement('div');d.className='cbt-selesai';"
+                    . "var p=document.createElement('p');p.textContent={$teks};d.appendChild(p);"
+                    . "var a=document.createElement('a');a.className='btn btn-primary';a.href={$url};a.textContent={$label};d.appendChild(a);"
+                    . "b.appendChild(d);});"
+                ));
+            }
+        }
+
         // Halaman awal ujian seperti LMS sekolah: kartu "Percobaan 1" (Moodle 4.4+) diganti tabel "Status | Review"
         // (urutan dan gaya di boost.scss).
         if ($PAGE->pagetype === 'mod-quiz-view') {

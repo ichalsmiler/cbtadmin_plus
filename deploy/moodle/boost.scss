@@ -181,3 +181,6 @@ body.cbt-siswa #page.drawers.show-drawer-right,
         padding: 1rem; background: #fff; border: 1px solid rgba(0, 0, 0, .125); }
     #page-mod-quiz-summary #cbt-nav-soal .cbt-nav-judul { font-size: 1.17rem; font-weight: 400; }
 }
+/* CBT: kesempatan habis → keterangan + tombol Daftar Ujian (local_cbtujian) di tengah, di bawah tabel */
+#page-mod-quiz-view .cbt-selesai { text-align: center; padding: .5rem 0 1rem; }
+#page-mod-quiz-view .cbt-selesai p { margin-bottom: .75rem; }

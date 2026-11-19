@@ -105,7 +105,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Halaman Selesaikan ujian (`mod/quiz/summary.php`) seperti LMS: judul/tabel status/Kembali disembunyikan, tengah = Sisa waktu +
   "Ujian akan selesai secara otomatis pada …" + tombol abu-abu "Kirim Jawaban", Daftar Soal kanan (JS cbtujian juga di summary);
   tombol soal terakhir "Selesaikan ujian" (lang quiz.php endtest).
-- Halaman awal ujian (`mod/quiz/view.php`) meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
+- Halaman awal ujian (`mod/quiz/view.php`): bila percobaan selesai >= batas percobaan, kotak `.quizattempt` diganti keterangan `sudahmengerjakan` (lang local_cbtujian) + tombol Daftar Ujian (/my/courses.php) oleh JS cbtujian. Meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
   untuk memulai ujian", "Waktu mengerjakan : …" (lang quizaccess_numattempts/password/timelimit, `min(s)`=menit), kartu
   percobaan diganti tabel `.cbt-percobaan` Status | Review oleh JS di `cbtujian` awal_halaman, urutan/kotak/tombol abu-abu
   di boost.scss (`#page-mod-quiz-view`). Cek poin = tag git `cekpoin-N` (kembali: checkout tag lalu deploy + setelan-moodle).
