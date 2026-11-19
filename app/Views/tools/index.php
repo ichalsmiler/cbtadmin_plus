@@ -34,6 +34,15 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<span class="small">menit sebelum waktu ujian selesai.</span>'
             . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>'
             . '<p class="small mt-2 mb-0">Status: ' . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<span class="badge text-bg-success">aktif, ' . $antiSubmit . ' menit</span>' : '<span class="badge text-bg-secondary">nonaktif</span>') . '</p>') ?>
+        <?= $item('moodleTools', 'lockres', 'shield-lock', 'Lock login / Resume timer / Anti Newtab',
+            '<form method="post" action="' . site_url('tools/ujian') . '">' . $csrf . '<input type="hidden" name="bagian" value="aturan">'
+            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_lock" name="lock_login" value="1"' . ($on('lock_login') ? ' checked' : '') . '>'
+            . '<label class="form-check-label" for="f_lock"><strong>Lock login</strong> — peserta harus meminta reset ke pengawas bila masih berstatus login di perangkat lain. Bila mati, login di perangkat baru otomatis mengeluarkan perangkat lama.</label></div>'
+            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_resume" name="resume_timer" value="1"' . ($on('resume_timer') ? ' checked' : '') . '>'
+            . '<label class="form-check-label" for="f_resume"><strong>Resume timer</strong> — peserta yang keluar (komputer mati, pindah komputer) dapat melanjutkan ujian dengan sisa waktunya; waktu selama keluar ditambahkan saat ia login lagi, selama waktu ujiannya belum habis.</label></div>'
+            . '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="f_newtab" name="anti_newtab" value="1"' . ($on('anti_newtab') ? ' checked' : '') . '>'
+            . '<label class="form-check-label" for="f_newtab"><strong>Anti Newtab</strong> — peserta otomatis keluar bila membuka tab baru atau aplikasi lain saat mengerjakan quiz. Jawaban yang sudah tersimpan tetap aman.</label></div>'
+            . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
     </div>
 <?php endif ?>
 
@@ -71,15 +80,6 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<div class="col-12 small text-muted">Jam ujian per tingkatan (dicetak di kartu peserta) diatur di Admin Tools → <a href="' . site_url('sesi_tingkat') . '">Sesi</a>.</div>'
             . $input('catatan_kartu', 'Catatan di kartu peserta', $v('catatan_kartu', 'Kartu peserta wajib dibawa selama ujian berlangsung.'), 'Kartu peserta wajib dibawa selama ujian berlangsung.', 'col-12')
             . '</div><button class="btn btn-success btn-sm mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
-        <?= $item('cbtTools', 'lockres', 'shield-lock', 'Lock login / Resume timer / Anti Newtab',
-            '<form method="post" action="' . site_url('tools/ujian') . '">' . $csrf . '<input type="hidden" name="bagian" value="aturan">'
-            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_lock" name="lock_login" value="1"' . ($on('lock_login') ? ' checked' : '') . '>'
-            . '<label class="form-check-label" for="f_lock"><strong>Lock login</strong> — peserta harus meminta reset ke pengawas bila masih berstatus login di perangkat lain. Bila mati, login di perangkat baru otomatis mengeluarkan perangkat lama.</label></div>'
-            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_resume" name="resume_timer" value="1"' . ($on('resume_timer') ? ' checked' : '') . '>'
-            . '<label class="form-check-label" for="f_resume"><strong>Resume timer</strong> — peserta yang keluar (komputer mati, pindah komputer) dapat melanjutkan ujian dengan sisa waktunya; waktu selama keluar ditambahkan saat ia login lagi, selama waktu ujiannya belum habis.</label></div>'
-            . '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="f_newtab" name="anti_newtab" value="1"' . ($on('anti_newtab') ? ' checked' : '') . '>'
-            . '<label class="form-check-label" for="f_newtab"><strong>Anti Newtab</strong> — peserta otomatis keluar bila membuka tab baru atau aplikasi lain saat mengerjakan quiz. Jawaban yang sudah tersimpan tetap aman.</label></div>'
-            . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
         <?= $item('cbtTools', 'password', 'key', 'Ganti Password',
             '<p class="small text-muted">Mengganti password akun Anda. Password pengawas diganti lewat menu Daftar Ruang (Generate Kode).</p>'
             . '<form method="post" action="' . site_url('tools/password') . '" class="d-flex flex-wrap gap-2" autocomplete="off">' . $csrf
