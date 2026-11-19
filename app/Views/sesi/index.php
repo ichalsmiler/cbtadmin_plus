@@ -7,18 +7,26 @@
             <?= csrf_field() ?>
             <div class="card-header fw-semibold"><i class="bi bi-clock-history me-1"></i>Sesi per tingkatan</div>
             <div class="card-body">
-                <p class="small text-body-secondary">Tentukan nomor sesi ujian untuk setiap tingkatan. Pengaturan ini dipakai bersama menu
-                    Jadwal (urutan mapel per hari) dan Konvert User (kolom Kel. Sesi).</p>
+                <p class="small text-body-secondary">Tentukan nomor sesi dan jam ujian untuk setiap tingkatan. Nomor sesi dipakai bersama menu
+                    Jadwal (urutan mapel per hari) dan Konvert User (kolom Kel. Sesi). Jam ujian dicetak di kartu peserta
+                    (<em>Ruang Ujian : 1 / 08:00 - 10:00</em>), daftar hadir, dan berita acara; kosongkan bila tidak dipakai.</p>
                 <?php if (! $tersimpan): ?>
                     <div class="alert alert-info small py-2">Belum pernah disimpan; yang tampil adalah bawaan sekolah.</div>
                 <?php endif ?>
                 <table class="table align-middle mb-3">
-                    <thead><tr><th>Tingkatan</th><th style="width:9rem">Sesi</th><th class="text-end">Peserta</th></tr></thead>
+                    <thead><tr><th>Tingkatan</th><th style="width:6rem">Sesi</th><th>Jam ujian</th><th class="text-end">Peserta</th></tr></thead>
                     <tbody>
                     <?php foreach (\App\Libraries\Tingkat::LIST as $t): ?>
                         <tr>
                             <td><label class="form-label mb-0" for="sesi_<?= esc($t) ?>">Kelas <?= esc($t) ?></label></td>
                             <td><input class="form-control" type="number" min="1" max="20" required id="sesi_<?= esc($t) ?>" name="sesi[<?= esc($t) ?>]" value="<?= (int) $nilai[$t] ?>"></td>
+                            <td>
+                                <div class="d-flex align-items-center gap-1">
+                                    <input class="form-control" type="time" name="jam[<?= esc($t) ?>][mulai]" value="<?= esc($jam[$t]['mulai'], 'attr') ?>" aria-label="Kelas <?= esc($t) ?> jam mulai">
+                                    <span class="text-muted">–</span>
+                                    <input class="form-control" type="time" name="jam[<?= esc($t) ?>][selesai]" value="<?= esc($jam[$t]['selesai'], 'attr') ?>" aria-label="Kelas <?= esc($t) ?> jam selesai">
+                                </div>
+                            </td>
                             <td class="text-end"><?= (int) ($ringkas[$t]['jumlah'] ?? 0) ?></td>
                         </tr>
                     <?php endforeach ?>
@@ -58,38 +66,5 @@
         </div>
     </div>
 
-    <?php // Daftar sesi (dulu di Daftar Ruang): tambah dan hapus sesi. ?>
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header fw-semibold"><i class="bi bi-clock me-1"></i>Daftar sesi</div>
-            <ul class="list-group list-group-flush">
-                <?php if ($sesi === []): ?>
-                    <li class="list-group-item text-muted">Belum ada sesi.</li>
-                <?php endif ?>
-                <?php foreach ($sesi as $s): ?>
-                    <li class="list-group-item d-flex align-items-center">
-                        <span><?= esc($s['nama']) ?>
-                            <?php if ($s['jam_mulai']): ?>
-                                <small class="text-muted ms-1"><?= esc(substr($s['jam_mulai'], 0, 5)) ?>–<?= esc(substr((string) $s['jam_selesai'], 0, 5)) ?></small>
-                            <?php endif ?>
-                        </span>
-                        <button class="btn btn-outline-danger btn-sm ms-auto" type="button" title="Hapus"
-                                data-post="<?= site_url('sesi_tingkat/sesi/hapus/' . $s['id']) ?>"
-                                data-confirm-text="Hapus sesi &quot;<?= esc($s['nama'], 'attr') ?>&quot;? Ruang dan peserta di sesi ini menjadi tanpa sesi."><i class="bi bi-trash"></i></button>
-                    </li>
-                <?php endforeach ?>
-            </ul>
-            <div class="card-body border-top">
-                <form method="post" action="<?= site_url('sesi_tingkat/sesi/simpan') ?>" class="row g-2 align-items-end">
-                    <?= csrf_field() ?>
-                    <div class="col-sm-5"><input class="form-control form-control-sm" name="nama" placeholder="Nama sesi, mis. Sesi 1" maxlength="60" required aria-label="Nama sesi"></div>
-                    <div class="col-6 col-sm-2"><input class="form-control form-control-sm" type="time" name="jam_mulai" aria-label="Jam mulai"></div>
-                    <div class="col-6 col-sm-2"><input class="form-control form-control-sm" type="time" name="jam_selesai" aria-label="Jam selesai"></div>
-                    <div class="col-sm-3"><button class="btn btn-primary btn-sm w-100" type="submit">Tambah Sesi</button></div>
-                </form>
-            </div>
-        </div>
-    </div>
 </div>
-<form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
 <?= $this->endSection() ?>

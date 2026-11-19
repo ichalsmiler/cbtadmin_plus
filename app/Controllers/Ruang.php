@@ -175,33 +175,5 @@ class Ruang extends PanelController
 
         return redirect()->to(site_url('daftar_ruang'))->with('success', 'Ruang dihapus.');
     }
-
-    public function saveSesi()
-    {
-        $nama = trim((string) $this->request->getPost('nama'));
-        if ($nama === '') {
-            return redirect()->back()->with('error', 'Nama sesi wajib diisi.');
-        }
-
-        $time = static fn ($v) => preg_match('/^\d{2}:\d{2}$/', (string) $v) ? $v . ':00' : null;
-        db_connect()->table('sesi')->insert([
-            'nama'        => mb_substr($nama, 0, 60),
-            'jam_mulai'   => $time($this->request->getPost('jam_mulai')),
-            'jam_selesai' => $time($this->request->getPost('jam_selesai')),
-        ]);
-        ActivityLog::add('tambah_sesi', $nama);
-
-        return redirect()->to(site_url('sesi_tingkat'))->with('success', 'Sesi ditambahkan.');
-    }
-
-    public function deleteSesi(int $id)
-    {
-        $db = db_connect();
-        $db->table('ruang')->where('sesi_id', $id)->update(['sesi_id' => null]);
-        $db->table('peserta')->where('sesi_id', $id)->update(['sesi_id' => null]);
-        $db->table('sesi')->where('id', $id)->delete();
-        ActivityLog::add('hapus_sesi', 'id ' . $id);
-
-        return redirect()->to(site_url('sesi_tingkat'))->with('success', 'Sesi dihapus.');
-    }
+    // Tambah/hapus sesi manual dihapus: sesi dibuat otomatis lewat Admin Tools → Sesi ("Terapkan") atau impor peserta.
 }

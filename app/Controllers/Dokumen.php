@@ -69,12 +69,10 @@ class Dokumen extends PanelController
         }
         ActivityLog::add('cetak_kartu', count($rows) . ' kartu, per ' . ($perKelas ? 'kelas' : 'ruang') . ', ' . count($groups) . ' kelompok');
 
-        // Jam ujian per tingkatan (Tools → Info Kegiatan).
+        // Jam ujian per tingkatan (Admin Tools → Sesi).
         $jam = [];
         foreach (Tingkat::LIST as $t) {
-            $mulai   = Settings::get('jam_' . $t . '_mulai');
-            $selesai = Settings::get('jam_' . $t . '_selesai');
-            $jam[$t] = $mulai !== '' ? $mulai . ($selesai !== '' ? ' - ' . $selesai : '') : '';
+            $jam[$t] = Tingkat::jam($t);
         }
         foreach ($groups as &$anggota) {
             foreach ($anggota as &$r) {
@@ -240,7 +238,7 @@ class Dokumen extends PanelController
                     'nama'     => $r['ruang'] ?? '(tanpa ruang)',
                     'pengawas' => $ruangInfo[$key]['pengawas'] ?? '',
                     'sesi'     => $ruangInfo[$key]['sesi_nama'] ?? '',
-                    'jam'      => isset($ruangInfo[$key]['jam_mulai']) ? substr((string) $ruangInfo[$key]['jam_mulai'], 0, 5) . '–' . substr((string) $ruangInfo[$key]['jam_selesai'], 0, 5) : '',
+                    'jam'      => Tingkat::jam(Tingkat::of($r['kelas'] ?? ''), '–'),  // jam ujian tingkatan (Admin Tools → Sesi)
                     'peserta'  => [],
                     'hadir'    => 0,
                 ];

@@ -53,8 +53,6 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_ruang/tukar/(:num)', 'Ruang::tukar/$1');
     $routes->post('daftar_ruang/kembali', 'Ruang::kembali');
     $routes->get('daftar_ruang/cetak', 'Ruang::cetak');
-    $routes->post('sesi_tingkat/sesi/simpan', 'Ruang::saveSesi');
-    $routes->post('sesi_tingkat/sesi/hapus/(:num)', 'Ruang::deleteSesi/$1');
 
     $routes->get('daftar_peserta/cbtadmin', 'Peserta::cbtadmin');
     $routes->post('daftar_peserta/cbtadmin/simpan', 'Peserta::save');

@@ -14,7 +14,7 @@
     <?= view('pdf/_kop', ['school' => $school]) ?>
     <h2>DAFTAR HADIR PESERTA</h2>
     <table class="meta" style="margin-top:6px">
-        <tr><td>Ruang</td><td>: <?= esc($first['ruang_nama'] ?? '(tanpa ruang)') ?></td><td style="padding-left:30px">Sesi</td><td>: <?= esc($first['sesi_nama'] ?? '........') ?><?= $first['jam_mulai'] ? ' (' . substr($first['jam_mulai'], 0, 5) . '–' . substr((string) $first['jam_selesai'], 0, 5) . ')' : '' ?></td></tr>
+        <tr><td>Ruang</td><td>: <?= esc($first['ruang_nama'] ?? '(tanpa ruang)') ?></td><td style="padding-left:30px">Sesi</td><td>: <?= esc($first['sesi_nama'] ?? '........') ?><?php $jamUjian = \App\Libraries\Tingkat::jam(\App\Libraries\Tingkat::of($first['kelas'] ?? ''), '–'); ?><?= $jamUjian !== '' ? ' (' . esc($jamUjian) . ')' : '' ?></td></tr>
         <tr><td>Mata pelajaran</td><td>: <?= $mapel !== '' ? esc($mapel) : '..............................................' ?></td><td style="padding-left:30px">Hari/Tanggal</td><td>: ..............................</td></tr>
     </table>
     <table class="data">

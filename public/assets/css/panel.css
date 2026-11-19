@@ -310,8 +310,6 @@ div.dt-container .dt-paging .dt-paging-button.current { background: var(--brand-
 .tes-ket { font-size: .85rem; color: var(--bs-secondary-color); margin-bottom: .6rem; }
 
 /* Tools → Info Kegiatan: jam ujian per tingkatan, satu baris per kelas. */
-.jam-ujian .jam-label { width: 4.5rem; flex-shrink: 0; }
-.jam-ujian .form-select { width: 7.5rem; flex: 0 0 auto; }
 
 /* Hormati pengguna yang mematikan animasi di sistemnya. */
 @media (prefers-reduced-motion: reduce) {

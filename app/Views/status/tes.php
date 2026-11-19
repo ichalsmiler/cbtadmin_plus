@@ -95,7 +95,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
                 </button>
             </div>
             <?php if ($sesiList === []): ?>
-                <div class="alert alert-warning small py-2 mt-2 mb-0">Belum ada sesi. Impor peserta (kolom sesi) atau tambah sesi di Admin Tools → <a href="<?= site_url('sesi_tingkat') ?>">Sesi</a>.</div>
+                <div class="alert alert-warning small py-2 mt-2 mb-0">Belum ada sesi. Impor peserta (kolom sesi), atau atur sesi per tingkatan di Admin Tools → <a href="<?= site_url('sesi_tingkat') ?>">Sesi</a> lalu centang "Terapkan".</div>
             <?php endif ?>
             </div>
 

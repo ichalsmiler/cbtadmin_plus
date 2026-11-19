@@ -60,7 +60,11 @@ class SesiTingkat extends PanelController
             'nilai'     => $nilai,
             'tersimpan' => self::tersimpan() !== null,
             'ringkas'   => $ringkas,
-            'sesi'      => $db->table('sesi')->orderBy('nama')->get()->getResultArray(),
+            // Jam ujian per tingkatan (dulu di Tools → Info Kegiatan).
+            'jam'       => array_combine(Tingkat::LIST, array_map(static fn (string $t): array => [
+                'mulai'   => Settings::get('jam_' . $t . '_mulai'),
+                'selesai' => Settings::get('jam_' . $t . '_selesai'),
+            ], Tingkat::LIST)),
         ]);
     }
 
@@ -72,7 +76,15 @@ class SesiTingkat extends PanelController
             return redirect()->to($back)->with('error', 'Isi nomor sesi 1–20 untuk setiap tingkatan.');
         }
         Settings::set('sesi_tingkat', json_encode($sesi));
-        $pesan = 'Sesi disimpan: ' . $this->teks($sesi) . '. Konvert (Jadwal & User → CBTAdmin) memakai pengaturan ini.';
+        // Jam ujian per tingkatan (HH:MM atau kosong) untuk kartu peserta, daftar hadir, dan berita acara.
+        $jam = (array) $this->request->getPost('jam');
+        foreach (Tingkat::LIST as $t) {
+            foreach (['mulai', 'selesai'] as $k) {
+                $v = trim((string) ($jam[$t][$k] ?? ''));
+                Settings::set('jam_' . $t . '_' . $k, preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : '');
+            }
+        }
+        $pesan = 'Sesi dan jam ujian disimpan: ' . $this->teks($sesi) . '. Konvert (Jadwal & User → CBTAdmin) memakai pengaturan ini.';
 
         if ($this->request->getPost('terapkan') === '1') {
             $db     = db_connect();

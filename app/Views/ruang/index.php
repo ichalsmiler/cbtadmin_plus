@@ -99,7 +99,7 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
     </div>
 </div>
 
-<p class="small text-body-secondary">Daftar sesi (tambah/hapus) ada di Admin Tools → <a href="<?= site_url('sesi_tingkat') ?>">Sesi</a>.</p>
+<p class="small text-body-secondary">Nomor sesi dan jam ujian per tingkatan diatur di Admin Tools → <a href="<?= site_url('sesi_tingkat') ?>">Sesi</a>.</p>
 
 <div class="modal fade" id="ruangModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

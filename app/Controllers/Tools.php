@@ -22,8 +22,8 @@ class Tools extends PanelController
     /** Kunci pengaturan per bagian formulir. */
     private const BAGIAN = [
         'sekolah'  => ['nama_sekolah', 'npsn', 'jabatan_pimpinan', 'kepala_sekolah', 'jenis_nomor_pimpinan', 'nip_kepala'],
-        'kegiatan' => ['nama_kegiatan', 'tahun_ajaran', 'catatan_kartu',
-            'jam_X_mulai', 'jam_X_selesai', 'jam_XI_mulai', 'jam_XI_selesai', 'jam_XII_mulai', 'jam_XII_selesai'],
+        // Jam ujian per tingkatan pindah ke Admin Tools → Sesi (SesiTingkat).
+        'kegiatan' => ['nama_kegiatan', 'tahun_ajaran', 'catatan_kartu'],
         'panel'    => ['webmin_url', 'refresh_interval', 'active_minutes'],
     ];
 

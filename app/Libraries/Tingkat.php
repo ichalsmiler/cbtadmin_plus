@@ -12,6 +12,21 @@ class Tingkat
         return preg_match('/^\s*(XII|XI|X)(?![A-Z])/i', (string) $kelas, $m) ? strtoupper($m[1]) : '';
     }
 
+    /**
+     * Jam ujian tingkatan (Admin Tools → Sesi; setting jam_<X|XI|XII>_mulai/selesai), mis. "08:00 - 10:00";
+     * '' bila belum diisi. Dipakai kartu peserta, daftar hadir, berita acara, dan log telat mulai.
+     */
+    public static function jam(string $tingkat, string $pemisah = ' - '): string
+    {
+        if (! in_array($tingkat, self::LIST, true)) {
+            return '';
+        }
+        $mulai   = Settings::get('jam_' . $tingkat . '_mulai');
+        $selesai = Settings::get('jam_' . $tingkat . '_selesai');
+
+        return $mulai !== '' ? $mulai . ($selesai !== '' ? $pemisah . $selesai : '') : '';
+    }
+
     /** Apakah kelas termasuk tingkatan itu ('' = semua tingkatan). */
     public static function cocok(?string $kelas, string $tingkat): bool
     {

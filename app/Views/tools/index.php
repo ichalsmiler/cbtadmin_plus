@@ -16,24 +16,6 @@ $csrf = csrf_field();
 $input = static fn (string $name, string $label, string $value, string $ph = '', string $col = 'col-md-6', string $type = 'text'): string =>
     '<div class="' . $col . '"><label class="form-label" for="f_' . $name . '">' . esc($label) . '</label>'
     . '<input class="form-control" type="' . $type . '" id="f_' . $name . '" name="' . $name . '" maxlength="255" value="' . esc($value, 'attr') . '" placeholder="' . esc($ph, 'attr') . '"></div>';
-// Pilihan jam ujian per 15 menit (06:00–18:00); nilai lama di luar kelipatan 15 tetap tampil agar tidak hilang.
-$pilihJam = static function (string $name, string $id, string $label) use ($v): string {
-    $nilai = $v($name);
-    $jam   = [];
-    for ($m = 6 * 60; $m <= 18 * 60; $m += 15) {
-        $jam[] = sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
-    }
-    if ($nilai !== '' && ! in_array($nilai, $jam, true)) {
-        $jam[] = $nilai;
-        sort($jam);
-    }
-    $opsi = '<option value="">--:--</option>';
-    foreach ($jam as $j) {
-        $opsi .= '<option value="' . $j . '"' . ($j === $nilai ? ' selected' : '') . '>' . $j . '</option>';
-    }
-
-    return '<select class="form-select" name="' . $name . '"' . ($id !== '' ? ' id="' . $id . '"' : '') . ' aria-label="' . esc($label, 'attr') . '">' . $opsi . '</select>';
-};
 ?>
 
 <div class="row g-4">
@@ -96,14 +78,7 @@ $pilihJam = static function (string $name, string $id, string $label) use ($v): 
             . '<form method="post" action="' . site_url('tools') . '">' . $csrf . '<input type="hidden" name="bagian" value="kegiatan"><div class="row g-3">'
             . $input('nama_kegiatan', 'Nama kegiatan', $v('nama_kegiatan'), 'Nama Kegiatan', 'col-md-8')
             . $input('tahun_ajaran', 'Tahun pelajaran', $v('tahun_ajaran'), 'Cth: 2026/2027', 'col-md-4')
-            . '<div class="col-12 small text-muted mb-n2">Jam ujian per tingkatan, dicetak di kartu peserta: <em>Ruang Ujian : 1 / 08:00 - 10:00</em>. Kosongkan bila tidak dipakai.</div>'
-            . implode('', array_map(static fn (string $t): string =>
-                // Satu baris per tingkatan (kolom sempit membuat dua pilihan jam terlipat/terpotong).
-                '<div class="col-12 d-flex align-items-center gap-2 jam-ujian"><label class="jam-label" for="f_jam_' . $t . '_mulai">Kelas ' . $t . '</label>'
-                . $pilihJam('jam_' . $t . '_mulai', 'f_jam_' . $t . '_mulai', 'Kelas ' . $t . ' mulai')
-                . '<span class="text-muted">s.d.</span>'
-                . $pilihJam('jam_' . $t . '_selesai', '', 'Kelas ' . $t . ' selesai') . '</div>',
-                \App\Libraries\Tingkat::LIST))
+            . '<div class="col-12 small text-muted">Jam ujian per tingkatan (dicetak di kartu peserta) diatur di Admin Tools → <a href="' . site_url('sesi_tingkat') . '">Sesi</a>.</div>'
             . $input('catatan_kartu', 'Catatan di kartu peserta', $v('catatan_kartu', 'Kartu peserta wajib dibawa selama ujian berlangsung.'), 'Kartu peserta wajib dibawa selama ujian berlangsung.', 'col-12')
             . '</div><button class="btn btn-success btn-sm mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
         <?= $item('cbtTools', 'lockres', 'shield-lock', 'Lock login / Resume timer / Anti Newtab',
