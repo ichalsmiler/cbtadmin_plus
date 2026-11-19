@@ -79,9 +79,37 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 #cbt-nav-soal #quiz-timer { margin: 0 !important; padding: 0 !important; border: 0; background: none; font-size: .92rem; }
 #cbt-nav-soal #quiz-time-left { font-weight: 700; }
 
-/* CBT: tanpa kotak info soal (nomor, status, poin maks, tandai soal) saat mengerjakan; soal selebar halaman */
-#page-mod-quiz-attempt .que .info { display: none !important; }
-#page-mod-quiz-attempt .que .content { margin-left: 0 !important; }
+/* CBT: halaman soal seperti LMS sekolah (Moodle 3.9): bilah info abu-abu "Soal nomor N | Belum dijawab | Ragu-ragu",
+   soal dalam kotak putih bergaris, tombol Soal sebelumnya (abu-abu) dan Soal berikutnya (biru) bersudut tajam. */
+#page-mod-quiz-attempt .que .info { float: none; width: auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 15px;
+    margin: 0 0 3px; padding: 8px; background: #eee; border: 1px solid #dfdfdf; border-radius: 8px; }
+#page-mod-quiz-attempt .que .info .no { margin: 0 0 0 10px; font-size: 11px; font-weight: 300; line-height: 1; }
+#page-mod-quiz-attempt .que .info .qno { font-size: 1.6em; font-weight: 700; }
+#page-mod-quiz-attempt .que .info .state,
+#page-mod-quiz-attempt .que .info .questionflag,
+#page-mod-quiz-attempt .que .info .editquestion { margin: 0; font-size: 12px; }
+#page-mod-quiz-attempt .que .info .grade,
+#page-mod-quiz-attempt .que .info > .badge { display: none !important; }
+#page-mod-quiz-attempt .que { flex-direction: column; }
+#page-mod-quiz-attempt .que .info { flex: 0 0 auto; width: 100%; }
+#page-mod-quiz-attempt .que .content { margin-left: 0 !important; width: 100%; }
+#page-mod-quiz-attempt .que .formulation { background: #fff; color: #001a1e; border: 1px solid #dfdfdf; border-radius: 0; padding: 12px 20px; }
+#page-mod-quiz-attempt .submitbtns .btn { border-radius: 0; }
+#page-mod-quiz-attempt .submitbtns .mod_quiz-prev-nav { background: #ced4da; border-color: #ced4da; color: #212529; }
+
+/* CBT: di laptop (>= 992px) halaman soal selebar layar, dua kolom seperti LMS sekolah: soal di kiri,
+   kotak Daftar Soal (+ Sisa waktu) di kanan; di ponsel tetap satu kolom (Daftar Soal di bawah soal). */
+#page-mod-quiz-attempt.limitedwidth .main-inner,
+#page-mod-quiz-attempt .header-maxwidth { max-width: none !important; }
+@media (min-width: 992px) {
+    #page-mod-quiz-attempt [role="main"] { display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 1rem; align-items: start; }
+    #page-mod-quiz-attempt [role="main"] > * { grid-column: 1; }
+    #page-mod-quiz-attempt [role="main"] > .tertiary-navigation { grid-row: 1; float: none; }
+    #page-mod-quiz-attempt [role="main"] > #responseform { grid-row: 2; border: 1px solid rgba(0, 0, 0, .125); background: #fff; padding: 20px; }
+    #page-mod-quiz-attempt [role="main"] > #cbt-nav-soal { grid-column: 2; grid-row: 1 / span 2; margin: 0;
+        padding: 1rem; background: #fff; border: 1px solid rgba(0, 0, 0, .125); }
+    #page-mod-quiz-attempt #cbt-nav-soal .cbt-nav-judul { font-size: 1.17rem; font-weight: 400; }
+}
 
 /* CBT: di ponsel, menu Daftar Ujian langsung tampil di bar atas (tanpa tombol garis tiga) untuk siswa */
 @media (max-width: 767.98px) {

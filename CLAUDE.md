@@ -6,15 +6,13 @@ Repo `ichalsmiler/cbtadmin_plus` (lokal `F:/apps/cbtadmin_plus`) = cbtadmin + Ko
 Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 
 ## Server dan alur kerja
-- Utama `moodle` = 172.16.32.154, cadangan `cadangan` = 172.16.32.155 (alias SSH, user smiler, sudo tanpa sandi;
-  keduanya container LXC Proxmox, Debian 13, MariaDB 11.8, Redis untuk sesi + cache aplikasi Moodle (store `cbt_redis`, prefix `mdlc_`, dipasang setelan.php bila Redis berjalan), WITA).
-- Server uji coba CBT Admin Plus `cbtplus` = 172.16.32.157 (alias SSH, user smiler, kunci `id_ed25519_moodle`; LXC Debian 13,
-  2 core, RAM 2 GB; Moodle 5.1 + panel, data kosong; dipasang 17 Nov 2026 dengan install-moodle.sh + setelan-moodle.sh + deploy.sh).
-  Deploy panel ke sini: `bash deploy/deploy.sh cbtplus`. Kredensial: `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
-- Panel di `/var/www/cbtadmin` (URL `/cbtadmin/`), Moodle di `/var/www/moodle`, data `/var/moodledata`.
-- PHP tidak ada di PC ini: lint di server (`ssh moodle 'php -l /var/www/cbtadmin/<file>'`).
-- Deploy panel: `bash deploy/deploy.sh moodle` (Git Bash). Perubahan kecil cukup ke `moodle`; `cadangan` disamakan
-  sebelum ujian. Setelan + plugin Moodle: `bash deploy/setelan-moodle.sh <host>`.
+- **SATU-SATUNYA server kerja: `cbtplus` = 172.16.32.157** (sejak 19 Nov 2026, perintah pengguna). Alias SSH, user smiler,
+  sudo tanpa sandi, kunci `id_ed25519_moodle`; LXC Debian 13, 2 core, RAM 2 GB, MariaDB 11.8, Redis (sesi + cache Moodle,
+  store `cbt_redis`, prefix `mdlc_`), WITA. Kredensial: `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
+- Server lama `moodle` (.154) dan `cadangan` (.155): ABAIKAN, jangan deploy/ubah ke sana kecuali pengguna meminta.
+- Panel di `/var/www/cbtadmin` (URL `/cbtadmin/`), Moodle di `/var/www/moodle` (web `public/`), data `/var/moodledata`.
+- PHP tidak ada di PC ini: lint di server (`ssh cbtplus 'php -l /var/www/cbtadmin/<file>'`).
+- Deploy panel: `bash deploy/deploy.sh cbtplus` (Git Bash). Setelan + plugin + CSS Moodle: `bash deploy/setelan-moodle.sh cbtplus`.
 - Commit: `git -c user.name=ichalsmiler -c user.email=ichalsmiler@users.noreply.github.com commit`; push hanya
   setelah ditanya ke pengguna. Naikkan `PanelController::VERSION` bila CSS/JS berubah (cache-buster).
 - Uji Moodle lewat skrip CLI di server (`sudo -u www-data php /tmp/x.php`); jangan login web dengan akun uji.
@@ -24,8 +22,8 @@ Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 - Pengguna admin IT sekolah, berbahasa Indonesia: jawab dan tulis teks UI dalam bahasa Indonesia, ringkas.
 - Hemat token: baca CLAUDE.md ini dulu, jangan menjelajah ulang kode; perbarui berkas ini setiap menambah fitur.
 - Jangan push sebelum ditanya dan disetujui; commit hanya bila diminta.
-- Perubahan kecil cukup deploy ke `moodle`; sebutkan bahwa `cadangan` tertinggal. Samakan `cadangan`
-  (`deploy.sh cadangan` + `setelan-moodle.sh cadangan`) sebelum ujian, latihan failover, atau bila diminta.
+- Semua perubahan dipasang ke `cbtplus` (.157) saja; .154/.155 tidak disebut-sebut lagi.
+- Cek poin = tag git `cekpoin-N` berurutan; buat bila pengguna minta.
 - Jangan mengetik password di halaman login (panel/Moodle); bila sesi browser habis, minta pengguna login.
 - Jangan menjalankan tindakan yang menghapus data asli (reset peserta, hapus attempt) untuk uji coba;
   uji dengan data sementara atau kueri baca saja.
@@ -101,6 +99,9 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - `cbtujian` juga: menu sekunder course/quiz disembunyikan untuk yang tak punya `moodle/course:update` (hook
   `before_http_headers` → `set_secondary_navigation(false)`); laci blok kanan disembunyikan untuk siswa (body `cbt-siswa`) dan di attempt/summary
   (boost.scss), navigasi nomor soal `.qn_buttons` disalin ke `#cbt-nav-soal` di bawah `#responseform` (awal_halaman) berjudul "Daftar Soal" (lang/quiz.php quiznavigation) dengan gaya LMS sekolah 3.9: tombol 30x40, merah #ff7f7f belum, hijau #bdda57 tersimpan, kuning ragu, nomor aktif garis 3px, `#quiz-timer-wrapper` dipindah ke kotak itu.
+- Halaman soal (`mod/quiz/attempt.php`) seperti LMS sekolah: di laptop (>=992px) lebar penuh, grid 2 kolom (soal kiri dalam
+  kotak, `#cbt-nav-soal` kanan 360px), di ponsel 1 kolom; bilah info abu-abu "Soal nomor N | Belum dijawab | Ragu-ragu"
+  (lang question.php questionx/clickflag), tombol "Soal sebelumnya" abu-abu / "Soal berikutnya" biru (lang quiz.php).
 - Halaman awal ujian (`mod/quiz/view.php`) meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
   untuk memulai ujian", "Waktu mengerjakan : …" (lang quizaccess_numattempts/password/timelimit, `min(s)`=menit), kartu
   percobaan diganti tabel `.cbt-percobaan` Status | Review oleh JS di `cbtujian` awal_halaman, urutan/kotak/tombol abu-abu

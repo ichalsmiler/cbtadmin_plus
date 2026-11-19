@@ -7,3 +7,6 @@ $string['stateinprogress'] = 'Belum submit';
 $string['statefinished'] = 'Sudah submit';
 $string['continueattemptquiz'] = 'Lanjutkan pengerjaan';
 $string['review'] = 'Review';
+// Tombol pindah soal (seperti LMS sekolah).
+$string['navigateprevious'] = 'Soal sebelumnya';
+$string['navigatenext'] = 'Soal berikutnya';
