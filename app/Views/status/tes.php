@@ -20,7 +20,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
 
 <div class="card">
     <div class="card-header d-flex align-items-center">
-        <span class="fw-semibold"><i class="bi bi-check-square me-1"></i>Status Test</span>
+        <span class="fw-semibold"><i class="bi bi-check-square me-1"></i>Setting Ujian</span>
         <div class="dropdown ms-auto">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-gear me-1"></i>Setting

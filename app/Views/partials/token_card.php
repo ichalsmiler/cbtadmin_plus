@@ -17,7 +17,7 @@
                 <?php endif ?>
             </div>
         </div>
-        <a class="btn btn-outline-primary btn-sm" href="<?= site_url('status_tes') ?>"><i class="bi bi-gear me-1"></i>Status Test</a>
+        <a class="btn btn-outline-primary btn-sm" href="<?= site_url('status_tes') ?>"><i class="bi bi-gear me-1"></i>Setting Ujian</a>
     </div>
 </div>
 <?php else: ?>

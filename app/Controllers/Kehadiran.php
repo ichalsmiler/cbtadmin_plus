@@ -31,7 +31,7 @@ class Kehadiran extends PanelController
         }
 
         $ruang = db_connect()->table('ruang')->where('id', $ruangId)->get()->getRowArray();
-        // Hanya siswa sesi aktif (Status Test). Tanpa sesi aktif: pengawas tidak melihat siswa,
+        // Hanya siswa sesi aktif (Setting Ujian). Tanpa sesi aktif: pengawas tidak melihat siswa,
         // admin memakai filter tingkatan. Simpan hanya mengubah siswa yang tampil.
         // Filter tingkatan tetap ada; saat sesi aktif, bawaannya tingkatan sesi itu (mis. sesi Kelas X → X).
         $sesi = ActiveTest::sesiAktif();

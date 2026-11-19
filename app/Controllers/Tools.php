@@ -581,7 +581,7 @@ class Tools extends PanelController
 
     /**
      * Hapus kategori (ujian) beserta semua mapel, soal, attempt, dan nilainya di Moodle.
-     * Kategori berisi mapel wajib dikonfirmasi dengan mengetik namanya; tes aktif (Status Test) tidak bisa dihapus.
+     * Kategori berisi mapel wajib dikonfirmasi dengan mengetik namanya; tes aktif (Setting Ujian) tidak bisa dihapus.
      */
     public function hapusUjian()
     {
@@ -601,7 +601,7 @@ class Tools extends PanelController
             return redirect()->to($back)->with('error', 'Ujian tidak ditemukan.');
         }
         if ($id === \App\Libraries\ActiveTest::categoryId()) {
-            return redirect()->to($back . '?kat=' . $id)->with('error', 'Ujian "' . $kat['name'] . '" sedang dipakai sebagai tes aktif di Status Test. Pilih tes lain dulu.');
+            return redirect()->to($back . '?kat=' . $id)->with('error', 'Ujian "' . $kat['name'] . '" sedang dipakai sebagai tes aktif di Setting Ujian. Pilih tes lain dulu.');
         }
         if ((int) $kat['coursecount'] > 0 && trim((string) $this->request->getPost('konfirmasi')) !== $kat['name']) {
             return redirect()->to($back . '?kat=' . $id)->with('error', 'Ketik nama ujian "' . $kat['name'] . '" persis untuk menghapusnya beserta ' . (int) $kat['coursecount'] . ' mapel di dalamnya.');
@@ -657,12 +657,12 @@ class Tools extends PanelController
         }
         ActivityLog::add('tambah_mapel', $shortname . ' (' . $fullname . ')');
 
-        return redirect()->to($back)->with('success', 'Pelajaran "' . $fullname . '" ditambahkan (tersembunyi sampai diaktifkan di Status Test). Isi soalnya di Moodle.');
+        return redirect()->to($back)->with('success', 'Pelajaran "' . $fullname . '" ditambahkan (tersembunyi sampai diaktifkan di Setting Ujian). Isi soalnya di Moodle.');
     }
 
     /**
      * Hapus satu mapel (course) dari Moodle beserta soal, jawaban, dan nilainya. Wajib ketik shortname;
-     * mapel yang sedang aktif di tes aktif ditolak (nonaktifkan dulu di Status Test).
+     * mapel yang sedang aktif di tes aktif ditolak (nonaktifkan dulu di Setting Ujian).
      */
     public function hapusMapel()
     {
@@ -684,7 +684,7 @@ class Tools extends PanelController
         $katUjian = (int) explode('/', trim((string) $c['path'], '/'))[0];
         $back    .= '?kat=' . $katUjian;
         if ((int) $c['visible'] === 1 && $katUjian === \App\Libraries\ActiveTest::categoryId()) {
-            return redirect()->to($back)->with('error', 'Mapel "' . $c['fullname'] . '" sedang aktif di tes aktif. Nonaktifkan dulu di Status Test.');
+            return redirect()->to($back)->with('error', 'Mapel "' . $c['fullname'] . '" sedang aktif di tes aktif. Nonaktifkan dulu di Setting Ujian.');
         }
         if (trim((string) $this->request->getPost('konfirmasi')) !== $c['shortname']) {
             return redirect()->to($back)->with('error', 'Ketik shortname "' . $c['shortname'] . '" persis untuk menghapus mapel ini.');
@@ -756,7 +756,7 @@ class Tools extends PanelController
             return redirect()->to($back)->with('error', 'Centang minimal satu data yang akan dihapus.');
         }
         if (\App\Libraries\ActiveTest::sesiId() > 0) {
-            return redirect()->to($back)->with('error', 'Masih ada sesi ujian aktif. Nonaktifkan sesi di Status Test dulu.');
+            return redirect()->to($back)->with('error', 'Masih ada sesi ujian aktif. Nonaktifkan sesi di Setting Ujian dulu.');
         }
         try {
             $mengerjakan = Moodle::db()->table(Moodle::t('quiz_attempts'))->whereIn('state', ['inprogress', 'overdue'])->where('preview', 0)->countAllResults();  // pratinjau guru/admin tidak dihitung

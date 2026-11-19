@@ -85,11 +85,6 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                     <i class="bi bi-plus-circle me-1"></i>Tambah waktu
                 </button>
             </div>
-            <?php if ($adminRole === 'admin'): ?>
-                <a class="btn btn-outline-danger btn-sm ms-auto" href="<?= site_url('hapus_attempt') . ($quiz ? '?quiz=' . (int) $quiz['id'] : '') ?>">
-                    <i class="bi bi-trash me-1"></i>Hapus attempt…
-                </a>
-            <?php endif ?>
         </div>
         <div class="card-body">
             <table class="table table-hover align-middle w-100 datatable" data-order-col="2" data-live="<?= (int) $refresh ?>">

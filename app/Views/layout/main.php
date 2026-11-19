@@ -3,7 +3,7 @@
 $menu = [
     ['Dashboard', 'house', ''],
     ['Daftar Peserta', 'person', null, [['Data CBTAdmin', 'daftar_peserta/cbtadmin'], ['Data Moodle', 'daftar_peserta/moodle']]],
-    ['Status Test', 'check-square', 'status_tes'],
+    ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Hapus Attempt', 'hapus_attempt']]],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
@@ -72,7 +72,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
     <ul class="nav flex-column">
         <?php foreach ($menu as $i => $item): ?>
             <?php
-            // Administrator: semua menu kecuali Token (ada di Status Test) dan Laporan Kehadiran
+            // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Laporan Kehadiran
             // (rekapnya di Dokumen -> Absensi Ruang). Pengawas: hanya menu yang boleh dibukanya.
             if ($adminRole === 'admin' ? in_array($item[2], ['token', 'kehadiran'], true) : ($item[2] === null || ! \App\Filters\Guard::allowed($adminRole, $item[2]))) {
                 continue;

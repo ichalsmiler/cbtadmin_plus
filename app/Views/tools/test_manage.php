@@ -103,7 +103,7 @@
                 </div>
                 <div class="card-body small text-muted border-top">
                     Pelajaran baru dibuat sebagai course <em>Single activity</em> berisi Quiz dan tersembunyi dari peserta.
-                    Isi soalnya di Moodle (ikon <i class="bi bi-box-arrow-up-right"></i>), lalu aktifkan di <a href="<?= site_url('status_tes') ?>?kat=<?= (int) $aktif['id'] ?>">Status Test</a>.
+                    Isi soalnya di Moodle (ikon <i class="bi bi-box-arrow-up-right"></i>), lalu aktifkan di <a href="<?= site_url('status_tes') ?>?kat=<?= (int) $aktif['id'] ?>">Setting Ujian</a>.
                 </div>
             <?php endif ?>
         </div>
@@ -218,7 +218,7 @@
             <div class="modal-header"><h5 class="modal-title text-danger" id="hapusUjianLabel">Hapus Ujian</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
             <div class="modal-body">
                 <?php if ($tesAktif): ?>
-                    <p class="mb-0">Ujian <strong><?= esc($aktif['name']) ?></strong> sedang dipakai sebagai <strong>tes aktif</strong> di <a href="<?= site_url('status_tes') ?>">Status Test</a>. Pilih tes lain di sana dulu sebelum menghapusnya.</p>
+                    <p class="mb-0">Ujian <strong><?= esc($aktif['name']) ?></strong> sedang dipakai sebagai <strong>tes aktif</strong> di <a href="<?= site_url('status_tes') ?>">Setting Ujian</a>. Pilih tes lain di sana dulu sebelum menghapusnya.</p>
                 <?php elseif ($isiMapel === 0): ?>
                     <p class="mb-0">Hapus kategori ujian <strong><?= esc($aktif['name']) ?></strong> dari Moodle? Kategori ini kosong (belum ada mapel).</p>
                 <?php else: ?>
@@ -246,7 +246,7 @@
             <input type="hidden" name="id" id="hm_id">
             <div class="modal-header"><h5 class="modal-title text-danger" id="hapusMapelLabel">Hapus Mapel</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
             <div class="modal-body">
-                <p id="hm_kunci" class="mb-0" hidden>Mapel <strong data-hm="fullname"></strong> sedang <strong>aktif</strong> di tes aktif. Nonaktifkan dulu di <a href="<?= site_url('status_tes') ?>">Status Test</a> sebelum menghapusnya.</p>
+                <p id="hm_kunci" class="mb-0" hidden>Mapel <strong data-hm="fullname"></strong> sedang <strong>aktif</strong> di tes aktif. Nonaktifkan dulu di <a href="<?= site_url('status_tes') ?>">Setting Ujian</a> sebelum menghapusnya.</p>
                 <div id="hm_isi">
                     <p>Hapus mapel <strong data-hm="fullname"></strong> dari Moodle? Quiz, soal, <span id="hm_attempt"></span>dan nilainya ikut <strong>terhapus permanen</strong> dan tidak bisa dikembalikan.</p>
                     <label class="form-label" for="hm_konfirmasi">Ketik <code data-hm="shortname"></code> untuk mengonfirmasi</label>

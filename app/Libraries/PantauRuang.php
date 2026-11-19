@@ -5,7 +5,7 @@ namespace App\Libraries;
 /**
  * Pantauan siswa ruang pengawas di dashboard: setiap siswa (ruang + sesi aktif) masuk tepat satu kelompok,
  * berurutan Belum login → Belum mulai → Mengerjakan → Sudah submit (jumlahnya = siswa di ruang).
- * Hanya hari ini; ujian = quiz di tes aktif (Status Test), tanpa tes aktif semua quiz.
+ * Hanya hari ini; ujian = quiz di tes aktif (Setting Ujian), tanpa tes aktif semua quiz.
  */
 class PantauRuang
 {

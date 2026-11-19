@@ -42,7 +42,7 @@ $pilihJam = static function (string $name, string $id, string $label) use ($v): 
     <div class="card-header fw-semibold"><i class="bi bi-mortarboard me-1"></i>Moodle Tools</div>
     <div class="accordion accordion-flush" id="moodleTools">
         <?= $item('moodleTools', 'testmapel', 'calendar3', 'Daftar Test / Mapel',
-            '<p class="small text-muted">Menambahkan kategori ujian (test) dan mata pelajaran di Moodle. Kategori dan mapel lalu diaktifkan di Status Test.</p>'
+            '<p class="small text-muted">Menambahkan kategori ujian (test) dan mata pelajaran di Moodle. Kategori dan mapel lalu diaktifkan di Setting Ujian.</p>'
             . '<a class="btn btn-success btn-sm" href="' . site_url('tools/test_manage') . '"><i class="bi bi-list-task me-1"></i>Kelola Test</a>') ?>
         <?= $item('moodleTools', 'cron', 'gear', 'Cron Task',
             '<p class="small text-muted">Menjalankan cron task Moodle sekarang (mis. menutup attempt yang lewat waktu, mengirim pekerjaan tertunda). Cron juga berjalan otomatis tiap menit.</p>'

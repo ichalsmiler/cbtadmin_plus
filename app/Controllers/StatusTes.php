@@ -9,7 +9,7 @@ use App\Libraries\MoodleBridge;
 use App\Libraries\Settings;
 
 /**
- * Status Test: pilih kategori kursus Moodle sebagai tes aktif, atur mata pelajaran
+ * Setting Ujian: pilih kategori kursus Moodle sebagai tes aktif, atur mata pelajaran
  * yang dibuka, dan kelola token bersama untuk semua quiz di kategori itu.
  */
 class StatusTes extends PanelController
@@ -44,11 +44,11 @@ class StatusTes extends PanelController
             }
         } catch (\Throwable $e) {
             $error = true;
-            log_message('error', 'Status Test: ' . $e->getMessage());
+            log_message('error', 'Setting Ujian: ' . $e->getMessage());
         }
 
         return $this->render('status/tes', [
-            'title'        => 'Status Test',
+            'title'        => 'Setting Ujian',
             'categories'   => $categories,
             'category'     => $category,
             'shown'        => $shown,

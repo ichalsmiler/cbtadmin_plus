@@ -14,7 +14,7 @@ class Dashboard extends PanelController
     public function index(): string
     {
         // Kartu token di atas dashboard: besar untuk pengawas (terkunci sampai absensi ruangnya hari ini
-        // disimpan), ringkas untuk admin (dengan tautan ke Status Test).
+        // disimpan), ringkas untuk admin (dengan tautan ke Setting Ujian).
         $mapel = '';
         try {
             $mapel = ActiveTest::mapelAktif();
@@ -80,7 +80,7 @@ class Dashboard extends PanelController
         }
 
         try {
-            // Hitungan submit mengikuti tes aktif (Status Test); tanpa tes aktif, semua quiz.
+            // Hitungan submit mengikuti tes aktif (Setting Ujian); tanpa tes aktif, semua quiz.
             $catId   = ActiveTest::categoryId() ?: null;
             $userIds = $ruang !== null ? Pengawas::moodleIdsInRuang($ruang, ActiveTest::sesiId() ?: null) : null;
             if ($ruang === null) {

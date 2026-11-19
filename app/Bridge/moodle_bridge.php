@@ -573,7 +573,7 @@ try {
 
         case 'create_course':
             // Mapel baru memakai bawaan course (Single activity + Quiz) dan tersembunyi sampai
-            // diaktifkan di Status Test.
+            // diaktifkan di Setting Ujian.
             require_once $CFG->dirroot . '/course/lib.php';
             $fullname  = trim((string) $in['fullname']);
             $shortname = trim((string) $in['shortname']);
@@ -594,7 +594,7 @@ try {
 
         case 'create_courses':
             // Banyak mapel sekaligus: [{category, fullname, shortname}]. Shortname yang sudah ada dilewati
-            // (dilaporkan beserta kategorinya). Tersembunyi sampai diaktifkan di Status Test.
+            // (dilaporkan beserta kategorinya). Tersembunyi sampai diaktifkan di Setting Ujian.
             require_once $CFG->dirroot . '/course/lib.php';
             foreach ((array) $in['courses'] as $c) {
                 $shortname = trim((string) $c['shortname']);
