@@ -15,7 +15,7 @@ use Config\Session as SessionConfig;
  * Tools (seperti AIOCBT):
  *  - Moodle Tools  : Daftar Test / Mapel, Cron Task, Purge / Delete Caches, Anti Submit
  *  - Info Sekolah (tools/cbtadmin): Info Sekolah, Info Kegiatan, Ganti Password (Lock login dkk. di Moodle Tools)
- *  - Lainnya       : akun panel, pengaturan panel, backup, sesi, log aktivitas
+ *  - Panel (tools/lainnya): akun panel, pengaturan panel, backup, sesi, log aktivitas
  */
 class Tools extends PanelController
 {
@@ -36,7 +36,7 @@ class Tools extends PanelController
     public const GRUP = [
         'moodle'   => ['Moodle Tools', ['cron', 'cache', 'antisubmit', 'lockres']],
         'cbtadmin' => ['Info Sekolah', ['sekolah', 'kegiatan', 'password']],
-        'lainnya'  => ['Lainnya', ['akun', 'panel', 'utilitas', 'log']],
+        'lainnya'  => ['Panel', ['akun', 'panel', 'utilitas', 'log']],
     ];
 
     /** Alamat halaman grup yang memuat bagian itu, mis. halaman('sekolah') → tools/cbtadmin#sekolah. */
