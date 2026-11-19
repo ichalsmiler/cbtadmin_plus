@@ -53,8 +53,8 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<div class="col-12 small text-muted mb-n2">Profil pimpinan: jabatan, nama, dan nomor pegawai.</div>'
             . $input('jabatan_pimpinan', 'Jabatan', $v('jabatan_pimpinan', 'Kepala Sekolah'), 'Kepala Sekolah / Kepala Madrasah', 'col-md-6')
             . $input('kepala_sekolah', 'Nama pimpinan', $v('kepala_sekolah'), 'Nama Pimpinan', 'col-md-6')
-            . $input('jenis_nomor_pimpinan', 'Jenis nomor', $v('jenis_nomor_pimpinan', 'NIP'), 'NIP / NIY / dsb', 'col-md-4')
-            . $input('nip_kepala', 'Nomor', $v('nip_kepala'), '12341234 123123 1 123', 'col-md-8')
+            . $input('jenis_nomor_pimpinan', 'Jenis nomor', $v('jenis_nomor_pimpinan', 'NIP'), 'NIP / NIY / dsb', 'col-md-6')
+            . $input('nip_kepala', 'Nomor', $v('nip_kepala'), '12341234 123123 1 123', 'col-md-6')
             . '<div class="col-md-6"><label class="form-label" for="f_logo">Logo sekolah</label><div class="d-flex align-items-center">' . $logoPrev
             . '<input class="form-control form-control-sm" type="file" id="f_logo" name="logo" accept="image/png,image/jpeg"></div>' . $hapus('logo', $hasLogo) . '</div>'
             . '<div class="col-md-6"><label class="form-label" for="f_logo2">Logo kanan kartu peserta</label><div class="d-flex align-items-center">' . $logo2Prev
