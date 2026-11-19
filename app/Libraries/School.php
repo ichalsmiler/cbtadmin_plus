@@ -60,6 +60,12 @@ class School
         return self::gambar('logo2_file');
     }
 
+    /** Logo halaman login ujian (salinan panel; yang dipakai Moodle ada di core_admin/logo). */
+    public static function logoLoginPath(): ?string
+    {
+        return self::gambar('logologin_file');
+    }
+
     /** Tanda tangan pimpinan (untuk dokumen). */
     public static function ttdPath(): ?string
     {

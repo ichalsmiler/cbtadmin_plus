@@ -89,6 +89,7 @@ class Tools extends PanelController
             'hasLogo' => School::logoPath() !== null,
             'hasTtd'  => School::ttdPath() !== null,
             'hasLogo2' => School::logo2Path() !== null,
+            'hasLogoLogin' => School::logoLoginPath() !== null,
             'admins'  => $db->table('admins')->select('id, username, nama, role, aktif, last_login')->orderBy('role')->orderBy('username')->get()->getResultArray(),
             'meId'    => (int) session()->get('admin_id'),
             'logs'    => $db->table('activity_log')->orderBy('id', 'DESC')->limit(300)->get()->getResultArray(),
@@ -198,13 +199,22 @@ class Tools extends PanelController
 
         $pesan = ['sekolah' => 'Info sekolah disimpan.', 'kegiatan' => 'Info kegiatan disimpan.', 'panel' => 'Pengaturan panel disimpan.'][$bagian];
         if ($bagian === 'sekolah') {
-            foreach (['logo' => 'Logo sekolah', 'logo2' => 'Logo kanan kartu', 'ttd' => 'Tanda tangan'] as $jenis => $label) {
+            foreach (['logo' => 'Logo sekolah', 'logo2' => 'Logo kanan kartu', 'ttd' => 'Tanda tangan', 'logologin' => 'Logo halaman login ujian'] as $jenis => $label) {
                 $hasil = $this->unggahGambar($jenis);
                 if ($hasil === false) {
                     return redirect()->to(self::halaman('sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus PNG atau JPG, maksimal 1 MB.');
                 }
                 if ($hasil !== null) {
                     $pesan .= ' ' . $label . ' ' . $hasil . '.';
+                }
+                // Logo login dipasang juga ke Moodle (Appearance → Logos → Logo) lewat jembatan.
+                if ($jenis === 'logologin' && $hasil !== null) {
+                    try {
+                        MoodleBridge::call('login_logo', $hasil === 'dihapus' ? ['hapus' => true] : ['path' => (string) School::logoLoginPath()]);
+                        $pesan .= $hasil === 'dihapus' ? ' Logo dihapus dari halaman login Moodle.' : ' Logo dipasang di halaman login Moodle.';
+                    } catch (\Throwable $e) {
+                        return redirect()->to(self::halaman('sekolah'))->with('error', 'Logo login tersimpan di panel, tetapi gagal dipasang di Moodle: ' . $e->getMessage());
+                    }
                 }
             }
         }
@@ -241,7 +251,7 @@ class Tools extends PanelController
     /** Pratinjau logo / tanda tangan di halaman Tools. */
     public function gambar(string $jenis)
     {
-        $path = match ($jenis) { 'ttd' => School::ttdPath(), 'logo2' => School::logo2Path(), default => School::logoPath() };
+        $path = match ($jenis) { 'ttd' => School::ttdPath(), 'logo2' => School::logo2Path(), 'logologin' => School::logoLoginPath(), default => School::logoPath() };
         if ($path === null) {
             return $this->response->setStatusCode(404);
         }

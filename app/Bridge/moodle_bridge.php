@@ -424,6 +424,33 @@ try {
             }
             break;
 
+        case 'login_logo':
+            // Logo halaman login (Site administration → Appearance → Logos → Logo, core_admin/logo).
+            // Masukan: path = berkas PNG/JPG yang bisa dibaca, atau hapus = true untuk mengosongkan.
+            $sys = context_system::instance();
+            $fs  = get_file_storage();
+            $fs->delete_area_files($sys->id, 'core_admin', 'logo', 0);
+            if (! empty($in['hapus'])) {
+                set_config('logo', '', 'core_admin');
+                theme_reset_all_caches();
+                $result['items'][] = ['status' => 'dihapus'];
+                break;
+            }
+            $path = (string) ($in['path'] ?? '');
+            if (! is_file($path) || ! is_readable($path)) {
+                throw new RuntimeException('Berkas logo tidak ditemukan.');
+            }
+            $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'png' ? 'png' : 'jpg';
+            $nama = 'logo-login.' . $ext;
+            $fs->create_file_from_pathname([
+                'contextid' => $sys->id, 'component' => 'core_admin', 'filearea' => 'logo',
+                'itemid'    => 0, 'filepath' => '/', 'filename' => $nama,
+            ], $path);
+            set_config('logo', '/' . $nama, 'core_admin');
+            theme_reset_all_caches();
+            $result['items'][] = ['status' => 'dipasang', 'file' => $nama];
+            break;
+
         case 'kategori_nonaktif':
             // Pastikan kategori SESI NONAKTIF ada; kembalikan id-nya.
             $result['items'][] = ['id' => cbt_kategori_nonaktif()];

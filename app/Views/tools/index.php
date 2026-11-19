@@ -52,6 +52,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
         $logoPrev = $hasLogo ? '<img src="' . site_url('tools/gambar/logo') . '?t=' . time() . '" alt="Logo" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
         $ttdPrev  = $hasTtd ? '<img src="' . site_url('tools/gambar/ttd') . '?t=' . time() . '" alt="Tanda tangan" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
         $logo2Prev = $hasLogo2 ? '<img src="' . site_url('tools/gambar/logo2') . '?t=' . time() . '" alt="Logo kanan" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
+        $loginPrev = $hasLogoLogin ? '<img src="' . site_url('tools/gambar/logologin') . '?t=' . time() . '" alt="Logo login" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
         $hapus    = static fn (string $j, bool $ada): string => $ada ? '<div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="h_' . $j . '" name="hapus_' . $j . '" value="1"><label class="form-check-label small" for="h_' . $j . '">Hapus</label></div>' : '';
         ?>
         <?= $item('cbtTools', 'sekolah', 'building', 'Info Sekolah',
@@ -70,6 +71,9 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<input class="form-control form-control-sm" type="file" id="f_logo2" name="logo2" accept="image/png,image/jpeg"></div>' . $hapus('logo2', $hasLogo2) . '</div>'
             . '<div class="col-md-6"><label class="form-label" for="f_ttd">Tanda tangan pimpinan</label><div class="d-flex align-items-center">' . $ttdPrev
             . '<input class="form-control form-control-sm" type="file" id="f_ttd" name="ttd" accept="image/png,image/jpeg"></div>' . $hapus('ttd', $hasTtd) . '</div>'
+            . '<div class="col-md-6"><label class="form-label" for="f_logologin">Logo halaman login ujian</label><div class="d-flex align-items-center">' . $loginPrev
+            . '<input class="form-control form-control-sm" type="file" id="f_logologin" name="logologin" accept="image/png,image/jpeg"></div>' . $hapus('logologin', $hasLogoLogin)
+            . '<div class="form-text">Tampil di halaman login Moodle (dipasang ke Site administration → Appearance → Logos).</div></div>'
             . '<div class="col-12 small text-muted">Tips: logo sekolah dan logo kanan kartu (mis. logo pemda / dinas) sekitar 100×100 piksel, tanda tangan sekitar 125×45 piksel (PNG berlatar transparan lebih rapi). Maksimal 1 MB.</div>'
             . '</div><button class="btn btn-success btn-sm mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
         <?= $item('cbtTools', 'kegiatan', 'calendar-event', 'Info Kegiatan',
