@@ -292,8 +292,9 @@ class callbacks {
             return;
         }
 
-        // Laci blok kanan disembunyikan (boost.scss), jadi kotak nomor soal disalin ke bawah soal
-        // (klik .qnbutton ditangani mod_quiz lewat delegasi di body).
+        // Laci blok kanan disembunyikan (boost.scss), jadi kotak nomor soal ("Daftar Soal") disalin ke bawah soal
+        // (klik .qnbutton ditangani mod_quiz lewat delegasi di body); pewaktu "Sisa waktu" dipindah ke kotak itu
+        // seperti LMS sekolah (tetap diperbarui mod_quiz lewat id-nya).
         if ($PAGE->pagetype === 'mod-quiz-attempt') {
             $judul = json_encode(get_string('quiznavigation', 'quiz'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $hook->add_html(\html_writer::script(
@@ -301,7 +302,8 @@ class callbacks {
                 . "f=document.getElementById('responseform');if(!b||!f)return;var d=document.createElement('div');d.id='cbt-nav-soal';"
                 . "var h=document.createElement('div');h.className='cbt-nav-judul';h.textContent={$judul};d.appendChild(h);"
                 . "var c=b.cloneNode(true);c.querySelectorAll('[id]').forEach(function(e){e.removeAttribute('id');});"
-                . "d.appendChild(c);f.parentNode.insertBefore(d,f.nextSibling);});"
+                . "d.appendChild(c);var tm=document.getElementById('quiz-timer-wrapper');if(tm){d.appendChild(tm);}"
+                . "f.parentNode.insertBefore(d,f.nextSibling);});"
             ));
         }
 

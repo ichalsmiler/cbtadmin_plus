@@ -26,6 +26,7 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('tools/test_manage/mapel', 'Tools::tambahMapel');
     $routes->post('tools/test_manage/mapel/hapus', 'Tools::hapusMapel');
     $routes->post('tools/test_manage/reset', 'Tools::resetMoodle');
+    $routes->post('tools/test_manage/durasi', 'Tools::durasi');
     $routes->post('tools/test_manage/reset/lanjut', 'Tools::resetLanjut');
     $routes->post('tools/test_manage/ujian/ubah', 'Tools::ubahUjian');
     $routes->post('tools/test_manage/hari', 'Tools::tambahHari');
@@ -66,6 +67,9 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('daftar_peserta/cbtadmin/export', 'Peserta::export');
     $routes->get('konvert', 'Konvert::index');
     $routes->get('jadwal_mapel', 'Konvert::jadwal');
+    $routes->get('soal', 'Soal::index');
+    $routes->post('soal/periksa', 'Soal::periksa');
+    $routes->post('soal/kirim', 'Soal::kirim');
     $routes->get('sesi_tingkat', 'SesiTingkat::index');
     $routes->post('sesi_tingkat/simpan', 'SesiTingkat::simpan');
     $routes->post('sesi_tingkat/json', 'SesiTingkat::json');

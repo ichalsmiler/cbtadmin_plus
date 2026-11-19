@@ -67,6 +67,63 @@ function cbt_clean_error(string $message): string
     return trim(preg_replace('/\s+/', ' ', preg_replace('#^error/#', '', trim($text))));
 }
 
+/**
+ * Course mapel (format Single activity = Quiz) beserta quiz-nya: quiz dibuat bila belum ada, supaya mapel langsung
+ * berbentuk quiz (tanpa guru membuka course dulu). Nama quiz = nama mapel, 1 percobaan, nilai maksimal 100,
+ * durasi pengerjaan dari masukan `timelimit` (detik, pengaturan "Durasi pengerjaan" di Kategori Mapel; 0 = tanpa batas).
+ * Mengembalikan [cm, dibuat].
+ */
+function cbt_pastikan_quiz(stdClass $course): array
+{
+    global $CFG, $DB, $in;
+    require_once $CFG->dirroot . '/course/lib.php';
+    require_once $CFG->dirroot . '/course/modlib.php';
+    // Format mapel: Single activity dengan jenis aktivitas Quiz (create_course tidak memakai bawaan situs,
+    // jadi course baru/lama ber-format lain diubah di sini).
+    $opsi = course_get_format($course)->get_format_options();
+    if ($course->format !== 'singleactivity' || ($opsi['activitytype'] ?? '') !== 'quiz') {
+        update_course((object) ['id' => (int) $course->id, 'format' => 'singleactivity', 'activitytype' => 'quiz']);
+        $course = get_course((int) $course->id);
+    }
+    // Mapel hanya berisi quiz: forum Announcements (forum jenis news) dihapus selama belum ada postingan,
+    // dan "newsitems" 0 supaya tidak dibuat lagi.
+    if ((int) $course->newsitems !== 0) {
+        $DB->set_field('course', 'newsitems', 0, ['id' => $course->id]);
+    }
+    foreach ($DB->get_records('forum', ['course' => (int) $course->id, 'type' => 'news'], '', 'id') as $forum) {
+        if (! $DB->record_exists('forum_discussions', ['forum' => $forum->id])
+            && ($cmforum = get_coursemodule_from_instance('forum', (int) $forum->id, (int) $course->id))) {
+            course_delete_module((int) $cmforum->id);
+        }
+    }
+    $cms = get_coursemodules_in_course('quiz', (int) $course->id);
+    if ($cms) {
+        return [reset($cms), false];
+    }
+    $info = (object) [
+        'modulename' => 'quiz', 'module' => (int) $DB->get_field('modules', 'id', ['name' => 'quiz']),
+        'course' => (int) $course->id, 'section' => 0, 'visible' => 1, 'visibleoncoursepage' => 1,
+        'name' => $course->fullname, 'introeditor' => ['text' => '', 'format' => FORMAT_HTML, 'itemid' => 0],
+        'cmidnumber' => '', 'groupmode' => 0, 'groupingid' => 0,
+        'quizpassword' => '', 'timeopen' => 0, 'timeclose' => 0, 'timelimit' => max(0, (int) ($in['timelimit'] ?? 0)), 'overduehandling' => 'autosubmit',
+        'graceperiod' => 0, 'attempts' => 1, 'grademethod' => QUIZ_GRADEHIGHEST, 'grade' => 100, 'sumgrades' => 0,
+        'questionsperpage' => 1, 'navmethod' => 'free', 'shuffleanswers' => 1, 'preferredbehaviour' => 'deferredfeedback',
+        'canredoquestions' => 0, 'attemptonlast' => 0, 'decimalpoints' => 2, 'questiondecimalpoints' => -1,
+        'showuserpicture' => 0, 'showblocks' => 0, 'browsersecurity' => '-', 'subnet' => '', 'delay1' => 0, 'delay2' => 0,
+        'completionminattempts' => 0, 'allowofflineattempts' => 0,
+    ];
+    foreach (['attempt', 'correctness', 'maxmarks', 'marks', 'specificfeedback', 'generalfeedback', 'rightanswer', 'overallfeedback'] as $r) {
+        foreach (['during', 'immediately', 'open', 'closed'] as $w) {
+            $info->{$r . $w} = 0;
+        }
+    }
+    $info->attemptduring = $info->attemptimmediately = $info->attemptopen = $info->attemptclosed = 1;
+    $info->marksimmediately = $info->marksopen = $info->marksclosed = 1;
+    $baru = create_module($info);
+
+    return [get_coursemodule_from_id('quiz', (int) $baru->coursemodule, (int) $course->id, false, MUST_EXIST), true];
+}
+
 $result = ['ok' => true, 'items' => []];
 
 try {
@@ -159,6 +216,43 @@ try {
             rebuild_course_cache((int) $quiz->course, true);
             quiz_update_open_attempts(['quizid' => (int) $quiz->id]);
             $result['items'][] = ['id' => (int) $quiz->id, 'status' => 'diubah'];
+            break;
+
+        case 'quiz_timelimit':
+            // Durasi pengerjaan (detik, 0 = tanpa batas) untuk semua quiz mapel, atau hanya mapel di satu kategori ujian
+            // (kategori = id kategori tingkat atas). Quiz yang sedang dikerjakan siswa dilewati supaya waktu siswa tidak
+            // berubah di tengah ujian.
+            $batas  = max(0, (int) $in['timelimit']);
+            $kat    = (int) ($in['kategori'] ?? 0);
+            $sql    = 'SELECT q.* FROM {quiz} q JOIN {course} c ON c.id = q.course JOIN {course_categories} cc ON cc.id = c.category WHERE c.id <> :site';
+            $param  = ['site' => SITEID];
+            if ($kat > 0) {
+                $sql            .= ' AND (cc.id = :kat OR ' . $DB->sql_like('cc.path', ':path') . ')';
+                $param['kat']    = $kat;
+                $param['path']   = '%/' . $kat . '/%';
+            }
+            $diubah = $sama = $berjalan = 0;
+            $kursus = [];
+            foreach ($DB->get_records_sql($sql, $param) as $quiz) {
+                if ((int) $quiz->timelimit === $batas) {
+                    $sama++;
+
+                    continue;
+                }
+                if ($DB->record_exists_select('quiz_attempts', "quiz = ? AND state IN ('inprogress', 'overdue') AND preview = 0", [$quiz->id])) {
+                    $berjalan++;
+
+                    continue;
+                }
+                $DB->set_field('quiz', 'timelimit', $batas, ['id' => $quiz->id]);
+                $DB->set_field('quiz', 'timemodified', time(), ['id' => $quiz->id]);
+                $kursus[(int) $quiz->course] = true;
+                $diubah++;
+            }
+            foreach (array_keys($kursus) as $cid) {
+                rebuild_course_cache($cid, true);
+            }
+            $result['items'][] = ['diubah' => $diubah, 'sama' => $sama, 'berjalan' => $berjalan];
             break;
 
         case 'finish_attempts':
@@ -491,7 +585,9 @@ try {
             core_course_category::get((int) $in['category'], MUST_EXIST, true);
             $course = create_course((object) [
                 'fullname' => $fullname, 'shortname' => $shortname, 'category' => (int) $in['category'], 'visible' => 0,
+                'format' => 'singleactivity', 'activitytype' => 'quiz',
             ]);
+            cbt_pastikan_quiz($course);
             $result['items'][] = ['id' => (int) $course->id, 'status' => 'dibuat'];
             break;
 
@@ -503,17 +599,24 @@ try {
                 $shortname = trim((string) $c['shortname']);
                 $item      = ['shortname' => $shortname];
                 try {
-                    $ada = $DB->get_record('course', ['shortname' => $shortname], 'id, category');
+                    if ($shortname === '') {
+                        throw new RuntimeException('Shortname kosong.');
+                    }
+                    $ada = $DB->get_record('course', ['shortname' => $shortname]);
                     if ($ada) {
                         $item += ['id' => (int) $ada->id, 'category' => (int) $ada->category, 'status' => 'sudah ada'];
+                        $course = $ada;
                     } else {
                         core_course_category::get((int) $c['category'], MUST_EXIST, true);
                         $course = create_course((object) [
                             'fullname' => trim((string) $c['fullname']) ?: $shortname, 'shortname' => $shortname,
                             'category' => (int) $c['category'], 'visible' => 0,
+                            'format' => 'singleactivity', 'activitytype' => 'quiz',
                         ]);
                         $item += ['id' => (int) $course->id, 'category' => (int) $c['category'], 'status' => 'dibuat'];
                     }
+                    // Mapel langsung berbentuk quiz; mapel lama yang belum punya quiz ikut dilengkapi.
+                    $item['quiz_baru'] = cbt_pastikan_quiz($course)[1];
                 } catch (Throwable $e) {
                     $item['error'] = cbt_clean_error($e->getMessage());
                 }
@@ -670,6 +773,66 @@ try {
                 }
                 $result['items'][] = $item;
             }
+            break;
+
+        case 'import_soal':
+            // Masukkan soal (Moodle XML) ke quiz sebuah mapel: quiz dibuat bila belum ada (course Single activity
+            // baru belum punya), soal diimpor ke bank soal quiz itu, lalu ditambahkan ke quiz.
+            // ganti = true: soal lama di quiz dilepas dulu (ditolak bila sudah ada attempt siswa).
+            require_once $CFG->dirroot . '/course/lib.php';
+            require_once $CFG->dirroot . '/course/modlib.php';
+            require_once $CFG->dirroot . '/lib/questionlib.php';
+            require_once $CFG->dirroot . '/question/format.php';
+            require_once $CFG->dirroot . '/question/format/xml/format.php';
+            $course = $DB->get_record('course', ['id' => (int) $in['courseid']], '*', MUST_EXIST);
+            if ((int) $course->id === (int) SITEID) {
+                throw new RuntimeException('Halaman depan situs bukan mapel.');
+            }
+            [$cm, $quizbaru] = cbt_pastikan_quiz($course);
+            $quizobj = \mod_quiz\quiz_settings::create((int) $cm->instance);
+            $quiz    = $quizobj->get_quiz();
+            if (! empty($in['ganti'])) {
+                if ($DB->record_exists('quiz_attempts', ['quiz' => $quiz->id, 'preview' => 0])) {
+                    throw new RuntimeException('Quiz ini sudah punya jawaban siswa; soal lama tidak bisa diganti. Pilih "Tambahkan" atau hapus attempt dulu.');
+                }
+                $structure = $quizobj->get_structure();
+                foreach (array_reverse($structure->get_slots()) as $slot) {
+                    $structure->remove_slot((int) $slot->slot);
+                }
+            }
+
+            $context  = context_module::instance((int) $cm->id);
+            $category = question_get_default_category($context->id, true);
+            $berkas   = make_request_directory() . '/soal.xml';
+            file_put_contents($berkas, (string) $in['xml']);
+            $format = new qformat_xml();
+            $format->setCategory($category);
+            $format->setContexts([$context]);
+            $format->setCourse($course);
+            $format->setFilename($berkas);
+            $format->setRealfilename('soal.xml');
+            $format->setMatchgrades('error');
+            $format->setCatfromfile(false);
+            $format->setContextfromfile(false);
+            $format->setStoponerror(true);
+            ob_start();
+            $ok = $format->importpreprocess() && $format->importprocess() && $format->importpostprocess();
+            $keluaran = trim(strip_tags((string) ob_get_clean()));
+            if (! $ok) {
+                throw new RuntimeException('Impor soal gagal: ' . mb_substr($keluaran, 0, 300));
+            }
+            $quizobj = \mod_quiz\quiz_settings::create((int) $quiz->id);
+            $quiz    = $quizobj->get_quiz();
+            foreach ($format->questionids as $qid) {
+                quiz_add_quiz_question((int) $qid, $quiz, 0);
+            }
+            quiz_repaginate_questions((int) $quiz->id, max(1, (int) $quiz->questionsperpage));
+            \mod_quiz\quiz_settings::create((int) $quiz->id)->get_grade_calculator()->recompute_quiz_sumgrades();
+            $result['items'][] = [
+                'quiz' => $quiz->name, 'cmid' => (int) $cm->id, 'quiz_baru' => $quizbaru,
+                'ditambah' => count($format->questionids),
+                'total' => (int) $DB->count_records('quiz_slots', ['quizid' => $quiz->id]),
+            ];
             break;
 
         case 'session_gc':

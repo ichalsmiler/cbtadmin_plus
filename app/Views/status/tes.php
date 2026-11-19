@@ -102,7 +102,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
             <div class="tes-bagian">
             <label class="tes-judul" for="kat_id">Tes</label>
             <p class="tes-ket">Kategori kursus Moodle yang dibuka untuk ujian.</p>
-            <select class="form-select" id="kat_id" name="kat_id" required>
+            <select class="form-select" id="kat_id" name="kat_id" required data-no-dirty>
                 <option value="">Pilih Test</option>
                 <?php foreach ($categories as $c): ?>
                     <option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === $shownId ? 'selected' : '' ?>>

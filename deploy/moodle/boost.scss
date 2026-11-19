@@ -56,10 +56,28 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 /* CBT: selesaikan kuis hanya lewat tombol di soal terakhir (tautan di navigasi soal disembunyikan) */
 #page-mod-quiz-attempt .endtestlink { display: none !important; }
 
-/* CBT: navigasi nomor soal di bawah soal (semua ukuran layar) */
-#cbt-nav-soal { clear: both; margin: 1rem 0; padding: .5rem; border: 1px solid #dee2e6; border-radius: .5rem; }
-#cbt-nav-soal .cbt-nav-judul { font-weight: 600; margin-bottom: .25rem; }
-#cbt-nav-soal .qn_buttons { display: flex; flex-wrap: wrap; gap: .25rem; margin: 0; }
+/* CBT: kotak "Daftar Soal" di bawah soal, gaya sama dengan LMS sekolah (Moodle 3.9 tema aioboost):
+   tombol 30x40, nomor di atas, warna = status (merah belum dijawab, hijau tersimpan, kuning ragu-ragu),
+   nomor yang sedang dibuka bergaris tebal; "Sisa waktu" ikut di bawah tombol. */
+#cbt-nav-soal { clear: both; margin: 1.5rem 0; padding: 1rem 0; border-top: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6; }
+#cbt-nav-soal .cbt-nav-judul { font-size: 1.05rem; font-weight: 300; margin-bottom: .75rem; }
+#cbt-nav-soal .qn_buttons { display: flex; flex-wrap: wrap; margin: 0; }
+#cbt-nav-soal .qnbutton { position: relative; display: block; float: none; width: 30px; height: 40px; min-width: 0; margin: 0 6px 6px 0;
+    padding: 0; overflow: visible; font-size: 14px; line-height: 20px; font-weight: 400; text-align: center; text-decoration: none;
+    color: #212529; background: #fff; border: 0; border-radius: 3px; box-shadow: none; }
+#cbt-nav-soal .qnbutton:hover, #cbt-nav-soal .qnbutton:focus { text-decoration: underline; }
+#cbt-nav-soal .qnbutton .thispageholder, #cbt-nav-soal .qnbutton .trafficlight { display: block; position: absolute; left: 0; right: 0; }
+#cbt-nav-soal .qnbutton .thispageholder { top: 0; bottom: 0; border: 1px solid #212529; border-radius: 3px; z-index: 1; background: none; }
+#cbt-nav-soal .qnbutton.thispage .thispageholder { border-width: 3px; }
+#cbt-nav-soal .qnbutton .trafficlight { top: 20px; height: 20px; margin: 0; border: 0; border-radius: 0 0 3px 3px; background: #fff none; }
+#cbt-nav-soal .qnbutton.notyetanswered, #cbt-nav-soal .qnbutton.notyetanswered .trafficlight,
+#cbt-nav-soal .qnbutton.invalidanswer, #cbt-nav-soal .qnbutton.invalidanswer .trafficlight { background-color: #ff7f7f; }
+#cbt-nav-soal .qnbutton.answersaved, #cbt-nav-soal .qnbutton.answersaved .trafficlight,
+#cbt-nav-soal .qnbutton.complete, #cbt-nav-soal .qnbutton.complete .trafficlight { background-color: #bdda57; }
+#cbt-nav-soal .qnbutton.flagged, #cbt-nav-soal .qnbutton.flagged .trafficlight { background-color: #ffff00; }
+#cbt-nav-soal #quiz-timer-wrapper { margin: 1rem 0 0; display: block; }
+#cbt-nav-soal #quiz-timer { margin: 0 !important; padding: 0 !important; border: 0; background: none; font-size: .92rem; }
+#cbt-nav-soal #quiz-time-left { font-weight: 700; }
 
 /* CBT: tanpa kotak info soal (nomor, status, poin maks, tandai soal) saat mengerjakan; soal selebar halaman */
 #page-mod-quiz-attempt .que .info { display: none !important; }

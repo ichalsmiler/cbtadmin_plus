@@ -234,6 +234,43 @@ foreach (['editingteacher', 'manager'] as $short) {
     }
 }
 
+// ---------------------------------------------------------------------- Cache aplikasi di Redis
+// Sesi login sudah di Redis (config.php). Cache aplikasi Moodle (MUC, mode application) juga dipindah ke Redis
+// lokal supaya halaman quiz tidak membaca cache dari disk saat ujian serentak. Dilewati bila Redis tidak berjalan.
+echo "== Cache Redis\n";
+$redisHidup = false;
+if (class_exists('Redis')) {
+    try {
+        $redis      = new Redis();
+        $redisHidup = $redis->connect('127.0.0.1', 6379, 2) && $redis->ping();
+    } catch (Throwable $e) {
+        $redisHidup = false;
+    }
+}
+if (! $redisHidup) {
+    $catatan('Redis tidak berjalan di 127.0.0.1:6379; cache tetap di berkas');
+} else {
+    $writer = \core_cache\config_writer::instance();
+    $konfig = ['server' => '127.0.0.1:6379', 'prefix' => 'mdlc_', 'password' => '', 'serializer' => Redis::SERIALIZER_PHP,
+        'compressor' => 0, 'connectiontimeout' => 3, 'encryption' => false, 'cafile' => '', 'clustermode' => false];
+    if (! array_key_exists('cbt_redis', $writer->get_all_stores())) {
+        $writer->add_store_instance('cbt_redis', 'redis', $konfig);
+        $catatan('penyimpanan cache cbt_redis dibuat');
+        $ubah++;
+    }
+    $petaApp = array_values(array_map(static fn ($m) => $m['store'], array_filter($writer->get_mode_mappings(), static fn ($m) => (int) $m['mode'] === \core_cache\store::MODE_APPLICATION)));
+    if ($petaApp !== ['cbt_redis']) {
+        $peta = [];
+        foreach ($writer->get_mode_mappings() as $m) {
+            $peta[(int) $m['mode']][] = $m['store'];
+        }
+        $peta[\core_cache\store::MODE_APPLICATION] = ['cbt_redis'];
+        $writer->set_mode_mappings($peta);
+        $catatan('cache aplikasi (bawaan) memakai Redis');
+        $ubah++;
+    }
+}
+
 // ---------------------------------------------------------------------- Selesai
 if ($ubah > 0) {
     theme_reset_all_caches();

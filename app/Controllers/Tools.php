@@ -359,6 +359,7 @@ class Tools extends PanelController
 
         return $this->render('tools/test_manage', [
             'title'    => 'Kategori Mapel',
+            'durasi'   => (int) \App\Libraries\Settings::get('durasi_menit', '90'),
             'jumlah'   => $jumlah,
             'kategori' => $kategori,
             'aktif'    => $aktif,
@@ -486,7 +487,7 @@ class Tools extends PanelController
         $urutan = [];  // kategori => [courseid] sesuai urutan kiriman (urutan sesi dari Konvert)
         foreach (array_chunk($courses, 25) as $potong) {
             try {
-                $items = MoodleBridge::call('create_courses', ['courses' => array_map(static fn ($c) => array_diff_key($c, ['kat' => 1]), $potong)]);
+                $items = MoodleBridge::call('create_courses', ['courses' => array_map(static fn ($c) => array_diff_key($c, ['kat' => 1]), $potong), 'timelimit' => self::durasiDetik()]);
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Gagal membuat mapel: ' . $e->getMessage() . ($dibuat !== [] ? ' (' . array_sum($dibuat) . ' mapel sudah sempat dibuat)' : ''));
             }
@@ -650,7 +651,7 @@ class Tools extends PanelController
         $shortname = trim((string) $this->request->getPost('shortname'));
         $back      = site_url('tools/test_manage') . '?kat=' . $kat;
         try {
-            MoodleBridge::call('create_course', ['category' => $kat, 'fullname' => mb_substr($fullname, 0, 254), 'shortname' => mb_substr($shortname, 0, 100)]);
+            MoodleBridge::call('create_course', ['category' => $kat, 'fullname' => mb_substr($fullname, 0, 254), 'shortname' => mb_substr($shortname, 0, 100), 'timelimit' => self::durasiDetik()]);
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Gagal menambah pelajaran: ' . $e->getMessage());
         }
@@ -698,6 +699,42 @@ class Tools extends PanelController
         return redirect()->to($back)->with('success', 'Mapel "' . $c['fullname'] . '" dihapus dari Moodle.');
     }
 
+    // ------------------------------------------------------------------ Durasi pengerjaan
+
+    /** Durasi pengerjaan quiz (detik) dari pengaturan Kategori Mapel; dipakai juga saat quiz baru dibuat. */
+    public static function durasiDetik(): int
+    {
+        return max(0, (int) \App\Libraries\Settings::get('durasi_menit', '90')) * 60;
+    }
+
+    /** Terapkan durasi pengerjaan ke semua mapel atau hanya mapel di ujian (kategori) yang sedang dibuka. */
+    public function durasi()
+    {
+        $menit = $this->request->getPost('menit');
+        // cakupan: 'semua' atau id kategori ujian (H1, H2, …).
+        $kat   = max(0, (int) $this->request->getPost('cakupan'));
+        $buka  = (int) $this->request->getPost('kategori');
+        $back  = site_url('tools/test_manage') . ($buka > 0 ? '?kat=' . $buka : ($kat > 0 ? '?kat=' . $kat : ''));
+        if (! is_numeric($menit) || (int) $menit < 0 || (int) $menit > 600) {
+            return redirect()->to($back)->with('error', 'Isi durasi 0–600 menit (0 = tanpa batas waktu).');
+        }
+        $menit = (int) $menit;
+        \App\Libraries\Settings::set('durasi_menit', (string) $menit);
+        try {
+            $r = MoodleBridge::call('quiz_timelimit', ['timelimit' => $menit * 60, 'kategori' => $kat])[0] ?? [];
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Durasi tersimpan, tetapi gagal diterapkan ke quiz: ' . $e->getMessage());
+        }
+        $label = $menit > 0 ? "$menit menit" : 'tanpa batas waktu';
+        ActivityLog::add('durasi_quiz', $label . ($kat > 0 ? " (kategori $kat)" : ' (semua mapel)') . ": {$r['diubah']} diubah, {$r['berjalan']} sedang dikerjakan");
+        $pesan = "Durasi pengerjaan $label diterapkan ke " . (int) $r['diubah'] . ' quiz' . ((int) $r['sama'] > 0 ? ' (' . (int) $r['sama'] . ' sudah sama)' : '') . '. Quiz baru otomatis memakai durasi ini.';
+        if ((int) $r['berjalan'] > 0) {
+            $pesan .= ' ' . (int) $r['berjalan'] . ' quiz sedang dikerjakan siswa sehingga dilewati; terapkan lagi setelah ujiannya selesai.';
+        }
+
+        return redirect()->to($back)->with((int) $r['berjalan'] > 0 ? 'error' : 'success', $pesan);
+    }
+
     // ------------------------------------------------------------------ Reset Moodle
 
     private const RESET_TAHAP = ['siswa', 'ujian', 'log'];
@@ -722,7 +759,7 @@ class Tools extends PanelController
             return redirect()->to($back)->with('error', 'Masih ada sesi ujian aktif. Nonaktifkan sesi di Status Test dulu.');
         }
         try {
-            $mengerjakan = Moodle::db()->table(Moodle::t('quiz_attempts'))->where('state', 'inprogress')->countAllResults();
+            $mengerjakan = Moodle::db()->table(Moodle::t('quiz_attempts'))->whereIn('state', ['inprogress', 'overdue'])->where('preview', 0)->countAllResults();  // pratinjau guru/admin tidak dihitung
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
         }

@@ -110,6 +110,36 @@
     </div>
 </div>
 
+<form class="card mt-4" method="post" action="<?= site_url('tools/test_manage/durasi') ?>"
+      data-confirm="Terapkan durasi pengerjaan ke quiz mapel? Quiz yang sedang dikerjakan siswa dilewati.">
+    <?= csrf_field() ?>
+    <input type="hidden" name="kategori" value="<?= $aktif ? (int) $aktif['id'] : 0 ?>">
+    <div class="card-body d-flex flex-wrap gap-3 align-items-end">
+        <div class="me-auto">
+            <div class="fw-semibold"><i class="bi bi-stopwatch me-1"></i>Durasi pengerjaan</div>
+            <div class="small text-body-secondary">Batas waktu mengerjakan setiap mapel (quiz) sejak siswa mulai. Mapel baru otomatis memakai durasi ini.
+                Sekarang: <strong><?= $durasi > 0 ? $durasi . ' menit' : 'tanpa batas' ?></strong>.</div>
+        </div>
+        <div>
+            <label class="form-label small mb-1" for="d_menit">Menit</label>
+            <div class="input-group input-group-sm" style="width:9rem">
+                <input class="form-control" type="number" id="d_menit" name="menit" min="0" max="600" required value="<?= (int) $durasi ?>">
+                <span class="input-group-text">menit</span>
+            </div>
+        </div>
+        <div>
+            <label class="form-label small mb-1" for="d_cakupan">Untuk</label>
+            <select class="form-select form-select-sm" id="d_cakupan" name="cakupan">
+                <option value="semua">Semua mapel</option>
+                <?php foreach ($kategori as $k): ?>
+                    <option value="<?= (int) $k['id'] ?>" <?= $aktif && (int) $aktif['id'] === (int) $k['id'] ? 'selected' : '' ?>>Ujian <?= esc($k['name']) ?> (<?= (int) $k['coursecount'] ?> mapel)</option>
+                <?php endforeach ?>
+            </select>
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Terapkan</button>
+    </div>
+</form>
+
 <div class="card border-danger-subtle mt-4">
     <div class="card-body d-flex flex-wrap gap-3 align-items-center">
         <div class="me-auto">

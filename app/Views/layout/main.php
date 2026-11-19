@@ -10,7 +10,7 @@ $menu = [
     ['No Attempt Check', 'file-earmark-x', 'noattempt_check'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
-    ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat']]],
+    ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Masukkan Soal', 'soal'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat']]],
     ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', 'tools'],
