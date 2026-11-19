@@ -19,9 +19,6 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
 
 <?php if ($grup === 'moodle'): ?>
     <div id="moodleTools">
-        <?= $item('moodleTools', 'testmapel', 'calendar3', 'Daftar Test / Mapel',
-            '<p class="small text-muted">Menambahkan kategori ujian (test) dan mata pelajaran di Moodle. Kategori dan mapel lalu diaktifkan di Setting Ujian.</p>'
-            . '<a class="btn btn-success btn-sm" href="' . site_url('tools/test_manage') . '"><i class="bi bi-list-task me-1"></i>Kelola Test</a>') ?>
         <?= $item('moodleTools', 'cron', 'gear', 'Cron Task',
             '<p class="small text-muted">Menjalankan cron task Moodle sekarang (mis. menutup attempt yang lewat waktu, mengirim pekerjaan tertunda). Cron juga berjalan otomatis tiap menit.</p>'
             . '<button class="btn btn-info btn-sm" type="button" data-post="' . site_url('tools/cron') . '" data-confirm-text="Jalankan cron task Moodle sekarang? Bisa memakan waktu hingga beberapa menit."><i class="bi bi-rocket-takeoff me-1"></i>Cron</button>') ?>

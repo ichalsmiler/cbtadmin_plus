@@ -34,7 +34,7 @@ class Tools extends PanelController
 
     /** Submenu Tools: satu halaman per grup, berisi semua bagiannya (id anchor = bagian). */
     public const GRUP = [
-        'moodle'   => ['Moodle Tools', ['testmapel', 'cron', 'cache', 'antisubmit']],
+        'moodle'   => ['Moodle Tools', ['cron', 'cache', 'antisubmit']],
         'cbtadmin' => ['CBTAdmin Tools', ['sekolah', 'kegiatan', 'lockres', 'password']],
         'lainnya'  => ['Lainnya', ['akun', 'panel', 'utilitas', 'log']],
     ];
