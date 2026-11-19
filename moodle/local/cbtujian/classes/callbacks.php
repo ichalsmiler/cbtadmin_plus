@@ -325,6 +325,8 @@ class callbacks {
                 $url   = json_encode((new \moodle_url('/my/courses.php'))->out(false), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 $hook->add_html(\html_writer::script(
                     "document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[role=main] > .quizattempt');"
+                    // Info kesempatan/token/waktu sudah tidak relevan setelah selesai.
+                    . "var i=document.querySelector('[role=main] > .quizinfo');if(i){i.style.display='none';}"
                     . "if(!b)return;b.innerHTML='';var d=document.createElement('div');d.className='cbt-selesai';"
                     . "var p=document.createElement('p');p.textContent={$teks};d.appendChild(p);"
                     . "var a=document.createElement('a');a.className='btn btn-primary';a.href={$url};a.textContent={$label};d.appendChild(a);"

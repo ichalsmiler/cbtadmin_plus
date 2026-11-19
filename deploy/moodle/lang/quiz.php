@@ -4,7 +4,7 @@ $string['quiznavigation'] = 'Daftar Soal';
 // Halaman awal ujian (seperti LMS sekolah): tabel Status | Review.
 $string['summaryofattempts'] = 'Informasi pengerjaan ujian';
 $string['stateinprogress'] = 'Belum submit';
-$string['statefinished'] = 'Sudah submit';
+$string['statefinished'] = 'Sudah Mengerjakan';
 $string['continueattemptquiz'] = 'Lanjutkan pengerjaan';
 $string['review'] = 'Review';
 // Tombol pindah soal (seperti LMS sekolah).

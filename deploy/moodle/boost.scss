@@ -186,3 +186,5 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 #page-mod-quiz-view .cbt-selesai p { margin-bottom: .75rem; }
 /* CBT: kolom Review kosong seperti LMS sekolah (tanpa tulisan "Reviu tidak diizinkan") */
 #page-mod-quiz-view .cbt-percobaan .noreviewmessage { display: none; }
+/* CBT: kolom Review disembunyikan (tinjauan soal memang dimatikan setelah selesai) */
+#page-mod-quiz-view .cbt-percobaan .c1 { display: none; }
