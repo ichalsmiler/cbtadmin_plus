@@ -95,11 +95,11 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
             </div>
         </div>
         <div class="card-body">
-            <table class="table table-hover align-middle w-100 datatable" data-order-col="2" data-live="<?= (int) $refresh ?>">
+            <table class="table table-hover align-middle w-100 datatable" data-order-col="1" data-live="<?= (int) $refresh ?>">
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
-                    <th>Username</th><th>Nama</th><th>Kelas</th><th>Ruang</th>
+                    <th>Nama</th><th>Kelas</th><th>Ruang</th>
                     <?php if (! $quiz): ?><th>Quiz</th><?php endif ?>
                     <th>Status</th><th>Mulai</th><th>Selesai</th><th title="Lama mengerjakan mapel ini (Selesai − Mulai); yang masih mengerjakan terus berjalan">Waktu Pengerjaan</th>
                 </tr>
@@ -108,8 +108,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                 <?php foreach ($rows as $r): ?>
                     <?php [$cls, $label] = $badges[$r['status']]; ?>
                     <tr>
-                        <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= esc($r['key'], 'attr') ?>" aria-label="Pilih <?= esc($r['username'], 'attr') ?>"></td>
-                        <td><code><?= esc($r['username']) ?></code></td>
+                        <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= esc($r['key'], 'attr') ?>" aria-label="Pilih <?= esc($r['nama'], 'attr') ?>"></td>
                         <td><?= esc($r['nama']) ?></td>
                         <td><?= esc($r['kelas']) ?></td>
                         <td><?= esc($r['ruang'] ?? '-') ?></td>
