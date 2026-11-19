@@ -302,7 +302,8 @@ class callbacks {
                 . "f=document.getElementById('responseform');if(!b||!f)return;var d=document.createElement('div');d.id='cbt-nav-soal';"
                 . "var h=document.createElement('div');h.className='cbt-nav-judul';h.textContent={$judul};d.appendChild(h);"
                 . "var c=b.cloneNode(true);c.querySelectorAll('[id]').forEach(function(e){e.removeAttribute('id');});"
-                . "d.appendChild(c);var tm=document.getElementById('quiz-timer-wrapper');if(tm){d.appendChild(tm);}"
+                . "d.appendChild(c);var tm=document.getElementById('quiz-timer-wrapper'),inf=f.querySelector('.que .info');"
+                . "if(tm){(inf||d).appendChild(tm);}"
                 . "f.parentNode.insertBefore(d,f.nextSibling);});"
             ));
         }

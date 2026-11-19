@@ -90,6 +90,11 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 #page-mod-quiz-attempt .que .info .editquestion { margin: 0; font-size: 12px; }
 #page-mod-quiz-attempt .que .info .grade,
 #page-mod-quiz-attempt .que .info > .badge { display: none !important; }
+/* Sisa waktu di ujung kanan bilah info soal (dipindah local_cbtujian), tanpa tombol Sembunyikan */
+#page-mod-quiz-attempt .que .info #quiz-timer-wrapper { display: flex; align-items: center; margin: 0 0 0 auto !important; }
+#page-mod-quiz-attempt .que .info #quiz-timer { margin: 0 !important; padding: 0 !important; border: 0; background: none; font-size: .92rem; }
+#page-mod-quiz-attempt .que .info #quiz-time-left { font-weight: 700; display: inline !important; }
+#page-mod-quiz-attempt .que .info #toggle-timer { display: none; }
 #page-mod-quiz-attempt .que { flex-direction: column; }
 #page-mod-quiz-attempt .que .info { flex: 0 0 auto; width: 100%; }
 #page-mod-quiz-attempt .que .content { margin-left: 0 !important; width: 100%; }

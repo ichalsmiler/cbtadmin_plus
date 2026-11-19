@@ -98,7 +98,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   kelas), tanpa Dasbor/Beranda/pesan/lonceng/tombol ?/filter; quiz 1 percobaan dikunci, tinjauan tanpa kunci jawaban.
 - `cbtujian` juga: menu sekunder course/quiz disembunyikan untuk yang tak punya `moodle/course:update` (hook
   `before_http_headers` → `set_secondary_navigation(false)`); laci blok kanan disembunyikan untuk siswa (body `cbt-siswa`) dan di attempt/summary
-  (boost.scss), navigasi nomor soal `.qn_buttons` disalin ke `#cbt-nav-soal` di bawah `#responseform` (awal_halaman) berjudul "Daftar Soal" (lang/quiz.php quiznavigation) dengan gaya LMS sekolah 3.9: tombol 30x40, merah #ff7f7f belum, hijau #bdda57 tersimpan, kuning ragu, nomor aktif garis 3px, `#quiz-timer-wrapper` dipindah ke kotak itu.
+  (boost.scss), navigasi nomor soal `.qn_buttons` disalin ke `#cbt-nav-soal` di bawah `#responseform` (awal_halaman) berjudul "Daftar Soal" (lang/quiz.php quiznavigation) dengan gaya LMS sekolah 3.9: tombol 30x40, merah #ff7f7f belum, hijau #bdda57 tersimpan, kuning ragu, nomor aktif garis 3px, `#quiz-timer-wrapper` dipindah ke ujung kanan bilah info soal pertama (cadangan: kotak itu).
 - Halaman soal (`mod/quiz/attempt.php`) seperti LMS sekolah: di laptop (>=992px) lebar penuh, grid 2 kolom (soal kiri dalam
   kotak, `#cbt-nav-soal` kanan 360px), di ponsel 1 kolom; bilah info abu-abu "Soal nomor N | Belum dijawab | Ragu-ragu"
   (lang question.php questionx/clickflag), tombol "Soal sebelumnya" abu-abu / "Soal berikutnya" biru (lang quiz.php).
