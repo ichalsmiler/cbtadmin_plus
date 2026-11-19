@@ -21,7 +21,7 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
 };
 ?>
 <div class="row g-4">
-    <div class="col-lg-6">
+    <div class="col-xxl-7">
         <form class="card" method="post" action="<?= site_url('sesi_tingkat/simpan') ?>">
             <?= csrf_field() ?>
             <div class="card-header fw-semibold"><i class="bi bi-clock-history me-1"></i>Sesi per tingkatan</div>
@@ -32,13 +32,13 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
                 <?php if (! $tersimpan): ?>
                     <div class="alert alert-info small py-2">Belum pernah disimpan; yang tampil adalah bawaan sekolah.</div>
                 <?php endif ?>
-                <table class="table align-middle mb-3">
+                <div class="table-responsive mb-3"><table class="table align-middle mb-0">
                     <thead><tr><th>Tingkatan</th><th style="width:6rem">Sesi</th><th>Jam ujian</th><th class="text-end">Peserta</th></tr></thead>
                     <tbody>
                     <?php foreach (\App\Libraries\Tingkat::LIST as $t): ?>
                         <tr>
                             <td><label class="form-label mb-0" for="sesi_<?= esc($t) ?>">Kelas <?= esc($t) ?></label></td>
-                            <td><input class="form-control" type="number" min="1" max="20" required id="sesi_<?= esc($t) ?>" name="sesi[<?= esc($t) ?>]" value="<?= (int) $nilai[$t] ?>"></td>
+                            <td><input class="form-control" style="width:4.5rem;min-width:4.5rem" type="number" min="1" max="20" required id="sesi_<?= esc($t) ?>" name="sesi[<?= esc($t) ?>]" value="<?= (int) $nilai[$t] ?>"></td>
                             <td>
                                 <div class="d-flex align-items-center gap-1">
                                     <?= $pilihJam('jam[' . $t . '][mulai]', $jam[$t]['mulai'], 'Kelas ' . $t . ' jam mulai') ?>
@@ -50,7 +50,7 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
                         </tr>
                     <?php endforeach ?>
                     </tbody>
-                </table>
+                </table></div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="terapkan" value="1" id="sesi_terapkan">
                     <label class="form-check-label" for="sesi_terapkan">Terapkan juga ke sesi semua peserta di Data CBTAdmin (sesi bernama "1", "2", … dibuat bila belum ada)</label>
@@ -60,7 +60,7 @@ $pilihJam = static function (string $name, string $nilai, string $label): string
         </form>
     </div>
 
-    <div class="col-lg-6">
+    <div class="col-xxl-5">
         <div class="card">
             <div class="card-header fw-semibold"><i class="bi bi-people me-1"></i>Sesi peserta saat ini (Data CBTAdmin)</div>
             <div class="table-responsive">
