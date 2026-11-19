@@ -44,10 +44,10 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
             <?= csrf_field() ?>
             <div class="col-md-9">
                 <input class="form-control form-control-lg font-monospace fw-bold text-center token-box" id="tokenValue" readonly
-                       value="<?= esc($tokenEnabled ? ($token !== '' ? $token : 'Silakan klik tombol Release') : 'Token dinonaktifkan') ?>">
+                       value="<?= esc(! $tokenEnabled ? 'Token dinonaktifkan' : ($sesiAktif === 0 ? 'Sesi nonaktif' : ($token !== '' ? $token : 'Silakan klik tombol Release'))) ?>">
             </div>
             <div class="col-md-3 d-grid">
-                <button class="btn btn-success btn-lg" type="submit" <?= $tokenEnabled && $catId ? '' : 'disabled' ?>>
+                <button class="btn btn-success btn-lg" type="submit" <?= $tokenEnabled && $catId && $sesiAktif > 0 ? '' : 'disabled' ?>>
                     <i class="bi bi-arrow-repeat me-1"></i>Release
                 </button>
             </div>

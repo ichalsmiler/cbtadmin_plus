@@ -109,7 +109,8 @@ class ActiveTest
 
     public static function token(): string
     {
-        return self::tokenEnabled() ? Settings::get('token_nilai') : '';
+        // Tanpa sesi aktif tidak ada token (semua quiz berpassword bawaan); token baru dirilis saat sesi diaktifkan.
+        return self::tokenEnabled() && self::sesiId() > 0 ? Settings::get('token_nilai') : '';
     }
 
     public static function releasedAt(): int
@@ -130,7 +131,7 @@ class ActiveTest
     /** Sudah waktunya release otomatis? */
     public static function due(): bool
     {
-        if (! self::tokenEnabled() || self::categoryId() === 0) {
+        if (! self::tokenEnabled() || self::categoryId() === 0 || self::sesiId() === 0) {
             return false;
         }
 

@@ -33,6 +33,7 @@ class Dashboard extends PanelController
             'kunci'     => $kunci,
             'sesiBelum' => $sesiBelum,
             'ringkas' => $this->isAdmin(),
+            'sesiNonaktif' => ActiveTest::sesiId() === 0,
         ];
 
         return $this->render('dashboard/index', [

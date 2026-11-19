@@ -205,7 +205,8 @@ class StatusTes extends PanelController
         if ($aksi === 'nonaktifkan') {
             $lama = ActiveTest::sesiAktif();
             Settings::set('sesi_aktif', '');
-            $message = 'Sesi ujian dinonaktifkan; semua sesi tertutup.';
+            Settings::set('token_nilai', '');  // token lama tidak berlaku; sesi berikutnya mendapat token baru
+            $message = 'Sesi ujian dinonaktifkan; semua sesi tertutup dan token dihapus.';
             // Tes aktif pindah ke kategori SESI NONAKTIF (tanpa ujian): kategori lain beserta mapelnya disembunyikan.
             try {
                 $nonaktif = ActiveTest::kategoriNonaktif();
@@ -272,6 +273,9 @@ class StatusTes extends PanelController
         if (ActiveTest::categoryId() === 0) {
             return redirect()->to(site_url('status_tes'))->with('error', 'Pilih dan simpan tes terlebih dahulu.');
         }
+        if (ActiveTest::sesiId() === 0) {
+            return redirect()->to(site_url('status_tes'))->with('error', 'Sesi nonaktif: token tidak bisa direlease. Aktifkan sesi dulu.');
+        }
         try {
             $token = ActiveTest::release();
         } catch (\Throwable $e) {
@@ -301,7 +305,7 @@ class StatusTes extends PanelController
                 ActiveTest::apply('');
                 Settings::set('token_nilai', '');
                 $message .= ' Token dinonaktifkan dan dilepas dari semua quiz.';
-            } elseif ($enabled && ActiveTest::categoryId() > 0 && ActiveTest::token() === '') {
+            } elseif ($enabled && ActiveTest::categoryId() > 0 && ActiveTest::sesiId() > 0 && ActiveTest::token() === '') {
                 $message .= ' Token: ' . ActiveTest::release() . '.';
             }
         } catch (\Throwable $e) {
