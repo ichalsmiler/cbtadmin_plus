@@ -1,6 +1,30 @@
 <?= $this->extend('layout/main') ?>
 
 <?= $this->section('content') ?>
+<?php
+// Pengingat jam ujian per tingkatan (Admin Tools → Sesi) sebelum mencetak kartu / daftar hadir.
+$jamTingkat = [];
+foreach (\App\Libraries\Tingkat::LIST as $t) {
+    $jamTingkat[$t] = \App\Libraries\Tingkat::jam($t);
+}
+$jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
+?>
+<?php if ($jamKosong !== []): ?>
+    <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert">
+        <i class="bi bi-clock-history fs-5"></i>
+        <div class="me-auto">
+            <strong>Jam ujian belum diatur</strong> untuk Kelas <?= esc(implode(', ', $jamKosong)) ?>.
+            Kartu peserta kelas itu hanya mencetak nama sesi tanpa jam.
+        </div>
+        <a class="btn btn-warning btn-sm" href="<?= site_url('sesi_tingkat') ?>"><i class="bi bi-gear me-1"></i>Atur jam di menu Sesi</a>
+    </div>
+<?php else: ?>
+    <div class="alert alert-success d-flex flex-wrap align-items-center gap-2 py-2" role="status">
+        <i class="bi bi-clock"></i>
+        <span class="me-auto">Jam ujian: <?= esc(implode(' · ', array_map(static fn ($t, $j) => "Kelas $t $j", array_keys($jamTingkat), $jamTingkat))) ?></span>
+        <a class="small" href="<?= site_url('sesi_tingkat') ?>">Ubah</a>
+    </div>
+<?php endif ?>
 <div class="row g-4">
     <div class="col-lg-7">
         <div class="card">
