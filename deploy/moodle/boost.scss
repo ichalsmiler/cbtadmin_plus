@@ -184,3 +184,5 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 /* CBT: kesempatan habis → keterangan + tombol Daftar Ujian (local_cbtujian) di tengah, di bawah tabel */
 #page-mod-quiz-view .cbt-selesai { text-align: center; padding: .5rem 0 1rem; }
 #page-mod-quiz-view .cbt-selesai p { margin-bottom: .75rem; }
+/* CBT: kolom Review kosong seperti LMS sekolah (tanpa tulisan "Reviu tidak diizinkan") */
+#page-mod-quiz-view .cbt-percobaan .noreviewmessage { display: none; }
