@@ -168,21 +168,16 @@ class StatusTes extends PanelController
 
         Settings::set('tes_kategori', (string) $catId);
         Settings::set('sesi_aktif', (string) $sesiId);
-        $message = 'Tes aktif: ' . $name . ' untuk ' . $sesi['label'] . ', ' . count($opened) . ' dari ' . count($courses) . ' mapel dibuka; course lain disembunyikan'
-            . ($hidden > 0 ? ' (' . $hidden . ' baru disembunyikan).' : '.')
-            . ($catChanged !== [] ? ' ' . count($catChanged) . ' kategori lain disembunyikan.' : '');
+        // Pesan ringkas: course lain disembunyikan, quiz lain dikunci, dan token dipasang tetap dikerjakan tanpa disebut.
+        $message = 'Tes aktif: ' . $name . ' untuk ' . $sesi['label'] . ', ' . count($opened) . ' dari ' . count($courses) . ' mapel dibuka.';
         try {
             // Quiz tes lain (termasuk tes yang sebelumnya aktif) kembali ke password bawaan.
-            $dikunci = ActiveTest::applyDefault();
-            if ($dikunci > 0) {
-                $message .= ' ' . $dikunci . ' quiz tes lain dikunci dengan password bawaan.';
-            }
+            ActiveTest::applyDefault();
             if (ActiveTest::tokenEnabled()) {
                 if (ActiveTest::token() === '') {
-                    $message .= ' Token: ' . ActiveTest::release() . '.';
+                    ActiveTest::release();
                 } else {
                     ActiveTest::sync();
-                    $message .= ' Token ' . ActiveTest::token() . ' dipasang di semua quiz.';
                 }
             }
         } catch (\Throwable $e) {
