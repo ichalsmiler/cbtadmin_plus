@@ -1,0 +1,142 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Jembatan root untuk menu Admin Tools → Server Cadangan di CBT Admin.
+ * Dipasang install.sh ke /usr/local/sbin/cbt-ha-panel; www-data boleh menjalankannya lewat sudo
+ * (/etc/sudoers.d/cbtadmin-ha) HANYA dengan argumen di bawah ini.
+ *
+ *   cbt-ha-panel status   → JSON: peran server, alamat, koneksi, replikasi, salinan file, backup
+ *   cbt-ha-panel pindah   → jalankan "ha-cadangan.sh pindah" di latar belakang (hanya di server cadangan)
+ *   cbt-ha-panel log      → JSON: isi log pindah terakhir + apakah masih berjalan
+ */
+
+const HA_DIR    = '/etc/cbt-ha';
+const ROLE_FILE = '/etc/cbt-ha-peran';
+const SKRIP     = '/usr/local/share/cbt-ha/ha-cadangan.sh';
+const LOG_FILE  = '/var/log/cbt-ha-pindah.log';
+const PID_FILE  = '/run/cbt-ha-pindah.pid';
+const BACKUP    = '/var/backups/cbt/db';
+
+function keluar(array $data, int $kode = 0): never
+{
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), "\n";
+    exit($kode);
+}
+
+function jalan(string $cmd): string
+{
+    return trim((string) shell_exec('{ ' . $cmd . '; } 2>/dev/null'));
+}
+
+/** Nilai ha.conf (format VAR="nilai"); HA_SECRET tidak pernah dikirim ke panel. */
+function bacaConf(): array
+{
+    $conf = [];
+    $file = HA_DIR . '/ha.conf';
+    if (! is_file($file)) {
+        return $conf;
+    }
+    foreach (file($file, FILE_IGNORE_NEW_LINES) as $baris) {
+        if (preg_match('/^\s*([A-Z_]+)=["\']?([^"\'#]*)["\']?/', $baris, $m) && $m[1] !== 'HA_SECRET') {
+            $conf[$m[1]] = trim($m[2]);
+        }
+    }
+
+    return $conf;
+}
+
+function berjalan(): bool
+{
+    $pid = (int) @file_get_contents(PID_FILE);
+
+    return $pid > 0 && file_exists('/proc/' . $pid);
+}
+
+$aksi = $argv[1] ?? '';
+
+if ($aksi === 'status') {
+    $conf  = bacaConf();
+    $peran = is_file(ROLE_FILE) ? trim((string) file_get_contents(ROLE_FILE)) : '';
+    $skema = static fn (string $h): string => $h === '' ? '' : (preg_match('/^[0-9.]+$/', $h) ? 'http://' : 'https://') . $h;
+
+    // Kontak ke server lain: lewat WireGuard (handshake terakhir) atau ping IP pasangan.
+    $peerIp  = $peran === 'cadangan' ? '10.77.0.1' : '10.77.0.2';
+    $kontak  = null;
+    $hs      = (int) jalan("wg show wg-cbt latest-handshakes | awk '{print \$2}' | head -1");
+    if ($hs > 0) {
+        $kontak = time() - $hs;
+    } elseif ($peran !== '') {
+        $peer = $peran === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? '');
+        foreach (array_filter([$peerIp, $peer]) as $ip) {
+            if (jalan('ping -c1 -W2 ' . escapeshellarg($ip) . ' >/dev/null && echo ok') === 'ok') {
+                $kontak = 0;
+                break;
+            }
+        }
+    }
+
+    // Replikasi database (hanya di server cadangan).
+    $repl = null;
+    $sl   = jalan('mariadb -e "SHOW SLAVE STATUS\G"');
+    if ($sl !== '') {
+        $f = static function (string $k) use ($sl): string {
+            return preg_match('/^\s*' . $k . ':\s*(.*)$/m', $sl, $m) ? trim($m[1]) : '';
+        };
+        $repl = [
+            'io'    => $f('Slave_IO_Running'),
+            'sql'   => $f('Slave_SQL_Running'),
+            'lag'   => $f('Seconds_Behind_Master'),
+            'error' => trim($f('Last_IO_Error') . ' ' . $f('Last_SQL_Error')),
+        ];
+    }
+
+    $sync = is_file(HA_DIR . '/sync-terakhir') ? time() - (int) file_get_contents(HA_DIR . '/sync-terakhir') : null;
+
+    $backup = [];
+    foreach (array_slice(glob(BACKUP . '/*.sql.gz') ?: [], -3) as $b) {
+        $backup[] = ['file' => basename($b), 'ukuran' => filesize($b), 'waktu' => filemtime($b)];
+    }
+    $backup = array_reverse($backup);
+
+    keluar([
+        'ok'              => true,
+        'terpasang'       => $conf !== [],
+        'peran'           => $peran,
+        'domain_utama'    => $conf['DOMAIN_UTAMA'] ?? '',
+        'domain_cadangan' => $conf['DOMAIN_CADANGAN'] ?? '',
+        'url_utama'       => $skema($conf['DOMAIN_UTAMA'] ?? ''),
+        'url_cadangan'    => $skema($conf['DOMAIN_CADANGAN'] ?? ''),
+        'utama_ip'        => $conf['UTAMA_IP'] ?? '',
+        'cadangan_ip'     => $conf['CADANGAN_IP'] ?? '',
+        'kontak_detik'    => $kontak,
+        'replikasi'       => $repl,
+        'sync_detik'      => $sync,
+        'backup'          => $backup,
+        'disk_kosong'     => is_dir(dirname(BACKUP)) ? (int) disk_free_space(dirname(BACKUP)) : null,
+        'pindah_berjalan' => berjalan(),
+    ]);
+}
+
+if ($aksi === 'pindah') {
+    if (trim((string) @file_get_contents(ROLE_FILE)) !== 'cadangan') {
+        keluar(['ok' => false, 'error' => 'Server ini bukan server cadangan.'], 1);
+    }
+    if (! is_file(SKRIP)) {
+        keluar(['ok' => false, 'error' => 'Skrip ' . SKRIP . ' tidak ada. Jalankan deploy ulang.'], 1);
+    }
+    if (berjalan()) {
+        keluar(['ok' => false, 'error' => 'Proses pindah sedang berjalan.'], 1);
+    }
+    file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . "] Mulai pindah dari panel CBT Admin\n");
+    $pid = jalan('YES=1 setsid nohup bash ' . escapeshellarg(SKRIP) . ' pindah >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
+    file_put_contents(PID_FILE, $pid);
+    keluar(['ok' => true, 'pid' => (int) $pid]);
+}
+
+if ($aksi === 'log') {
+    $isi = is_file(LOG_FILE) ? (string) file_get_contents(LOG_FILE) : '';
+    $isi = preg_replace('/\e\[[0-9;]*m/', '', $isi);  // buang kode warna terminal
+    keluar(['ok' => true, 'berjalan' => berjalan(), 'log' => mb_substr($isi, -20000)]);
+}
+
+keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | log'], 1);

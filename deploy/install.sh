@@ -199,6 +199,20 @@ if ! nginx -t; then
     die "Konfigurasi Nginx tidak valid; perubahan dibatalkan."
 fi
 systemctl reload nginx
+
+# Menu Admin Tools → Server Cadangan: skrip HA + jembatan root yang boleh dijalankan panel (www-data)
+# lewat sudo, hanya dengan argumen status | pindah | log.
+if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
+    install -d -m 755 /usr/local/share/cbt-ha
+    install -m 755 "$SRC/deploy/ha/ha-utama.sh" "$SRC/deploy/ha/ha-cadangan.sh" /usr/local/share/cbt-ha/
+    install -m 644 "$SRC/deploy/ha/ha.conf.contoh" /usr/local/share/cbt-ha/
+    install -m 755 "$SRC/deploy/ha/cbt-ha-panel" /usr/local/sbin/cbt-ha-panel
+    printf '%s\n' '# Panel CBT Admin: menu Server Cadangan (dibuat oleh install.sh)' \
+        'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel log' \
+        > /etc/sudoers.d/cbtadmin-ha
+    chmod 440 /etc/sudoers.d/cbtadmin-ha
+    visudo -cf /etc/sudoers.d/cbtadmin-ha >/dev/null || { rm -f /etc/sudoers.d/cbtadmin-ha; echo "[PERINGATAN] sudoers Server Cadangan tidak valid, dilewati."; }
+fi
 # Kosongkan OPcache supaya kode baru langsung dipakai.
 systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
 sleep 1

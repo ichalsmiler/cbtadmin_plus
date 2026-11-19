@@ -69,6 +69,11 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('soal/periksa', 'Soal::periksa');
     $routes->post('soal/kirim', 'Soal::kirim');
     $routes->get('sesi_tingkat', 'SesiTingkat::index');
+    $routes->get('server_cadangan', 'ServerCadanganPanel::index');
+    $routes->post('server_cadangan/simpan', 'ServerCadanganPanel::simpan');
+    $routes->get('server_cadangan/unduh', 'ServerCadanganPanel::unduh');
+    $routes->post('server_cadangan/pindah', 'ServerCadanganPanel::pindah');
+    $routes->get('server_cadangan/log', 'ServerCadanganPanel::log');
     $routes->post('sesi_tingkat/simpan', 'SesiTingkat::simpan');
     $routes->post('sesi_tingkat/json', 'SesiTingkat::json');
     $routes->get('konvert/app', 'Konvert::app');

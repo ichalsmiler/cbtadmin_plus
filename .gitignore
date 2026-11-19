@@ -5,3 +5,6 @@ writable/
 *.sql
 *.xlsx
 *.pdf
+
+# Konfigurasi HA berisi rahasia (HA_SECRET)
+deploy/ha/ha.conf

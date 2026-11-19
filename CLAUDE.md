@@ -115,6 +115,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Nilai quiz skala 0–100: `quiz/maximumgrade`=100 dan setiap quiz dengan grade ≠ 100 diubah ke 100 lewat
   `grade_calculator::update_quiz_maximum_grade` (setelan.php; jalankan ulang setelah guru membuat quiz).
 ## Lain-lain
+- Admin Tools → Server Cadangan (`server_cadangan` → `ServerCadanganPanel`, `Libraries/ServerCadangan`): pengaturan ha.conf di settings `ha_*` + Unduh ha.conf, status peran/hubungan/replikasi/salinan/backup, tombol PINDAH (hanya di server cadangan) → jembatan root `/usr/local/sbin/cbt-ha-panel status|pindah|log` (sumber `deploy/ha/cbt-ha-panel`, dipasang install.sh + `/etc/sudoers.d/cbtadmin-ha` + skrip di `/usr/local/share/cbt-ha/`; deploy.sh ikut mengirim deploy/ha). Rencana: utama Proxmox sekolah (MikroTik IP publik), cadangan VPS, dua alamat berbeda, pindah manual.
 - `deploy/install-moodle.sh` (server baru, `ZONA_WAKTU`), `deploy/install.sh` (panel; dilewati migrasi di cadangan HA),
   `deploy/ha/` (replikasi MariaDB + rsync; dua IP LAN → langsung, ada IP publik → WireGuard 10.77.0.x;
   mode campuran utama LAN + cadangan VPS: peer ber-IP lokal tanpa Endpoint (`ip_lokal`), skema http/https per server; `/etc/cbt-ha-peran`).
