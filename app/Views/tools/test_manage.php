@@ -168,7 +168,7 @@
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="tahap[]" value="ujian" id="rm_ujian" checked>
-                    <label class="form-check-label" for="rm_ujian">Hapus semua ujian: mapel, soal, jawaban, nilai<?= $jumlah ? ' <span class="text-body-secondary">(' . (int) $jumlah['mapel'] . ' mapel, ' . (int) $jumlah['kategori'] . ' kategori; 1 kategori disisakan)</span>' : '' ?></label>
+                    <label class="form-check-label" for="rm_ujian">Hapus semua ujian: mapel, soal, jawaban, nilai<?= $jumlah ? ' <span class="text-body-secondary">(' . (int) $jumlah['mapel'] . ' mapel, ' . (int) $jumlah['kategori'] . ' kategori; kategori SESI NONAKTIF disisakan)</span>' : '' ?></label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="tahap[]" value="log" id="rm_log" checked>

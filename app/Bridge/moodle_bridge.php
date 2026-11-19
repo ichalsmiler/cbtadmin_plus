@@ -73,6 +73,27 @@ function cbt_clean_error(string $message): string
  * durasi pengerjaan dari masukan `timelimit` (detik, pengaturan "Durasi pengerjaan" di Kategori Mapel; 0 = tanpa batas).
  * Mengembalikan [cm, dibuat].
  */
+/** Nama kategori tetap "tanpa ujian": tes aktif saat semua sesi nonaktif, disisakan saat reset, tidak bisa dihapus/diganti nama. */
+const CBT_KAT_NONAKTIF = 'SESI NONAKTIF';
+
+function cbt_kategori_nonaktif_kah(string $name): bool
+{
+    return core_text::strtoupper(trim($name)) === CBT_KAT_NONAKTIF;
+}
+
+/** Id kategori SESI NONAKTIF (tingkat atas); dibuat bila belum ada. */
+function cbt_kategori_nonaktif(): int
+{
+    global $DB;
+    foreach ($DB->get_records('course_categories', ['parent' => 0], 'id', 'id, name') as $c) {
+        if (cbt_kategori_nonaktif_kah((string) $c->name)) {
+            return (int) $c->id;
+        }
+    }
+
+    return (int) core_course_category::create(['name' => CBT_KAT_NONAKTIF, 'parent' => 0])->id;
+}
+
 function cbt_pastikan_quiz(stdClass $course): array
 {
     global $CFG, $DB, $in;
@@ -403,6 +424,11 @@ try {
             }
             break;
 
+        case 'kategori_nonaktif':
+            // Pastikan kategori SESI NONAKTIF ada; kembalikan id-nya.
+            $result['items'][] = ['id' => cbt_kategori_nonaktif()];
+            break;
+
         case 'category_visibility':
             // Hanya kategori tes aktif (beserta induk dan subkategorinya) yang tampil; kategori lain disembunyikan.
             // Kategori ditampilkan dulu, baru disembunyikan, supaya induk tes aktif tidak ikut tertutup.
@@ -511,6 +537,9 @@ try {
             if ((int) $cat->parent !== 0) {
                 throw new RuntimeException('Hanya kategori ujian tingkat atas yang bisa dihapus dari panel.');
             }
+            if (cbt_kategori_nonaktif_kah((string) $cat->name)) {
+                throw new RuntimeException('Kategori ' . CBT_KAT_NONAKTIF . ' wajib ada (dipakai saat semua sesi nonaktif) dan tidak bisa dihapus.');
+            }
             if ((int) $DB->count_records('course_categories', ['parent' => 0]) <= 1) {
                 throw new RuntimeException('Moodle wajib punya minimal satu kategori; buat kategori lain dulu.');
             }
@@ -540,7 +569,8 @@ try {
             $ubah = [];
             foreach ((array) $in['renames'] as $r) {
                 $cat = core_course_category::get((int) $r['id'], MUST_EXIST, true);
-                if ((int) $cat->parent !== 0 || trim((string) $r['name']) === '') {
+                if ((int) $cat->parent !== 0 || trim((string) $r['name']) === '' || cbt_kategori_nonaktif_kah((string) $cat->name)
+                        || cbt_kategori_nonaktif_kah((string) $r['name'])) {
                     throw new RuntimeException('Kategori ' . (int) $r['id'] . ' tidak bisa diganti namanya.');
                 }
                 $ubah[] = [$cat, trim((string) $r['name'])];
@@ -563,6 +593,9 @@ try {
             $cat = core_course_category::get((int) $in['id'], MUST_EXIST, true);
             if ((int) $cat->parent !== 0) {
                 throw new RuntimeException('Hanya kategori ujian tingkat atas yang bisa diubah dari panel.');
+            }
+            if (cbt_kategori_nonaktif_kah((string) $cat->name) || cbt_kategori_nonaktif_kah($name)) {
+                throw new RuntimeException('Nama ' . CBT_KAT_NONAKTIF . ' khusus untuk kategori tanpa ujian dan tidak bisa diubah/dipakai.');
             }
             if ($DB->record_exists_select('course_categories', 'name = ? AND parent = 0 AND id <> ?', [$name, (int) $cat->id])) {
                 throw new RuntimeException('Ujian "' . $name . '" sudah ada.');
@@ -698,9 +731,12 @@ try {
                         }
                     }
                     if ($sisa === 0) {
-                        // Mapel sudah habis: hapus kategori (kosong). Kategori tingkat atas ber-id terkecil disisakan.
-                        $atas  = $DB->get_fieldset_select('course_categories', 'id', 'parent = 0', null, 'id');
-                        $sisakan = (int) array_shift($atas);
+                        // Mapel sudah habis: hapus kategori (kosong). Kategori SESI NONAKTIF disisakan (dibuat bila belum ada).
+                        $sisakan = cbt_kategori_nonaktif();
+                        $atas    = array_values(array_diff(
+                            array_map('intval', $DB->get_fieldset_select('course_categories', 'id', 'parent = 0', null, 'id')),
+                            [$sisakan]
+                        ));
                         foreach ($DB->get_fieldset_select('course_categories', 'id', 'parent = ?', [$sisakan]) as $sub) {
                             core_course_category::get((int) $sub, MUST_EXIST, true)->delete_full(false);
                         }

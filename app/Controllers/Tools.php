@@ -399,7 +399,7 @@ class Tools extends PanelController
         }
 
         try {
-            $rencana = self::rencanaHari(array_values(array_filter(Moodle::categories(), static fn ($c) => (int) $c['parent'] === 0)), $target, $awalan, $mulai);
+            $rencana = self::rencanaHari(array_values(array_filter(Moodle::categories(), static fn ($c) => (int) $c['parent'] === 0 && ! \App\Libraries\ActiveTest::isNonaktif($c['name']))), $target, $awalan, $mulai);
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Hari ujian tidak dibuat: ' . $e->getMessage());
         }
@@ -600,6 +600,9 @@ class Tools extends PanelController
         if ($kat === null) {
             return redirect()->to($back)->with('error', 'Ujian tidak ditemukan.');
         }
+        if (\App\Libraries\ActiveTest::isNonaktif($kat['name'])) {
+            return redirect()->to($back . '?kat=' . $id)->with('error', 'Kategori ' . \App\Libraries\ActiveTest::NAMA_NONAKTIF . ' wajib ada (dipakai saat semua sesi nonaktif) dan tidak bisa dihapus.');
+        }
         if ($id === \App\Libraries\ActiveTest::categoryId()) {
             return redirect()->to($back . '?kat=' . $id)->with('error', 'Ujian "' . $kat['name'] . '" sedang dipakai sebagai tes aktif di Setting Ujian. Pilih tes lain dulu.');
         }
@@ -634,6 +637,9 @@ class Tools extends PanelController
             }
             if ($nama === $lama) {
                 return redirect()->to($back)->with('success', 'Nama ujian tidak berubah.');
+            }
+            if (\App\Libraries\ActiveTest::isNonaktif($lama) || \App\Libraries\ActiveTest::isNonaktif($nama)) {
+                return redirect()->to($back)->with('error', 'Nama ' . \App\Libraries\ActiveTest::NAMA_NONAKTIF . ' khusus untuk kategori tanpa ujian dan tidak bisa diubah/dipakai.');
             }
             MoodleBridge::call('update_category', ['id' => $id, 'name' => mb_substr($nama, 0, 255)]);
         } catch (\Throwable $e) {
@@ -826,7 +832,12 @@ class Tools extends PanelController
         // Selesai: tes aktif menunjuk kategori yang sudah dihapus; akun Moodle siswa sudah tidak ada.
         $db = db_connect();
         if (isset($job['hasil']['ujian'])) {
-            \App\Libraries\Settings::set('tes_kategori', '0');
+            // Yang tersisa hanya kategori SESI NONAKTIF: jadikan tes aktif (tanpa ujian).
+            try {
+                \App\Libraries\Settings::set('tes_kategori', (string) \App\Libraries\ActiveTest::kategoriNonaktif());
+            } catch (\Throwable $e) {
+                \App\Libraries\Settings::set('tes_kategori', '0');
+            }
         }
         if (isset($job['hasil']['siswa'])) {
             $db->table('peserta')->update(['moodle_userid' => null]);

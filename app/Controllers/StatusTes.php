@@ -120,6 +120,9 @@ class StatusTes extends PanelController
         if ($name === null) {
             return redirect()->to(site_url('status_tes'))->with('error', 'Pilih tes (kategori) terlebih dahulu.');
         }
+        if (ActiveTest::isNonaktif($name)) {
+            return redirect()->to($back)->with('error', ActiveTest::NAMA_NONAKTIF . ' tidak berisi ujian dan dipilih otomatis saat sesi dinonaktifkan. Pilih tes (hari ujian) lain.');
+        }
 
         // Hanya mapel yang dicentang di kategori ini yang tampil di Moodle; semua course lain,
         // termasuk di kategori lain, disembunyikan dari peserta.
@@ -202,6 +205,15 @@ class StatusTes extends PanelController
             $lama = ActiveTest::sesiAktif();
             Settings::set('sesi_aktif', '');
             $message = 'Sesi ujian dinonaktifkan; semua sesi tertutup.';
+            // Tes aktif pindah ke kategori SESI NONAKTIF (tanpa ujian): kategori lain beserta mapelnya disembunyikan.
+            try {
+                $nonaktif = ActiveTest::kategoriNonaktif();
+                Settings::set('tes_kategori', (string) $nonaktif);
+                MoodleBridge::call('category_visibility', ['active' => $nonaktif]);
+                $message .= ' Tes aktif: ' . ActiveTest::NAMA_NONAKTIF . ' (tanpa ujian); semua kategori ujian disembunyikan.';
+            } catch (\Throwable $e) {
+                $message .= ' Tetapi kategori ' . ActiveTest::NAMA_NONAKTIF . ' gagal dipilih: ' . $e->getMessage();
+            }
             try {
                 $n = ActiveTest::applyDefault();
                 $message .= $n > 0 ? ' ' . $n . ' quiz dikunci dengan password bawaan.' : ' Semua quiz sudah berpassword bawaan.';
@@ -223,8 +235,18 @@ class StatusTes extends PanelController
         if ($sesi === null) {
             return redirect()->to(site_url('status_tes'))->with('error', 'Pilih sesi yang akan diaktifkan.');
         }
-        if (ActiveTest::categoryId() === 0) {
-            return redirect()->to(site_url('status_tes') . '?sesi=' . $sesiId)->with('error', 'Belum ada tes aktif. Pilih tes dan mapel, lalu klik Simpan.');
+        $tesAktif = null;
+        try {
+            foreach (Moodle::categories() as $c) {
+                if ((int) $c['id'] === ActiveTest::categoryId()) {
+                    $tesAktif = $c;
+                }
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to(site_url('status_tes'))->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if ($tesAktif === null || ActiveTest::isNonaktif($tesAktif['name'])) {
+            return redirect()->to(site_url('status_tes') . '?sesi=' . $sesiId)->with('error', 'Belum ada tes aktif. Pilih tes (hari ujian) dan mapel, lalu klik Simpan.');
         }
         Settings::set('sesi_aktif', (string) $sesiId);
         $message = $sesi['label'] . ' diaktifkan.';

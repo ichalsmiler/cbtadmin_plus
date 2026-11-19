@@ -28,6 +28,20 @@ class ActiveTest
         return (int) Settings::get('tes_kategori', '0');
     }
 
+    /** Kategori Moodle tanpa ujian: jadi tes aktif saat semua sesi nonaktif; disisakan saat Reset Moodle. */
+    public const NAMA_NONAKTIF = 'SESI NONAKTIF';
+
+    public static function isNonaktif(?string $nama): bool
+    {
+        return mb_strtoupper(trim((string) $nama)) === self::NAMA_NONAKTIF;
+    }
+
+    /** Id kategori SESI NONAKTIF di Moodle (dibuat jembatan bila belum ada). */
+    public static function kategoriNonaktif(): int
+    {
+        return (int) MoodleBridge::call('kategori_nonaktif', [])[0]['id'];
+    }
+
     /** Sesi yang sedang ujian (wajib dipilih saat mengaktifkan tes), 0 = belum dipilih. */
     public static function sesiId(): int
     {
