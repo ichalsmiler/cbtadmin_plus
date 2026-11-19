@@ -148,3 +148,36 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 #page-mod-quiz-view .quizstartbuttondiv .btn { background: #ced4da; border-color: #ced4da; color: #212529; border-radius: 0; }
 #page-mod-quiz-view .quizstartbuttondiv .btn:hover,
 #page-mod-quiz-view .quizstartbuttondiv .btn:focus { background: #b8c1ca; border-color: #b1bbc4; color: #212529; }
+
+/* CBT: halaman Selesaikan ujian (mod/quiz/summary.php) seperti LMS sekolah: tanpa judul, tabel status soal, dan tombol
+   Kembali; di tengah hanya "Sisa waktu", keterangan selesai otomatis, tombol abu-abu Kirim Jawaban; Daftar Soal di kanan
+   (#cbt-nav-soal dari local_cbtujian). */
+#page-mod-quiz-summary.limitedwidth .main-inner,
+#page-mod-quiz-summary .header-maxwidth { max-width: none !important; }
+#page-mod-quiz-summary [role="main"] > .tertiary-navigation,
+#page-mod-quiz-summary [role="main"] > h2,
+#page-mod-quiz-summary [role="main"] > h3,
+#page-mod-quiz-summary [role="main"] > .table-responsive,
+#page-mod-quiz-summary [role="main"] > .table-responsive + .submitbtns,
+#page-mod-quiz-summary #toggle-timer { display: none !important; }
+#page-mod-quiz-summary #quiz-timer-wrapper { justify-content: center; margin: 1.5rem 0 .5rem !important; }
+#page-mod-quiz-summary #quiz-timer { margin: 0 !important; padding: 0 !important; border: 0; background: none; }
+#page-mod-quiz-summary #quiz-time-left { font-weight: 700; display: inline !important; }
+#page-mod-quiz-summary .btn-finishattempt { margin-top: .75rem; }
+#page-mod-quiz-summary .btn-finishattempt .btn { background: #ced4da; border-color: #ced4da; color: #212529; border-radius: 0; }
+#page-mod-quiz-summary .btn-finishattempt .btn:hover,
+#page-mod-quiz-summary .btn-finishattempt .btn:focus { background: #b8c1ca; border-color: #b1bbc4; color: #212529; }
+#page-mod-quiz-summary [role="main"] > .submitbtns { padding-bottom: 1.5rem; }
+#page-mod-quiz-summary #cbt-nav-soal { margin: 1.5rem 0; padding: 1rem 0; border-top: 1px solid #dee2e6; }
+@media (min-width: 992px) {
+    #page-mod-quiz-summary [role="main"] { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto 1fr; column-gap: 1rem; align-items: start; }
+    #page-mod-quiz-summary [role="main"] > #quiz-timer-wrapper + .submitbtns { align-self: stretch; }
+    #page-mod-quiz-summary [role="main"] > * { grid-column: 1; }
+    #page-mod-quiz-summary [role="main"] > #quiz-timer-wrapper { grid-row: 1; margin: 0 !important; padding: 1.5rem 20px .5rem;
+        border: 1px solid rgba(0, 0, 0, .125); border-bottom: 0; background: #fff; }
+    #page-mod-quiz-summary [role="main"] > #quiz-timer-wrapper + .submitbtns { grid-row: 2; margin: 0; padding: 0 20px 1.5rem;
+        border: 1px solid rgba(0, 0, 0, .125); border-top: 0; background: #fff; }
+    #page-mod-quiz-summary [role="main"] > #cbt-nav-soal { grid-column: 2; grid-row: 1 / span 2; margin: 0;
+        padding: 1rem; background: #fff; border: 1px solid rgba(0, 0, 0, .125); }
+    #page-mod-quiz-summary #cbt-nav-soal .cbt-nav-judul { font-size: 1.17rem; font-weight: 400; }
+}

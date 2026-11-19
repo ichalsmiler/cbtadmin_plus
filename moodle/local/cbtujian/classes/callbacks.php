@@ -295,14 +295,18 @@ class callbacks {
         // Laci blok kanan disembunyikan (boost.scss), jadi kotak nomor soal ("Daftar Soal") disalin ke bawah soal
         // (klik .qnbutton ditangani mod_quiz lewat delegasi di body); pewaktu "Sisa waktu" dipindah ke kotak itu
         // seperti LMS sekolah (tetap diperbarui mod_quiz lewat id-nya).
-        if ($PAGE->pagetype === 'mod-quiz-attempt') {
+        // Halaman Selesaikan ujian (summary) juga mendapat kotak Daftar Soal di kanan (seperti LMS sekolah);
+        // pewaktu di sana tetap di tengah halaman.
+        if ($PAGE->pagetype === 'mod-quiz-attempt' || $PAGE->pagetype === 'mod-quiz-summary') {
             $judul = json_encode(get_string('quiznavigation', 'quiz'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $hook->add_html(\html_writer::script(
                 "document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('#mod_quiz_navblock .qn_buttons'),"
-                . "f=document.getElementById('responseform');if(!b||!f)return;var d=document.createElement('div');d.id='cbt-nav-soal';"
+                . "f=document.getElementById('responseform'),m=document.querySelector('[role=main]');if(!b||!(f||m))return;"
+                . "var d=document.createElement('div');d.id='cbt-nav-soal';"
                 . "var h=document.createElement('div');h.className='cbt-nav-judul';h.textContent={$judul};d.appendChild(h);"
-                . "var c=b.cloneNode(true);c.querySelectorAll('[id]').forEach(function(e){e.removeAttribute('id');});"
-                . "d.appendChild(c);var tm=document.getElementById('quiz-timer-wrapper'),inf=f.querySelector('.que .info');"
+                . "var c=b.cloneNode(true);c.querySelectorAll('[id]').forEach(function(e){e.removeAttribute('id');});d.appendChild(c);"
+                . "if(!f){m.appendChild(d);return;}"
+                . "var tm=document.getElementById('quiz-timer-wrapper'),inf=f.querySelector('.que .info');"
                 . "if(tm){(inf||d).appendChild(tm);}"
                 . "f.parentNode.insertBefore(d,f.nextSibling);});"
             ));

@@ -10,3 +10,11 @@ $string['review'] = 'Review';
 // Tombol pindah soal (seperti LMS sekolah).
 $string['navigateprevious'] = 'Soal sebelumnya';
 $string['navigatenext'] = 'Soal berikutnya';
+// Halaman Selesaikan ujian (summary) seperti LMS sekolah: Sisa waktu, keterangan selesai otomatis, tombol Kirim Jawaban.
+$string['endtest'] = 'Selesaikan ujian';
+$string['finishattemptdots'] = 'Selesaikan ujian';
+$string['summaryofattempt'] = 'Ringkasan Ujian';
+$string['timeleft'] = 'Sisa waktu';
+$string['mustbesubmittedby'] = 'Ujian akan selesai secara otomatis pada {$a}';
+$string['submitallandfinish'] = 'Kirim Jawaban';
+$string['returnattempt'] = 'Kembali ke soal';

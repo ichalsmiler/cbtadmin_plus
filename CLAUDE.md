@@ -102,6 +102,9 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Halaman soal (`mod/quiz/attempt.php`) seperti LMS sekolah: di laptop (>=992px) lebar penuh, grid 2 kolom (soal kiri dalam
   kotak, `#cbt-nav-soal` kanan 360px), di ponsel 1 kolom; bilah info abu-abu "Soal nomor N | Belum dijawab | Ragu-ragu"
   (lang question.php questionx/clickflag), tombol "Soal sebelumnya" abu-abu / "Soal berikutnya" biru (lang quiz.php).
+- Halaman Selesaikan ujian (`mod/quiz/summary.php`) seperti LMS: judul/tabel status/Kembali disembunyikan, tengah = Sisa waktu +
+  "Ujian akan selesai secara otomatis pada …" + tombol abu-abu "Kirim Jawaban", Daftar Soal kanan (JS cbtujian juga di summary);
+  tombol soal terakhir "Selesaikan ujian" (lang quiz.php endtest).
 - Halaman awal ujian (`mod/quiz/view.php`) meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
   untuk memulai ujian", "Waktu mengerjakan : …" (lang quizaccess_numattempts/password/timelimit, `min(s)`=menit), kartu
   percobaan diganti tabel `.cbt-percobaan` Status | Review oleh JS di `cbtujian` awal_halaman, urutan/kotak/tombol abu-abu
