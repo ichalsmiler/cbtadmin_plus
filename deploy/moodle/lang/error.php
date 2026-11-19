@@ -1,4 +1,5 @@
 <?php
 // Kustomisasi CBT (dipasang oleh deploy/setelan-moodle.sh ke lang/id_local dan lang/en_local).
-// Pesan saat sesi berakhir; dengan "satu akun satu perangkat" penyebabnya biasanya login di perangkat lain.
-$string['sessionerroruser'] = 'Akun Anda sedang login di tempat lain. Silakan login kembali.';
+// Pesan saat sesi berakhir. Moodle memakai pesan yang sama untuk sesi habis (lama tidak aktif) maupun sesi
+// yang diputus karena akun login di perangkat lain, jadi kalimatnya dibuat umum.
+$string['sessionerroruser'] = 'Sesi login Anda habis. Silakan login kembali.';
