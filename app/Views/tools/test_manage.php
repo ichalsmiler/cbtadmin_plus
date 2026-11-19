@@ -174,10 +174,8 @@
                     <input class="form-check-input" type="checkbox" name="tahap[]" value="log" id="rm_log" checked>
                     <label class="form-check-label" for="rm_log">Kosongkan log Moodle<?= $jumlah ? ' <span class="text-body-secondary">(' . number_format((int) $jumlah['log'], 0, ',', '.') . ' baris)</span>' : '' ?></label>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="panel" value="1" id="rm_panel">
-                    <label class="form-check-label" for="rm_panel">Kosongkan juga data peserta panel (peserta, absensi, blokir; ruang dan sesi tetap)</label>
-                </div>
+                <p class="small text-body-secondary mt-2 mb-0">Data peserta panel (peserta, absensi, blokir) tidak ikut terhapus. Kosongkan lewat
+                    Daftar Peserta → <a href="<?= site_url('daftar_peserta/cbtadmin') ?>">Data CBTAdmin</a> → Reset Peserta.</p>
                 <label class="form-label mt-3" for="rm_konfirmasi">Ketik <code>RESET MOODLE</code> untuk mengonfirmasi</label>
                 <input class="form-control" id="rm_konfirmasi" name="konfirmasi" required>
                 <p class="small text-body-secondary mt-2 mb-0">Ditolak bila masih ada sesi ujian aktif atau siswa yang sedang mengerjakan. Proses berjalan bertahap; jangan tutup halaman sampai selesai.</p>

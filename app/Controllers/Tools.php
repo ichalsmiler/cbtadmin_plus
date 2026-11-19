@@ -785,8 +785,8 @@ class Tools extends PanelController
             return redirect()->to($back)->with('error', 'Ketik RESET MOODLE (huruf kapital) untuk mengonfirmasi.');
         }
         $opsi = array_values(array_intersect(self::RESET_TAHAP, (array) $this->request->getPost('tahap')));
-        $panel = $this->request->getPost('panel') === '1';
-        if ($opsi === [] && ! $panel) {
+        // Data peserta panel (peserta, absensi, blokir) dikosongkan lewat Daftar Peserta → Reset Peserta, bukan di sini.
+        if ($opsi === []) {
             return redirect()->to($back)->with('error', 'Centang minimal satu data yang akan dihapus.');
         }
         if (\App\Libraries\ActiveTest::sesiId() > 0) {
@@ -806,11 +806,10 @@ class Tools extends PanelController
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Reset dibatalkan karena backup gagal: ' . $e->getMessage());
         }
-        ActivityLog::add('reset_moodle', 'mulai: ' . implode(', ', $opsi) . ($panel ? ', panel' : '') . '; backup ' . implode(', ', array_map('basename', $berkas)));
+        ActivityLog::add('reset_moodle', 'mulai: ' . implode(', ', $opsi) . '; backup ' . implode(', ', array_map('basename', $berkas)));
         session()->set('reset_moodle', [
             'tahap'  => $opsi,
             'guru'   => $this->request->getPost('simpan_guru') === '1',
-            'panel'  => $panel,
             'hasil'  => [],
             'backup' => array_map('basename', $berkas),
         ]);
@@ -870,29 +869,13 @@ class Tools extends PanelController
         if (isset($job['hasil']['siswa'])) {
             $db->table('peserta')->update(['moodle_userid' => null]);
         }
-        $panel = '';
-        if ($job['panel']) {
-            if (! isset($job['hasil']['siswa'])) {
-                // Siswa yang diblokir tetap ada di Moodle: buka blokirnya dulu supaya tidak terkunci selamanya.
-                $ids = array_map('intval', array_column(Moodle::db()->table(Moodle::t('user'))->select('id')
-                    ->where('deleted', 0)->where('suspended', 1)->get()->getResultArray(), 'id'));
-                if ($ids !== []) {
-                    MoodleBridge::call('suspend_users', ['userids' => $ids, 'suspend' => false]);
-                }
-            }
-            $jumlah = $db->table('peserta')->countAllResults();
-            $db->table('absensi')->emptyTable();
-            $db->table('blokir')->emptyTable();
-            $db->table('peserta')->emptyTable();
-            $panel = ", $jumlah peserta panel";
-        }
         try {
             MoodleBridge::call('purge_caches', []);
         } catch (\Throwable $e) {
             log_message('error', 'Purge setelah reset: ' . $e->getMessage());
         }
         session()->remove('reset_moodle');
-        $ringkas = implode(', ', array_map(static fn ($t, $n) => "$n {$label[$t]}", array_keys($job['hasil']), $job['hasil'])) . $panel;
+        $ringkas = implode(', ', array_map(static fn ($t, $n) => "$n {$label[$t]}", array_keys($job['hasil']), $job['hasil']));
         ActivityLog::add('reset_moodle', 'selesai: ' . $ringkas);
 
         return redirect()->to(site_url('tools/test_manage'))->with('success', 'Reset Moodle selesai: ' . $ringkas . ' dihapus. Backup sebelum reset: writable/backup/'

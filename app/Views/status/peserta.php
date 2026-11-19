@@ -65,7 +65,8 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                 </li>
             <?php endforeach ?>
             <li class="nav-item ms-auto">
-                <a class="nav-link text-danger" href="<?= site_url('status_peserta/login_ganda') . ($ruangId !== '' && ! $lockRuang ? '?ruang=' . (int) $ruangId : '') ?>">
+                <?php // Admin: Tools → Panel → Log aktivitas → tab Login siswa; pengawas: halaman Login ganda ruangnya. ?>
+                <a class="nav-link text-danger" href="<?= $lockRuang ? site_url('status_peserta/login_ganda') : site_url('tools/lainnya') . '?log_tab=login#log' ?>">
                     <i class="bi bi-people me-1"></i>Login ganda
                 </a>
             </li>

@@ -100,13 +100,17 @@ class StatusPeserta extends PanelController
 
     /**
      * Login ganda: akun peserta yang pada tanggal itu login dari lebih dari satu alamat IP (komputer),
-     * dibaca dari log login Moodle. Pengawas hanya melihat siswa di ruangnya.
+     * dibaca dari log login Moodle. Hanya untuk pengawas (siswa di ruangnya); admin memakai
+     * Tools → Panel → Log aktivitas → tab Login siswa (isinya sama, lebih lengkap, bisa Excel).
      */
-    public function loginGanda(): string
+    public function loginGanda()
     {
         $tanggal = (string) $this->request->getGet('tanggal');
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal) || ! strtotime($tanggal)) {
             $tanggal = date('Y-m-d');
+        }
+        if ($this->myRuang() === null) {
+            return redirect()->to(site_url('tools/lainnya') . '?' . http_build_query(['log_tab' => 'login', 'log_tgl' => $tanggal]) . '#log');
         }
         $ruangId = $this->myRuang() !== null ? (string) $this->myRuang() : (string) $this->request->getGet('ruang');
         $tingkat = Tingkat::dariRequest();
