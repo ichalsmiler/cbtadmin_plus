@@ -191,7 +191,7 @@ class Ruang extends PanelController
         ]);
         ActivityLog::add('tambah_sesi', $nama);
 
-        return redirect()->to(site_url('daftar_ruang'))->with('success', 'Sesi ditambahkan.');
+        return redirect()->to(site_url('sesi_tingkat'))->with('success', 'Sesi ditambahkan.');
     }
 
     public function deleteSesi(int $id)
@@ -202,6 +202,6 @@ class Ruang extends PanelController
         $db->table('sesi')->where('id', $id)->delete();
         ActivityLog::add('hapus_sesi', 'id ' . $id);
 
-        return redirect()->to(site_url('daftar_ruang'))->with('success', 'Sesi dihapus.');
+        return redirect()->to(site_url('sesi_tingkat'))->with('success', 'Sesi dihapus.');
     }
 }

@@ -57,5 +57,39 @@
             <div class="card-body small text-body-secondary border-top">Sesi peserta diambil dari kolom sesi peserta, atau sesi ruangnya bila kosong.</div>
         </div>
     </div>
+
+    <?php // Daftar sesi (dulu di Daftar Ruang): tambah dan hapus sesi. ?>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-clock me-1"></i>Daftar sesi</div>
+            <ul class="list-group list-group-flush">
+                <?php if ($sesi === []): ?>
+                    <li class="list-group-item text-muted">Belum ada sesi.</li>
+                <?php endif ?>
+                <?php foreach ($sesi as $s): ?>
+                    <li class="list-group-item d-flex align-items-center">
+                        <span><?= esc($s['nama']) ?>
+                            <?php if ($s['jam_mulai']): ?>
+                                <small class="text-muted ms-1"><?= esc(substr($s['jam_mulai'], 0, 5)) ?>–<?= esc(substr((string) $s['jam_selesai'], 0, 5)) ?></small>
+                            <?php endif ?>
+                        </span>
+                        <button class="btn btn-outline-danger btn-sm ms-auto" type="button" title="Hapus"
+                                data-post="<?= site_url('sesi_tingkat/sesi/hapus/' . $s['id']) ?>"
+                                data-confirm-text="Hapus sesi &quot;<?= esc($s['nama'], 'attr') ?>&quot;? Ruang dan peserta di sesi ini menjadi tanpa sesi."><i class="bi bi-trash"></i></button>
+                    </li>
+                <?php endforeach ?>
+            </ul>
+            <div class="card-body border-top">
+                <form method="post" action="<?= site_url('sesi_tingkat/sesi/simpan') ?>" class="row g-2 align-items-end">
+                    <?= csrf_field() ?>
+                    <div class="col-sm-5"><input class="form-control form-control-sm" name="nama" placeholder="Nama sesi, mis. Sesi 1" maxlength="60" required aria-label="Nama sesi"></div>
+                    <div class="col-6 col-sm-2"><input class="form-control form-control-sm" type="time" name="jam_mulai" aria-label="Jam mulai"></div>
+                    <div class="col-6 col-sm-2"><input class="form-control form-control-sm" type="time" name="jam_selesai" aria-label="Jam selesai"></div>
+                    <div class="col-sm-3"><button class="btn btn-primary btn-sm w-100" type="submit">Tambah Sesi</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+<form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
 <?= $this->endSection() ?>

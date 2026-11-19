@@ -60,6 +60,7 @@ class SesiTingkat extends PanelController
             'nilai'     => $nilai,
             'tersimpan' => self::tersimpan() !== null,
             'ringkas'   => $ringkas,
+            'sesi'      => $db->table('sesi')->orderBy('nama')->get()->getResultArray(),
         ]);
     }
 
