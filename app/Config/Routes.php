@@ -78,6 +78,7 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_peserta/moodle/reset_password', 'Peserta::resetPassword');
 
     $routes->get('status_tes', 'StatusTes::index');
+    $routes->get('token_ujian', 'StatusTes::halamanToken');
     $routes->get('status_tes/token', 'StatusTes::token');
     $routes->get('token', 'StatusTes::tokenView');
     $routes->post('status_tes/kategori', 'StatusTes::kategori');

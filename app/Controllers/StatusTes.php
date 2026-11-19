@@ -50,14 +50,36 @@ class StatusTes extends PanelController
             'shown'        => $shown,
             'courses'      => $courses,
             'moodleError'  => $error,
-            'tokenEnabled' => ActiveTest::tokenEnabled(),
-            'tokenMinutes' => ActiveTest::tokenMinutes(),
-            'token'        => ActiveTest::token(),
-            'nextRelease'  => ActiveTest::nextReleaseAt(),
             'sesiList'     => ActiveTest::sesiList(),
             'sesiAktif'    => ActiveTest::sesiId(),
             // Pilihan sesi ikut terbawa saat ganti tes (halaman dimuat ulang dengan ?kat=&sesi=).
             'sesiPilih'    => $this->request->getGet('sesi') !== null ? (int) $this->request->getGet('sesi') : ActiveTest::sesiId(),
+        ]);
+    }
+
+    /** Status Ujian → Token: token tes aktif, Release, dan pengaturan token (admin). */
+    public function halamanToken(): string
+    {
+        $nama = '';
+        try {
+            foreach (Moodle::categories() as $c) {
+                if ((int) $c['id'] === ActiveTest::categoryId()) {
+                    $nama = (string) $c['name'];
+                }
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Token: ' . $e->getMessage());
+        }
+
+        return $this->render('status/token', [
+            'title'        => 'Token',
+            'catId'        => ActiveTest::categoryId(),
+            'tesAktif'     => $nama,
+            'tokenEnabled' => ActiveTest::tokenEnabled(),
+            'tokenMinutes' => ActiveTest::tokenMinutes(),
+            'token'        => ActiveTest::token(),
+            'nextRelease'  => ActiveTest::nextReleaseAt(),
+            'sesiAktif'    => ActiveTest::sesiId(),
         ]);
     }
 
@@ -258,22 +280,22 @@ class StatusTes extends PanelController
     public function release()
     {
         if (! ActiveTest::tokenEnabled()) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Token sedang dinonaktifkan. Aktifkan di Setting → Setting Token.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Token sedang dinonaktifkan. Aktifkan lewat tombol Setting Token.');
         }
         if (ActiveTest::categoryId() === 0) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Pilih dan simpan tes terlebih dahulu.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Pilih dan simpan tes terlebih dahulu.');
         }
         if (ActiveTest::sesiId() === 0) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Sesi nonaktif: token tidak bisa direlease. Aktifkan sesi dulu.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Sesi nonaktif: token tidak bisa direlease. Aktifkan sesi dulu.');
         }
         try {
             $token = ActiveTest::release();
         } catch (\Throwable $e) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Token gagal direlease: ' . $e->getMessage());
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Token gagal direlease: ' . $e->getMessage());
         }
         ActivityLog::add('release_token', $token);
 
-        return redirect()->to(site_url('status_tes'))->with('success', 'Token direlease: ' . $token);
+        return redirect()->to(site_url('token_ujian'))->with('success', 'Token direlease: ' . $token);
     }
 
     /** Pengaturan token: aktif/nonaktif dan jarak release otomatis. */
@@ -283,7 +305,7 @@ class StatusTes extends PanelController
         $enabled    = (bool) $this->request->getPost('aktif');
         $minutes    = (int) $this->request->getPost('menit');
         if ($minutes < 1 || $minutes > 1440) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Timer token harus 1–1440 menit.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Timer token harus 1–1440 menit.');
         }
 
         Settings::set('token_menit', (string) $minutes);
@@ -303,6 +325,6 @@ class StatusTes extends PanelController
         }
         ActivityLog::add('setting_token', ($enabled ? 'aktif' : 'nonaktif') . ', ' . $minutes . ' menit');
 
-        return redirect()->to(site_url('status_tes'))->with('success', $message);
+        return redirect()->to(site_url('token_ujian'))->with('success', $message);
     }
 }

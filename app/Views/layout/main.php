@@ -3,7 +3,7 @@
 $menu = [
     ['Dashboard', 'house', ''],
     ['Daftar Peserta', 'person', null, [['Data CBTAdmin', 'daftar_peserta/cbtadmin'], ['Data Moodle', 'daftar_peserta/moodle']]],
-    ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Hapus Attempt', 'hapus_attempt']]],
+    ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Token', 'token_ujian'], ['Hapus Attempt', 'hapus_attempt']]],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],

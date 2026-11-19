@@ -305,6 +305,7 @@ div.dt-container .dt-paging .dt-paging-button.current { background: var(--brand-
 /* Status Test: tiap bagian (Token, Sesi ujian, Tes, Mata pelajaran) dipisah garis dan jarak;
    judul tebal + keterangan singkat di bawahnya, tanpa lencana nomor. */
 .tes-bagian { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--bs-border-color); }
+form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
 .tes-judul { display: block; font-weight: 600; font-size: 1rem; margin-bottom: .15rem; color: var(--navy); }
 [data-bs-theme="dark"] .tes-judul { color: var(--ink); }
 .tes-ket { font-size: .85rem; color: var(--bs-secondary-color); margin-bottom: .6rem; }

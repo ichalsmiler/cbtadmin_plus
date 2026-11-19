@@ -15,39 +15,6 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
         <span class="fw-semibold"><i class="bi bi-check-square me-1"></i>Setting Ujian</span>
     </div>
     <div class="card-body">
-        <div class="d-flex flex-wrap align-items-start gap-2">
-            <div>
-                <label class="tes-judul" for="tokenValue">Token</label>
-                <p class="tes-ket">Dipasang sebagai password semua quiz di tes aktif.</p>
-            </div>
-            <?php // Pengaturan token (dulu di tombol gerigi "Setting" di judul kotak). ?>
-            <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#tokenModal">
-                <i class="bi bi-key me-1"></i>Setting Token
-            </button>
-        </div>
-        <form class="row g-2 mb-1" method="post" data-no-dirty action="<?= site_url('status_tes/release') ?>">
-            <?= csrf_field() ?>
-            <div class="col-md-9">
-                <input class="form-control form-control-lg font-monospace fw-bold text-center token-box" id="tokenValue" readonly
-                       value="<?= esc(! $tokenEnabled ? 'Token dinonaktifkan' : ($sesiAktif === 0 ? 'Sesi nonaktif' : ($token !== '' ? $token : 'Silakan klik tombol Release'))) ?>">
-            </div>
-            <div class="col-md-3 d-grid">
-                <button class="btn btn-success btn-lg" type="submit" <?= $tokenEnabled && $catId && $sesiAktif > 0 ? '' : 'disabled' ?>>
-                    <i class="bi bi-arrow-repeat me-1"></i>Release
-                </button>
-            </div>
-        </form>
-        <p class="small text-muted mb-0" id="tokenInfo">
-            <?php if (! $tokenEnabled): ?>
-                Quiz di tes ini bisa dimulai tanpa token.
-            <?php elseif ($nextRelease > 0): ?>
-                Token berganti otomatis setiap <?= (int) $tokenMinutes ?> menit. Berikutnya pukul
-                <strong id="tokenNext"><?= date('H:i', $nextRelease) ?></strong> (<span id="tokenLeft">–</span> lagi).
-            <?php else: ?>
-                Pilih tes lalu klik Simpan; token dibuat otomatis.
-            <?php endif ?>
-        </p>
-
         <form method="post" data-no-dirty action="<?= site_url('status_tes/kategori') ?>">
             <?= csrf_field() ?>
             <div class="tes-bagian">
@@ -156,29 +123,6 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
 
 <form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
 
-<!-- Pengaturan token -->
-<div class="modal fade" id="tokenModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form class="modal-content" method="post" action="<?= site_url('status_tes/token_setting') ?>">
-            <?= csrf_field() ?>
-            <div class="modal-header"><h5 class="modal-title">Pengaturan Token</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
-            <div class="modal-body">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" role="switch" id="f_aktif" name="aktif" value="1" <?= $tokenEnabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="f_aktif">Gunakan token dengan release otomatis</label>
-                </div>
-                <label class="form-label" for="f_menit">Timer auto release token (menit)</label>
-                <input class="form-control" type="number" id="f_menit" name="menit" min="1" max="1440" required value="<?= (int) $tokenMinutes ?>" style="max-width: 140px">
-                <p class="small text-muted mt-2 mb-0">Token dipasang sebagai password di semua quiz pada tes aktif. Bila dimatikan, password quiz dikosongkan.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" class="btn btn-success"><i class="bi bi-save me-1"></i>Simpan</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -235,42 +179,6 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
                 + (sesi && sesi.value !== '' ? '&sesi=' + encodeURIComponent(sesi.value) : '');
         }
     });
-
-    // Token berganti di server (cron); perbarui tampilan tanpa muat ulang halaman.
-    var box = document.getElementById('tokenValue');
-    var offset = 0, next = <?= (int) $nextRelease ?>;
-    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-    var tick = function () {
-        var el = document.getElementById('tokenLeft');
-        if (!el || !next) { return; }
-        var left = next - (Math.floor(Date.now() / 1000) + offset);
-        el.textContent = left > 0 ? Math.floor(left / 60) + ':' + pad(left % 60) : 'sebentar';
-    };
-    var poll = function () {
-        fetch('<?= site_url('status_tes/token') ?>', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function (r) {
-                if (r.status === 401) { window.location.reload(); return null; }
-                return r.ok ? r.json() : null;
-            })
-            .then(function (d) {
-                if (!d || !d.enabled) { return; }
-                offset = d.now - Math.floor(Date.now() / 1000);
-                if (d.token && box.value !== d.token) {
-                    box.value = d.token;
-                    box.classList.add('token-new');
-                    setTimeout(function () { box.classList.remove('token-new'); }, 1500);
-                }
-                if (d.next) {
-                    next = d.next;
-                    var at = document.getElementById('tokenNext');
-                    if (at) { var t = new Date(d.next * 1000); at.textContent = pad(t.getHours()) + ':' + pad(t.getMinutes()); }
-                }
-            })
-            .catch(function () { /* coba lagi di putaran berikutnya */ });
-    };
-    tick();
-    setInterval(tick, 1000);
-    setInterval(poll, 15000);
 })();
 </script>
 <?= $this->endSection() ?>
