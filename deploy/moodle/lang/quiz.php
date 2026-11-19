@@ -18,3 +18,5 @@ $string['timeleft'] = 'Sisa waktu';
 $string['mustbesubmittedby'] = 'Ujian akan selesai secara otomatis pada {$a}';
 $string['submitallandfinish'] = 'Kirim Jawaban';
 $string['returnattempt'] = 'Kembali ke soal';
+// Setelah submit siswa kembali ke halaman awal ujian (tanpa pratinjau soal); pesan ini tampil di sana.
+$string['noreview'] = 'Jawaban Anda sudah terkirim. Terima kasih.';

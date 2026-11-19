@@ -117,7 +117,8 @@ function cbt_pastikan_quiz(stdClass $course): array
             $info->{$r . $w} = 0;
         }
     }
-    $info->attemptduring = $info->attemptimmediately = $info->attemptopen = $info->attemptclosed = 1;
+    // Tinjauan soal hanya saat mengerjakan: setelah submit siswa kembali ke halaman awal ujian, bukan pratinjau soal.
+    $info->attemptduring = 1;
     $info->marksimmediately = $info->marksopen = $info->marksclosed = 1;
     $baru = create_module($info);
 

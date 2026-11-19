@@ -95,7 +95,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   `admin/user.php` → `?cbtcari=&cbtkolom=fullname|username|email` mengisi filter "contains" laporan via
   `user_filter_manager` lalu redirect).
 - Tampilan siswa: menu atas hanya "Daftar Ujian" (+ nama), sapaan "nama - kelas" (first name = nama, last name =
-  kelas), tanpa Dasbor/Beranda/pesan/lonceng/tombol ?/filter; quiz 1 percobaan dikunci, tinjauan tanpa kunci jawaban.
+  kelas), tanpa Dasbor/Beranda/pesan/lonceng/tombol ?/filter; quiz 1 percobaan dikunci, tanpa pratinjau soal setelah submit (reviewattempt=0x10000 di setelan.php untuk semua quiz + bridge cbt_pastikan_quiz; siswa kembali ke view.php dengan pesan lang `noreview` "Jawaban Anda sudah terkirim").
 - `cbtujian` juga: menu sekunder course/quiz disembunyikan untuk yang tak punya `moodle/course:update` (hook
   `before_http_headers` → `set_secondary_navigation(false)`); laci blok kanan disembunyikan untuk siswa (body `cbt-siswa`) dan di attempt/summary
   (boost.scss), navigasi nomor soal `.qn_buttons` disalin ke `#cbt-nav-soal` di bawah `#responseform` (awal_halaman) berjudul "Daftar Soal" (lang/quiz.php quiznavigation) dengan gaya LMS sekolah 3.9: tombol 30x40, merah #ff7f7f belum, hijau #bdda57 tersimpan, kuning ragu, nomor aktif garis 3px, `#quiz-timer-wrapper` dipindah ke ujung kanan bilah info soal pertama (cadangan: kotak itu).

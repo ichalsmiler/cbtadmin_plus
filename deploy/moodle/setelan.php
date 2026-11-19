@@ -211,6 +211,13 @@ $setel('reviewspecificfeedback', 0, 'quiz');
 $setel('reviewgeneralfeedback', 0, 'quiz');
 $setel('reviewrightanswer', 0, 'quiz');
 $setel('reviewoverallfeedback', 0, 'quiz');
+// Quiz yang sudah ada: tinjauan soal hanya saat mengerjakan (0x10000), jadi setelah submit siswa langsung kembali ke
+// halaman awal ujian tanpa pratinjau soal (review.php mengalihkan ke view.php).
+foreach ($DB->get_records_select('quiz', 'reviewattempt <> ?', [0x10000], '', 'id, name') as $q) {
+    $DB->set_field('quiz', 'reviewattempt', 0x10000, ['id' => $q->id]);
+    $catatan("quiz '{$q->name}': tanpa pratinjau soal setelah selesai");
+    $ubah++;
+}
 
 // Nilai quiz skala 0–100 (Maximum grade = 100), apa pun Total of marks soalnya; quiz baru juga bawaan 100.
 // Quiz lama diubah lewat API Moodle supaya nilai attempt dan gradebook ikut diskalakan ulang.
