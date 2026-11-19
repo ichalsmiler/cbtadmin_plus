@@ -5,9 +5,6 @@
 <div class="card">
     <div class="card-header d-flex align-items-center">
         <span class="fw-semibold"><i class="bi bi-key me-1"></i>Token</span>
-        <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#tokenModal">
-            <i class="bi bi-gear me-1"></i>Setting Token
-        </button>
     </div>
     <div class="card-body">
         <p class="tes-ket">Dipasang sebagai password semua quiz di tes aktif<?= $tesAktif !== '' ? ' (<strong>' . esc($tesAktif) . '</strong>)' : '' ?>.</p>
@@ -38,28 +35,23 @@
     </div>
 </div>
 
-<!-- Pengaturan token -->
-<div class="modal fade" id="tokenModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form class="modal-content" method="post" action="<?= site_url('status_tes/token_setting') ?>">
-            <?= csrf_field() ?>
-            <div class="modal-header"><h5 class="modal-title">Pengaturan Token</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
-            <div class="modal-body">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" role="switch" id="f_aktif" name="aktif" value="1" <?= $tokenEnabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="f_aktif">Gunakan token dengan release otomatis</label>
-                </div>
-                <label class="form-label" for="f_menit">Timer auto release token (menit)</label>
-                <input class="form-control" type="number" id="f_menit" name="menit" min="1" max="1440" required value="<?= (int) $tokenMinutes ?>" style="max-width: 140px">
-                <p class="small text-muted mt-2 mb-0">Token dipasang sebagai password di semua quiz pada tes aktif. Bila dimatikan, password quiz dikosongkan.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" class="btn btn-success"><i class="bi bi-save me-1"></i>Simpan</button>
-            </div>
-        </form>
+<?php // Pengaturan token langsung di halaman (dulu jendela dari tombol "Setting Token"). ?>
+<form class="card mt-4" method="post" action="<?= site_url('status_tes/token_setting') ?>">
+    <?= csrf_field() ?>
+    <div class="card-header fw-semibold"><i class="bi bi-gear me-1"></i>Pengaturan Token</div>
+    <div class="card-body">
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="f_aktif" name="aktif" value="1" <?= $tokenEnabled ? 'checked' : '' ?>>
+            <label class="form-check-label" for="f_aktif">Gunakan token dengan release otomatis</label>
+        </div>
+        <label class="form-label" for="f_menit">Timer auto release token (menit)</label>
+        <input class="form-control" type="number" id="f_menit" name="menit" min="1" max="1440" required value="<?= (int) $tokenMinutes ?>" style="max-width: 140px">
+        <p class="small text-muted mt-2 mb-0">Token dipasang sebagai password di semua quiz pada tes aktif. Bila dimatikan, password quiz dikosongkan.</p>
     </div>
-</div>
+    <div class="card-footer text-end">
+        <button type="submit" class="btn btn-success"><i class="bi bi-save me-1"></i>Simpan</button>
+    </div>
+</form>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
