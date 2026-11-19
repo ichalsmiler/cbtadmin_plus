@@ -7,6 +7,14 @@ $query = static function (array $extra = []) use ($quiz, $ruangId, $tingkat): st
 
     return $params === [] ? '' : '?' . http_build_query($params);
 };
+// Lama pengerjaan dalam format j:mm:dd (sama dengan hitungan berjalan di panel.js).
+$durasi = static function (int $detik): string {
+    $detik = max(0, $detik);
+    $j     = intdiv($detik, 3600);
+    $m     = intdiv($detik % 3600, 60);
+
+    return ($j > 0 ? $j . ':' . sprintf('%02d', $m) : (string) $m) . ':' . sprintf('%02d', $detik % 60);
+};
 $badges = [
     'inprogress' => ['primary', 'Sedang Mengerjakan'],
     'finished'   => ['success', 'Selesai'],
@@ -93,7 +101,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
                     <th>Username</th><th>Nama</th><th>Kelas</th><th>Ruang</th>
                     <?php if (! $quiz): ?><th>Quiz</th><?php endif ?>
-                    <th>Status</th><th>Mulai</th><th>Selesai</th><th>Sisa waktu</th>
+                    <th>Status</th><th>Mulai</th><th>Selesai</th><th title="Lama mengerjakan mapel ini (Selesai − Mulai); yang masih mengerjakan terus berjalan">Waktu Pengerjaan</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -113,10 +121,15 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                         </td>
                         <td data-order="<?= $r['timestart'] ?>"><?= $fmt($r['timestart']) ?></td>
                         <td data-order="<?= $r['timefinish'] ?>"><?= $fmt($r['timefinish']) ?></td>
-                        <td data-order="<?= $r['deadline'] ?>">
-                            <?php if ($r['status'] === 'inprogress'): ?>
-                                <span <?= $r['deadline'] > 0 ? 'data-deadline="' . $r['deadline'] . '"' : '' ?>><?= $r['deadline'] > 0 ? '…' : 'tanpa batas' ?></span>
-                            <?php else: ?>–<?php endif ?>
+                        <?php
+                        // Lama pengerjaan: selesai − mulai; yang masih mengerjakan dihitung berjalan oleh panel.js (data-mulai).
+                        $lama = $r['timestart'] > 0 ? ($r['timefinish'] > 0 ? $r['timefinish'] : time()) - $r['timestart'] : -1;
+                        ?>
+                        <td data-order="<?= $lama ?>">
+                            <?php if ($r['timestart'] <= 0): ?>–
+                            <?php elseif ($r['status'] === 'inprogress'): ?>
+                                <span data-mulai="<?= (int) $r['timestart'] ?>"><?= $durasi($lama) ?></span>
+                            <?php else: ?><?= $durasi($lama) ?><?php endif ?>
                         </td>
                     </tr>
                 <?php endforeach ?>

@@ -315,6 +315,12 @@
                     el.textContent = (h > 0 ? h + ':' + pad(m) : m) + ':' + pad(s);
                     el.className = left <= 300 ? 'text-danger fw-semibold' : '';
                 });
+                // Waktu Pengerjaan siswa yang masih mengerjakan: sejak mulai, terus berjalan.
+                document.querySelectorAll('[data-mulai]').forEach(function (el) {
+                    var lama = Math.max(0, now - parseInt(el.dataset.mulai, 10));
+                    var h = Math.floor(lama / 3600), m = Math.floor(lama % 3600 / 60), s = lama % 60;
+                    el.textContent = (h > 0 ? h + ':' + pad(m) : m) + ':' + pad(s);
+                });
             };
             tick();
             setInterval(tick, 1000);
