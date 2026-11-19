@@ -84,7 +84,7 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
             <select class="form-select" id="sesi_id" name="sesi_id" required>
                 <option value="">Pilih Sesi</option>
                 <?php foreach ($sesiList as $s): ?>
-                    <option value="<?= $s['id'] ?>" <?= $s['id'] === $sesiPilih ? 'selected' : '' ?>>
+                    <option value="<?= $s['id'] ?>" data-tingkat="<?= esc($s['tingkat'], 'attr') ?>" <?= $s['id'] === $sesiPilih ? 'selected' : '' ?>>
                         <?= esc($s['label']) ?> · <?= number_format($s['jumlah'], 0, ',', '.') ?> peserta<?= $s['id'] === $sesiAktif ? ' — aktif' : '' ?>
                     </option>
                 <?php endforeach ?>
@@ -137,7 +137,16 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
                 <?php else: ?>
                     <div class="list-group mapel-list">
                         <?php foreach ($courses as $c): ?>
-                            <label class="list-group-item d-flex align-items-center gap-3" for="mapel<?= (int) $c['id'] ?>">
+                            <?php
+                            // Tingkatan mapel dari kode (USBK-X-BING) atau nama (BHS INGGRIS X); kosong = tampil di semua sesi.
+                            $tk = '';
+                            foreach ([$c['shortname'], $c['fullname']] as $teks) {
+                                if ($tk === '' && preg_match('/(?:^|[\s\-_])(XII|XI|X)(?=$|[\s\-_])/i', (string) $teks, $m)) {
+                                    $tk = strtoupper($m[1]);
+                                }
+                            }
+                            ?>
+                            <label class="list-group-item d-flex align-items-center gap-3" for="mapel<?= (int) $c['id'] ?>" data-tingkat="<?= $tk ?>">
                                 <span class="form-check form-switch mb-0">
                                     <input class="form-check-input" type="checkbox" role="switch" name="ids[]" value="<?= (int) $c['id'] ?>"
                                            id="mapel<?= (int) $c['id'] ?>" <?= (int) $c['visible'] ? 'checked' : '' ?>>
@@ -261,27 +270,45 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
 <script>
 (function () {
     'use strict';
-    // Mapel: label Aktif/Nonaktif per baris, jumlah yang aktif, dan tombol semua.
+    // Mapel: hanya mapel tingkatan sesi yang dipilih yang tampil (mapel tanpa tingkatan selalu tampil);
+    // mapel tingkatan lain dinonaktifkan (tidak ikut dikirim, jadi tersembunyi dari siswa setelah Simpan).
+    // Label Aktif/Nonaktif per baris, jumlah yang aktif, dan tombol semua hanya untuk mapel yang tampil.
     var boxes = document.querySelectorAll('.mapel-list input[name="ids[]"]');
+    var sesiSelect = document.getElementById('sesi_id');
+    var terlihat = function (box) { return !box.disabled; };
+    var saring = function () {
+        var opt = sesiSelect ? sesiSelect.options[sesiSelect.selectedIndex] : null;
+        var tingkat = opt && opt.dataset.tingkat ? opt.dataset.tingkat.split('/') : [];
+        boxes.forEach(function (box) {
+            var item = box.closest('.list-group-item');
+            var t = item.dataset.tingkat || '';
+            var tampil = tingkat.length === 0 || t === '' || tingkat.indexOf(t) !== -1;
+            item.classList.toggle('d-none', !tampil);
+            box.disabled = !tampil;
+        });
+    };
     var refresh = function () {
-        var on = 0;
+        var on = 0, total = 0;
         boxes.forEach(function (box) {
             var badge = box.closest('.list-group-item').querySelector('.mapel-state');
             badge.textContent = box.checked ? 'Aktif' : 'Nonaktif';
             badge.className = 'badge mapel-state ' + (box.checked ? 'text-bg-success' : 'text-bg-secondary');
-            if (box.checked) { on++; }
+            if (terlihat(box)) { total++; if (box.checked) { on++; } }
         });
         var count = document.getElementById('mapelCount');
-        if (count) { count.textContent = on + ' dari ' + boxes.length + ' mapel aktif. Setelah disimpan, mapel nonaktif, kategori lain, dan semua course di dalamnya disembunyikan dari peserta.'; }
+        var lain = boxes.length - total;
+        if (count) { count.textContent = on + ' dari ' + total + ' mapel aktif' + (lain > 0 ? ' (' + lain + ' mapel tingkatan lain tidak ditampilkan dan ikut disembunyikan)' : '') + '. Setelah disimpan, mapel nonaktif, kategori lain, dan semua course di dalamnya disembunyikan dari peserta.'; }
     };
     boxes.forEach(function (box) { box.addEventListener('change', refresh); });
     document.querySelectorAll('[data-mapel-all]').forEach(function (button) {
         button.addEventListener('click', function () {
             var on = button.dataset.mapelAll === '1';
-            boxes.forEach(function (box) { box.checked = on; });
+            boxes.forEach(function (box) { if (terlihat(box)) { box.checked = on; } });
             refresh();
         });
     });
+    if (sesiSelect) { sesiSelect.addEventListener('change', function () { saring(); refresh(); }); }
+    saring();
     refresh();
 
     // Ganti pilihan tes: tampilkan mapel kategori itu (belum disimpan).
