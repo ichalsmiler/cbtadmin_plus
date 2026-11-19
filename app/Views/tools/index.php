@@ -5,12 +5,11 @@
 $v      = static fn (string $k, string $def = ''): string => (string) ($values[$k] ?? $def);
 $on     = static fn (string $k): bool => ($values[$k] ?? '0') === '1';
 $antiSubmit = (int) $v('anti_submit', '0');
-/** Satu item accordion: [id, ikon, judul, isi]. */
+/** Satu bagian halaman (selalu terbuka): [grup, id anchor, ikon, judul, isi]. */
 $item = static function (string $grup, string $id, string $ikon, string $judul, string $isi): string {
-    return '<div class="accordion-item" id="' . $id . '">'
-        . '<h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c_' . $id . '" aria-expanded="false" aria-controls="c_' . $id . '">'
-        . '<i class="bi bi-' . $ikon . ' me-2 text-primary"></i>' . esc($judul) . '</button></h2>'
-        . '<div id="c_' . $id . '" class="accordion-collapse collapse" data-bs-parent="#' . $grup . '"><div class="accordion-body">' . $isi . '</div></div></div>';
+    return '<section class="card mb-4" id="' . $id . '" style="scroll-margin-top:5rem">'
+        . '<div class="card-header fw-semibold"><i class="bi bi-' . $ikon . ' me-2 text-primary"></i>' . esc($judul) . '</div>'
+        . '<div class="card-body">' . $isi . '</div></section>';
 };
 $csrf = csrf_field();
 $input = static fn (string $name, string $label, string $value, string $ph = '', string $col = 'col-md-6', string $type = 'text'): string =>
@@ -18,11 +17,8 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
     . '<input class="form-control" type="' . $type . '" id="f_' . $name . '" name="' . $name . '" maxlength="255" value="' . esc($value, 'attr') . '" placeholder="' . esc($ph, 'attr') . '"></div>';
 ?>
 
-<div class="row g-4">
-<div class="col-xl-6">
-<div class="card">
-    <div class="card-header fw-semibold"><i class="bi bi-mortarboard me-1"></i>Moodle Tools</div>
-    <div class="accordion accordion-flush" id="moodleTools">
+<?php if ($grup === 'moodle'): ?>
+    <div id="moodleTools">
         <?= $item('moodleTools', 'testmapel', 'calendar3', 'Daftar Test / Mapel',
             '<p class="small text-muted">Menambahkan kategori ujian (test) dan mata pelajaran di Moodle. Kategori dan mapel lalu diaktifkan di Setting Ujian.</p>'
             . '<a class="btn btn-success btn-sm" href="' . site_url('tools/test_manage') . '"><i class="bi bi-list-task me-1"></i>Kelola Test</a>') ?>
@@ -42,13 +38,10 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>'
             . '<p class="small mt-2 mb-0">Status: ' . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<span class="badge text-bg-success">aktif, ' . $antiSubmit . ' menit</span>' : '<span class="badge text-bg-secondary">nonaktif</span>') . '</p>') ?>
     </div>
-</div>
-</div>
+<?php endif ?>
 
-<div class="col-xl-6">
-<div class="card">
-    <div class="card-header fw-semibold"><i class="bi bi-tools me-1"></i>CBTAdmin Tools</div>
-    <div class="accordion accordion-flush" id="cbtTools">
+<?php if ($grup === 'cbtadmin'): ?>
+    <div id="cbtTools">
         <?php
         $logoPrev = $hasLogo ? '<img src="' . site_url('tools/gambar/logo') . '?t=' . time() . '" alt="Logo" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
         $ttdPrev  = $hasTtd ? '<img src="' . site_url('tools/gambar/ttd') . '?t=' . time() . '" alt="Tanda tangan" class="border rounded p-1 bg-white me-2" style="height:48px">' : '';
@@ -97,13 +90,10 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>'
             . '<p class="small text-danger mt-2 mb-0">Peringatan! Catat password baru untuk menghindari lupa password.</p>') ?>
     </div>
-</div>
-</div>
-</div>
+<?php endif ?>
 
-<div class="card mt-4">
-    <div class="card-header fw-semibold"><i class="bi bi-three-dots me-1"></i>Lainnya</div>
-    <div class="accordion accordion-flush" id="lainTools">
+<?php if ($grup === 'lainnya'): ?>
+    <div id="lainTools">
         <?php ob_start(); ?>
         <div class="d-flex mb-2">
             <span class="small text-muted">Akun administrator dan pengawas panel. Akun pengawas ruang dibuat otomatis di Daftar Ruang.</span>
@@ -160,7 +150,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                 $tombol .= '<a class="btn btn-outline-success btn-sm" href="' . site_url('tools/log_export') . '?' . http_build_query(['jenis' => $jenis, 'log_tgl' => $logTgl]) . '"><i class="bi bi-file-earmark-excel me-1"></i>' . $label . '</a>';
             }
 
-            return '<form method="get" action="' . site_url('tools') . '#log" class="d-flex flex-wrap align-items-center gap-2 mb-2">'
+            return '<form method="get" action="' . site_url('tools/lainnya') . '#log" class="d-flex flex-wrap align-items-center gap-2 mb-2">'
                 . '<input type="hidden" name="log_tab" value="' . $tab . '">'
                 . '<label class="small text-muted" for="logTgl_' . $tab . '">Tanggal</label>'
                 . '<input class="form-control form-control-sm w-auto" type="date" id="logTgl_' . $tab . '" name="log_tgl" value="' . esc($logTgl, 'attr') . '" onchange="this.form.submit()">'
@@ -292,7 +282,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
         </div>
         <?= $item('lainTools', 'log', 'journal-text', 'Log aktivitas', (string) ob_get_clean()) ?>
     </div>
-</div>
+<?php endif ?>
 
 <form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
 
@@ -326,14 +316,20 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
 <script>
 (function () {
     'use strict';
-    // Buka bagian sesuai #anchor (mis. setelah menyimpan), atau dari tautan.
+    // Gulir ke bagian sesuai #anchor (mis. setelah menyimpan). Anchor dari alamat lama /tools#bagian yang
+    // ada di halaman grup lain dialihkan ke halaman grup itu.
+    var grup = <?= json_encode(array_map(static fn ($g) => $g[1], \App\Controllers\Tools::GRUP)) ?>;
     var buka = function () {
         var id = location.hash.replace('#', '');
-        var el = id && document.getElementById('c_' + id);
-        if (el && window.bootstrap) {
-            bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
-            document.getElementById(id).scrollIntoView({ block: 'start', behavior: 'smooth' });
+        if (!id) { return; }
+        var el = document.getElementById(id);
+        if (el) {
+            el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            return;
         }
+        Object.keys(grup).forEach(function (g) {
+            if (grup[g].indexOf(id) !== -1) { location.replace('<?= site_url('tools') ?>/' + g + '#' + id); }
+        });
     };
     window.addEventListener('hashchange', buka);
     buka();

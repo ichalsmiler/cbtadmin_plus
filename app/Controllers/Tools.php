@@ -32,8 +32,36 @@ class Tools extends PanelController
 
     private const USERNAME_RE = '/^[A-Za-z0-9._-]{3,60}$/';
 
-    public function index(): string
+    /** Submenu Tools: satu halaman per grup, berisi semua bagiannya (id anchor = bagian). */
+    public const GRUP = [
+        'moodle'   => ['Moodle Tools', ['testmapel', 'cron', 'cache', 'antisubmit']],
+        'cbtadmin' => ['CBTAdmin Tools', ['sekolah', 'kegiatan', 'lockres', 'password']],
+        'lainnya'  => ['Lainnya', ['akun', 'panel', 'utilitas', 'log']],
+    ];
+
+    /** Alamat halaman grup yang memuat bagian itu, mis. halaman('sekolah') → tools/cbtadmin#sekolah. */
+    public static function halaman(string $bagian): string
     {
+        foreach (self::GRUP as $grup => [, $bagianList]) {
+            if (in_array($bagian, $bagianList, true)) {
+                return site_url('tools/' . $grup) . '#' . $bagian;
+            }
+        }
+
+        return site_url('tools/moodle');
+    }
+
+    /** Alamat lama /tools → halaman Moodle Tools (anchor lama dipetakan JS di halaman grup). */
+    public function awal()
+    {
+        return redirect()->to(site_url('tools/moodle'));
+    }
+
+    public function index(string $grup = 'moodle')
+    {
+        if (! isset(self::GRUP[$grup])) {
+            return redirect()->to(site_url('tools/moodle'));
+        }
         $db = db_connect();
         // Log pengawas (jam absen) dan siswa (jam mulai ujian) per tanggal; bawaan hari ini.
         $logTgl = $this->logTanggal();
@@ -55,7 +83,8 @@ class Tools extends PanelController
             'logSiswa'    => $log['siswa'],
             'logLogin'    => $log['login'],
             'logBelum'    => $log['belum'],
-            'title'   => 'Tools',
+            'title'   => self::GRUP[$grup][0],
+            'grup'    => $grup,
             'values'  => Settings::all(),
             'hasLogo' => School::logoPath() !== null,
             'hasTtd'  => School::ttdPath() !== null,
@@ -144,7 +173,7 @@ class Tools extends PanelController
                 $rows    = array_map(static fn ($s) => [$s['username'], $s['nama'], $s['kelas'], $s['ruang'], $s['dicatat_oleh'], $s['jam_absen'], $s['login'] ? 'Ya' : 'Belum'], LogUjian::belumMulai($tgl));
                 break;
             default:
-                return redirect()->to(site_url('tools') . '#log');
+                return redirect()->to(self::halaman('log'));
         }
         ActivityLog::add('export_log', $jenis . ' ' . $tgl);
 
@@ -157,7 +186,7 @@ class Tools extends PanelController
     {
         $bagian = (string) $this->request->getPost('bagian');
         if (! isset(self::BAGIAN[$bagian])) {
-            return redirect()->to(site_url('tools'))->with('error', 'Bagian pengaturan tidak dikenal.');
+            return redirect()->to(site_url('tools/moodle'))->with('error', 'Bagian pengaturan tidak dikenal.');
         }
         foreach (self::BAGIAN[$bagian] as $key) {
             $value = trim((string) $this->request->getPost($key));
@@ -172,7 +201,7 @@ class Tools extends PanelController
             foreach (['logo' => 'Logo sekolah', 'logo2' => 'Logo kanan kartu', 'ttd' => 'Tanda tangan'] as $jenis => $label) {
                 $hasil = $this->unggahGambar($jenis);
                 if ($hasil === false) {
-                    return redirect()->to(site_url('tools#sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus PNG atau JPG, maksimal 1 MB.');
+                    return redirect()->to(self::halaman('sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus PNG atau JPG, maksimal 1 MB.');
                 }
                 if ($hasil !== null) {
                     $pesan .= ' ' . $label . ' ' . $hasil . '.';
@@ -181,7 +210,7 @@ class Tools extends PanelController
         }
         ActivityLog::add('ubah_pengaturan', $bagian);
 
-        return redirect()->to(site_url('tools#' . $bagian))->with('success', $pesan);
+        return redirect()->to(self::halaman($bagian))->with('success', $pesan);
     }
 
     /** null = tidak ada perubahan, string = keterangan, false = berkas ditolak. */
@@ -227,16 +256,15 @@ class Tools extends PanelController
     /** Anti Submit (menit) atau Lock login / Resume timer / Anti Newtab. */
     public function ujian()
     {
-        $back = site_url('tools');
         if ($this->request->getPost('bagian') === 'antisubmit') {
             $menit = max(0, min(1000, (int) $this->request->getPost('anti_submit')));
             Settings::set('anti_submit', (string) $menit);
-            $back .= '#antisubmit';
+            $back = self::halaman('antisubmit');
         } else {
             foreach (array_keys(self::UJIAN) as $key) {
                 Settings::set($key, $this->request->getPost($key) ? '1' : '0');
             }
-            $back .= '#lockres';
+            $back = self::halaman('lockres');
         }
 
         try {
@@ -270,7 +298,7 @@ class Tools extends PanelController
     {
         $password = (string) $this->request->getPost('password');
         if (mb_strlen($password) < 8) {
-            return redirect()->to(site_url('tools#password'))->with('error', 'Password minimal 8 karakter.');
+            return redirect()->to(self::halaman('password'))->with('error', 'Password minimal 8 karakter.');
         }
         $hash = password_hash($password, PASSWORD_DEFAULT);
         db_connect()->table('admins')->where('id', (int) session()->get('admin_id'))
@@ -279,7 +307,7 @@ class Tools extends PanelController
         session()->set('cred', \App\Filters\Guard::cap($hash));
         ActivityLog::add('ganti_password');
 
-        return redirect()->to(site_url('tools#password'))->with('success', 'Password Anda diganti. Catat password baru supaya tidak lupa.');
+        return redirect()->to(self::halaman('password'))->with('success', 'Password Anda diganti. Catat password baru supaya tidak lupa.');
     }
 
     // ------------------------------------------------------------------ Cron dan cache Moodle
@@ -289,11 +317,11 @@ class Tools extends PanelController
         try {
             [$ok, $akhir] = MoodleBridge::cron();
         } catch (\Throwable $e) {
-            return redirect()->to(site_url('tools#cron'))->with('error', 'Cron gagal: ' . $e->getMessage());
+            return redirect()->to(self::halaman('cron'))->with('error', 'Cron gagal: ' . $e->getMessage());
         }
         ActivityLog::add('cron_moodle', $ok ? 'selesai' : 'gagal');
 
-        return redirect()->to(site_url('tools#cron'))->with($ok ? 'success' : 'error', ($ok ? 'Cron task selesai.' : 'Cron task berhenti dengan galat.') . ($akhir !== '' ? ' ' . $akhir : ''));
+        return redirect()->to(self::halaman('cron'))->with($ok ? 'success' : 'error', ($ok ? 'Cron task selesai.' : 'Cron task berhenti dengan galat.') . ($akhir !== '' ? ' ' . $akhir : ''));
     }
 
     public function cache()
@@ -302,11 +330,11 @@ class Tools extends PanelController
         try {
             MoodleBridge::call('purge_caches', ['hapus' => $hapus]);
         } catch (\Throwable $e) {
-            return redirect()->to(site_url('tools#cache'))->with('error', 'Gagal membersihkan cache: ' . $e->getMessage());
+            return redirect()->to(self::halaman('cache'))->with('error', 'Gagal membersihkan cache: ' . $e->getMessage());
         }
         ActivityLog::add('cache_moodle', $hapus ? 'delete' : 'purge');
 
-        return redirect()->to(site_url('tools#cache'))->with('success', $hapus ? 'Cache Moodle dihapus dan dibangun ulang.' : 'Cache Moodle dibersihkan (purge).');
+        return redirect()->to(self::halaman('cache'))->with('success', $hapus ? 'Cache Moodle dihapus dan dibangun ulang.' : 'Cache Moodle dibersihkan (purge).');
     }
 
     // ------------------------------------------------------------------ Daftar Test / Mapel
@@ -936,16 +964,16 @@ class Tools extends PanelController
         $password = (string) $this->request->getPost('password');
 
         if (! preg_match(self::USERNAME_RE, $username) || $nama === '') {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Nama wajib diisi, username 3–60 karakter huruf, angka, titik, strip, atau garis bawah.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Nama wajib diisi, username 3–60 karakter huruf, angka, titik, strip, atau garis bawah.');
         }
         if ($db->table('admins')->where('username', $username)->where('id !=', $id)->countAllResults() > 0) {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Username "' . $username . '" sudah dipakai.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Username "' . $username . '" sudah dipakai.');
         }
         if (($id === 0 || $password !== '') && mb_strlen($password) < 8) {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Password minimal 8 karakter.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Password minimal 8 karakter.');
         }
         if ($id === $me && ($role !== 'admin' || ! $aktif)) {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Anda tidak bisa menurunkan role atau menonaktifkan akun Anda sendiri.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Anda tidak bisa menurunkan role atau menonaktifkan akun Anda sendiri.');
         }
 
         $data = ['username' => $username, 'nama' => mb_substr($nama, 0, 120), 'role' => $role, 'aktif' => $aktif];
@@ -957,7 +985,7 @@ class Tools extends PanelController
 
         if ($id > 0) {
             if (! $db->table('admins')->where('id', $id)->countAllResults()) {
-                return redirect()->to(site_url('tools#akun'))->with('error', 'Akun tidak ditemukan.');
+                return redirect()->to(self::halaman('akun'))->with('error', 'Akun tidak ditemukan.');
             }
             $db->table('admins')->where('id', $id)->update($data);
             if ($id === $me && isset($data['password_hash'])) {
@@ -969,7 +997,7 @@ class Tools extends PanelController
             ActivityLog::add('tambah_akun', $username . ' (' . $role . ')');
         }
 
-        return redirect()->to(site_url('tools#akun'))->with('success', 'Akun ' . $username . ' disimpan.');
+        return redirect()->to(self::halaman('akun'))->with('success', 'Akun ' . $username . ' disimpan.');
     }
 
     public function hapusAkun(int $id)
@@ -977,15 +1005,15 @@ class Tools extends PanelController
         $db  = db_connect();
         $row = $db->table('admins')->where('id', $id)->get()->getRowArray();
         if (! $row) {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Akun tidak ditemukan.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Akun tidak ditemukan.');
         }
         if ($id === (int) session()->get('admin_id')) {
-            return redirect()->to(site_url('tools#akun'))->with('error', 'Anda tidak bisa menghapus akun Anda sendiri.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Anda tidak bisa menghapus akun Anda sendiri.');
         }
         $db->table('admins')->where('id', $id)->delete();
         ActivityLog::add('hapus_akun', $row['username']);
 
-        return redirect()->to(site_url('tools#akun'))->with('success', 'Akun ' . $row['username'] . ' dihapus.');
+        return redirect()->to(self::halaman('akun'))->with('success', 'Akun ' . $row['username'] . ' dihapus.');
     }
 
     // ------------------------------------------------------------------ Utilitas
@@ -1038,6 +1066,6 @@ class Tools extends PanelController
         }
         ActivityLog::add('bersihkan_sesi', "$panel sesi panel; $moodle");
 
-        return redirect()->to(site_url('tools#utilitas'))->with('success', "$panel sesi panel kedaluwarsa dihapus, $moodle.");
+        return redirect()->to(self::halaman('utilitas'))->with('success', "$panel sesi panel kedaluwarsa dihapus, $moodle.");
     }
 }

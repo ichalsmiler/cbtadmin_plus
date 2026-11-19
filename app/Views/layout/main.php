@@ -12,7 +12,7 @@ $menu = [
     ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Masukkan Soal', 'soal'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat']]],
     ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
-    ['Tools', 'gear', 'tools'],
+    ['Tools', 'gear', null, [['Moodle Tools', 'tools/moodle'], ['CBTAdmin Tools', 'tools/cbtadmin'], ['Lainnya', 'tools/lainnya']]],
     ['Keluar', 'box-arrow-right', 'logout'],
 ];
 // Pengawas: Daftar Peserta = siswa di ruangnya (baca saja).

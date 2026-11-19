@@ -42,5 +42,5 @@
         <?php endif ?>
     </div>
 </div>
-<p class="small text-muted mt-2"><a href="<?= site_url('tools') . '?' . http_build_query(['log_tab' => 'siswa', 'log_tgl' => $tanggal]) ?>#log"><i class="bi bi-arrow-left me-1"></i>Kembali ke log</a></p>
+<p class="small text-muted mt-2"><a href="<?= site_url('tools/lainnya') . '?' . http_build_query(['log_tab' => 'siswa', 'log_tgl' => $tanggal]) ?>#log"><i class="bi bi-arrow-left me-1"></i>Kembali ke log</a></p>
 <?= $this->endSection() ?>

@@ -14,7 +14,8 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('login', 'Auth::attempt');
     $routes->get('logout', 'Auth::logout');
 
-    $routes->get('tools', 'Tools::index');
+    $routes->get('tools', 'Tools::awal');
+    $routes->get('tools/(moodle|cbtadmin|lainnya)', 'Tools::index/$1');
     $routes->post('tools', 'Tools::save');
     $routes->get('tools/gambar/(logo|logo2|ttd)', 'Tools::gambar/$1');
     $routes->post('tools/ujian', 'Tools::ujian');
