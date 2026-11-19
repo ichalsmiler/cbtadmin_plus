@@ -221,17 +221,6 @@ class Peserta extends PanelController
         return $this->response->download('template_peserta.xlsx', $data);
     }
 
-    public function export()
-    {
-        $rows = [];
-        foreach ($this->pesertaRows((string) $this->request->getGet('kelas'), (string) $this->request->getGet('ruang'), $this->tingkatData()) as $p) {
-            $rows[] = [$p['nomor_peserta'], $p['nama'], $p['kelas'], $p['username'], $p['password_plain'], $p['ruang_nama'], $p['sesi_nama']];
-        }
-        ActivityLog::add('export_peserta', count($rows) . ' baris');
-
-        return $this->response->download('peserta_' . date('Ymd_His') . '.xlsx', Excel::build(self::COLUMNS, $rows));
-    }
-
     public function import()
     {
         $file = $this->request->getFile('berkas');

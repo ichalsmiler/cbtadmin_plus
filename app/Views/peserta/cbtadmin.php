@@ -1,7 +1,6 @@
 <?= $this->extend('layout/main') ?>
 
 <?= $this->section('content') ?>
-<?php $query = http_build_query(array_filter(['kelas' => $filterKelas, 'ruang' => $filterRuang, 'tingkat' => $tingkat], static fn ($v) => $v !== '')); ?>
 
 <div class="card mb-3">
     <div class="card-body d-flex flex-wrap gap-2 align-items-end">
@@ -33,7 +32,6 @@
                 <i class="bi bi-plus-lg me-1"></i>Tambah
             </button>
             <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload me-1"></i>Import Excel</button>
-            <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('daftar_peserta/cbtadmin/export') . ($query !== '' ? '?' . $query : '') ?>"><i class="bi bi-download me-1"></i>Export Excel</a>
             <button class="btn btn-outline-danger btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#resetModal"><i class="bi bi-trash3 me-1"></i>Reset Peserta</button>
         </div>
     </div>

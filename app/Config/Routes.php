@@ -64,7 +64,6 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_peserta/cbtadmin/impor_json', 'Peserta::imporJson');
     $routes->post('daftar_peserta/cbtadmin/reset', 'Peserta::reset');
     $routes->get('daftar_peserta/cbtadmin/template', 'Peserta::template');
-    $routes->get('daftar_peserta/cbtadmin/export', 'Peserta::export');
     $routes->get('konvert', 'Konvert::index');
     $routes->get('jadwal_mapel', 'Konvert::jadwal');
     $routes->get('soal', 'Soal::index');
