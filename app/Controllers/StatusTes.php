@@ -18,7 +18,6 @@ class StatusTes extends PanelController
     {
         $categories = [];
         $courses    = [];
-        $rows       = [];
         $error      = false;
         $category   = null;  // tes aktif (tersimpan)
         $shown      = null;  // kategori yang mapelnya sedang ditampilkan
@@ -39,9 +38,6 @@ class StatusTes extends PanelController
             if ($shown) {
                 $courses = Moodle::coursesInCategory((int) $shown['id']);
             }
-            if ($category) {
-                $rows = self::quizRows($catId);
-            }
         } catch (\Throwable $e) {
             $error = true;
             log_message('error', 'Setting Ujian: ' . $e->getMessage());
@@ -53,7 +49,6 @@ class StatusTes extends PanelController
             'category'     => $category,
             'shown'        => $shown,
             'courses'      => $courses,
-            'rows'         => $rows,
             'moodleError'  => $error,
             'tokenEnabled' => ActiveTest::tokenEnabled(),
             'tokenMinutes' => ActiveTest::tokenMinutes(),
@@ -334,117 +329,5 @@ class StatusTes extends PanelController
         ActivityLog::add('reset_status_tes', count($changes) . ' mapel dibuka kembali');
 
         return redirect()->to(site_url('status_tes'))->with('success', 'Status tes dikembalikan: semua mata pelajaran dibuka kembali.');
-    }
-
-    /** Buka sekarang, tutup sekarang, atau atur waktu satu quiz. */
-    public function waktu()
-    {
-        $quizId = (int) $this->request->getPost('quiz');
-        $quiz   = null;
-        foreach (Moodle::quizzes() as $q) {
-            if ((int) $q['id'] === $quizId) {
-                $quiz = $q;
-            }
-        }
-        if (! $quiz) {
-            return redirect()->back()->with('error', 'Quiz tidak ditemukan.');
-        }
-
-        $now   = time();
-        $open  = (int) $quiz['timeopen'];
-        $close = (int) $quiz['timeclose'];
-
-        switch ($this->request->getPost('aksi')) {
-            case 'buka':
-                $open = $now;
-                if ($close > 0 && $close <= $now) {
-                    $close = 0;
-                }
-                $label = 'dibuka sekarang';
-                break;
-
-            case 'tutup':
-                $close = $now;
-                if ($open >= $now) {
-                    $open = 0;
-                }
-                $label = 'ditutup sekarang';
-                break;
-
-            default:
-                $open  = self::parseTime((string) $this->request->getPost('timeopen'));
-                $close = self::parseTime((string) $this->request->getPost('timeclose'));
-                if ($open === false || $close === false) {
-                    return redirect()->back()->with('error', 'Format waktu tidak valid.');
-                }
-                if ($open > 0 && $close > 0 && $close <= $open) {
-                    return redirect()->back()->with('error', 'Waktu tutup harus setelah waktu buka.');
-                }
-                $label = 'diatur: buka ' . ($open ? date('d/m/Y H:i', $open) : 'kapan saja')
-                    . ', tutup ' . ($close ? date('d/m/Y H:i', $close) : 'tidak ada');
-        }
-
-        try {
-            MoodleBridge::call('quiz_times', ['quizid' => $quizId, 'timeopen' => $open, 'timeclose' => $close]);
-        } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Gagal mengubah waktu quiz: ' . $e->getMessage());
-        }
-        ActivityLog::add('waktu_quiz', $quiz['name'] . ' ' . $label);
-
-        return redirect()->to(site_url('status_tes'))->with('success', 'Quiz "' . $quiz['name'] . '" ' . $label . '.');
-    }
-
-    /** Quiz di kategori aktif beserta jumlah peserta per status. */
-    private static function quizRows(int $catId): array
-    {
-        $rows = Moodle::quizzes($catId);
-        if ($rows === []) {
-            return [];
-        }
-        $a      = Moodle::t('quiz_attempts');
-        $counts = Moodle::db()->query(
-            "SELECT quiz,
-                    COUNT(DISTINCT userid) AS mulai,
-                    COUNT(DISTINCT CASE WHEN state IN ('inprogress', 'overdue') THEN userid END) AS sedang,
-                    COUNT(DISTINCT CASE WHEN state = 'finished' THEN userid END) AS selesai
-               FROM {$a} WHERE preview = 0 GROUP BY quiz"
-        )->getResultArray();
-        $counts = array_column($counts, null, 'quiz');
-        foreach ($rows as &$row) {
-            $row += $counts[$row['id']] ?? ['mulai' => 0, 'sedang' => 0, 'selesai' => 0];
-            $row['status'] = self::status($row);
-        }
-        unset($row);
-
-        return $rows;
-    }
-
-    /** @return int|false 0 untuk kosong, false untuk format salah */
-    private static function parseTime(string $value)
-    {
-        $value = trim($value);
-        if ($value === '') {
-            return 0;
-        }
-        $ts = strtotime($value);
-
-        return $ts === false ? false : $ts;
-    }
-
-    /** buka | belum | tutup | sembunyi */
-    public static function status(array $quiz): string
-    {
-        $now = time();
-        if (! (int) $quiz['visible'] || (isset($quiz['course_visible']) && ! (int) $quiz['course_visible'])) {
-            return 'sembunyi';
-        }
-        if ((int) $quiz['timeclose'] > 0 && (int) $quiz['timeclose'] <= $now) {
-            return 'tutup';
-        }
-        if ((int) $quiz['timeopen'] > $now) {
-            return 'belum';
-        }
-
-        return 'buka';
     }
 }
