@@ -20,6 +20,11 @@ $adaAttempt = (int) $info['attempt'] > 0;
                 <div class="fw-semibold"><?= count($soal) ?> soal terbaca dari <?= esc($berkas) ?></div>
                 <div class="small text-body-secondary">Tujuan: <?= esc($info['fullname']) ?> (<?= esc($info['shortname']) ?>) · <?= esc($info['kategori']) ?> ·
                     quiz sekarang berisi <?= (int) $info['soal'] ?> soal<?= $adaAttempt ? ', ' . (int) $info['attempt'] . ' attempt siswa' : '' ?></div>
+                <?php if (($gambar['asli'] ?? 0) > 0): ?>
+                    <?php $kb = static fn (int $b): string => number_format($b / 1024, 0, ',', '.') . ' KB'; ?>
+                    <div class="small text-body-secondary">Gambar: <?= $kb((int) $gambar['asli']) ?> → <?= $kb((int) $gambar['jadi']) ?>
+                        <?= (int) $gambar['jumlah'] > 0 ? '(' . (int) $gambar['jumlah'] . ' gambar dikecilkan: lebar maks. ' . \App\Libraries\SoalRtf::LEBAR_MAKS . ' px, JPG ≤ 150 KB)' : '(sudah kecil, tidak diubah)' ?></div>
+                <?php endif ?>
             </div>
             <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('soal') ?>?mapel=<?= (int) $info['id'] ?>">Batal</a>
         </div>

@@ -29,11 +29,19 @@ class SoalRtf
         'numeric response' => false, 'other' => false,
     ];
 
+    /** Gambar dikecilkan: lebar maksimal (px) dan ukuran sasaran per gambar (byte). */
+    public const LEBAR_MAKS = 1000;
+    public const UKURAN_MAKS = 150 * 1024;
+
+    /** Ringkasan pengecilan gambar selama urai() (byte asli, byte hasil, jumlah gambar yang diubah). */
+    private static array $ukuran = ['asli' => 0, 'jadi' => 0, 'jumlah' => 0];
+
     /**
-     * @return array{soal: list<array{teks: string, opsi: list<string>, kunci: int, gambar: list<array{nama: string, data: string}>}>, peringatan: list<string>}
+     * @return array{soal: list<array{teks: string, opsi: list<string>, kunci: int, gambar: list<array{nama: string, data: string}>}>, peringatan: list<string>, gambar: array{asli: int, jadi: int, jumlah: int}}
      */
     public static function urai(string $rtf): array
     {
+        self::$ukuran = ['asli' => 0, 'jadi' => 0, 'jumlah' => 0];
         if (! str_starts_with(ltrim($rtf), '{\\rtf')) {
             throw new RuntimeException('Berkas bukan RTF. Simpan soal sebagai Rich Text Format (.rtf).');
         }
@@ -98,7 +106,53 @@ class SoalRtf
             throw new RuntimeException('Tidak ada soal pilihan ganda yang terbaca. Pastikan opsi berupa daftar a/b/c dan ada baris "ANS: X" di bawah setiap soal.');
         }
 
-        return ['soal' => $soal, 'peringatan' => $peringatan];
+        return ['soal' => $soal, 'peringatan' => $peringatan, 'gambar' => self::$ukuran];
+    }
+
+    /**
+     * Kecilkan gambar soal supaya ringan saat ratusan siswa membuka soal bersamaan: lebar paling besar LEBAR_MAKS px,
+     * disimpan JPEG (kualitas diturunkan bertahap sampai <= UKURAN_MAKS). Gambar yang sudah kecil, atau PNG kecil
+     * (mis. diagram/teks yang lebih tajam sebagai PNG), dibiarkan. Tanpa ekstensi GD gambar tidak diubah.
+     *
+     * @return array{0: string, 1: string} [data, ekstensi]
+     */
+    public static function kecilkan(string $data, string $ext): array
+    {
+        if (! function_exists('imagecreatefromstring') || $data === '') {
+            return [$data, $ext];
+        }
+        $info = @getimagesizefromstring($data);
+        if (! $info) {
+            return [$data, $ext];
+        }
+        [$w, $h] = $info;
+        if ($w <= self::LEBAR_MAKS && strlen($data) <= self::UKURAN_MAKS) {
+            return [$data, $ext];
+        }
+        $img = @imagecreatefromstring($data);
+        if (! $img) {
+            return [$data, $ext];
+        }
+        $lebar  = min($w, self::LEBAR_MAKS);
+        $tinggi = max(1, (int) round($h * $lebar / $w));
+        $kanvas = imagecreatetruecolor($lebar, $tinggi);
+        // PNG transparan diberi latar putih (JPEG tidak punya transparansi).
+        imagefill($kanvas, 0, 0, imagecolorallocate($kanvas, 255, 255, 255));
+        imagecopyresampled($kanvas, $img, 0, 0, 0, 0, $lebar, $tinggi, $w, $h);
+        imagedestroy($img);
+        $hasil = '';
+        foreach ([82, 75, 68, 60, 52] as $kualitas) {
+            ob_start();
+            imagejpeg($kanvas, null, $kualitas);
+            $hasil = (string) ob_get_clean();
+            if (strlen($hasil) <= self::UKURAN_MAKS) {
+                break;
+            }
+        }
+        imagedestroy($kanvas);
+
+        // Hasil tidak lebih kecil (mis. PNG kecil yang sedikit lebih lebar): pakai yang asli.
+        return $hasil !== '' && strlen($hasil) < strlen($data) ? [$hasil, 'jpg'] : [$data, $ext];
     }
 
     /** Moodle XML untuk jembatan import_soal. */
@@ -141,8 +195,12 @@ class SoalRtf
             }
             $isi = self::html($runs);
             foreach ($p['gambar'] as $g) {
-                $nama     = 'gambar-' . (count($gambar) + 1) . '.' . $g['ext'];
-                $gambar[] = ['nama' => $nama, 'data' => $g['data']];
+                [$data, $ext] = self::kecilkan($g['data'], $g['ext']);
+                self::$ukuran['asli'] += strlen($g['data']);
+                self::$ukuran['jadi'] += strlen($data);
+                self::$ukuran['jumlah'] += $data !== $g['data'] ? 1 : 0;
+                $nama     = 'gambar-' . (count($gambar) + 1) . '.' . $ext;
+                $gambar[] = ['nama' => $nama, 'data' => $data];
                 $isi     .= ($isi !== '' ? '<br>' : '') . '<img src="@@PLUGINFILE@@/' . $nama . '" alt="" style="max-width:100%;height:auto">';
             }
             if ($isi !== '') {

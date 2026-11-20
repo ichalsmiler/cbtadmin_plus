@@ -36,6 +36,37 @@ for plugin in "$SRC"/moodle/local/*/; do
     echo "  - local_$name disalin"
 done
 
+log "Berkas Moodle (gambar soal dll.) dikirim langsung oleh Nginx (X-Accel-Redirect)"
+# PHP hanya memeriksa izin lalu menyerahkan pengiriman berkas ke Nginx, jadi worker PHP cepat bebas saat ratusan
+# siswa membuka soal bergambar bersamaan.
+DATAROOT="$(sed -n "s/^\$CFG->dataroot *= *'\(.*\)';.*/\1/p" "$CONFIG" | head -1)"
+SITE=/etc/nginx/sites-available/moodle
+if [ -n "$DATAROOT" ] && [ -f "$SITE" ]; then
+    if ! grep -q "location /dataroot/" "$SITE"; then
+        cp "$SITE" "$SITE.bak-cbt"
+        sed -i "0,/^    location \/ {/s##    location /dataroot/ {\n        internal;\n        alias $DATAROOT/;\n    }\n\n    location / {#" "$SITE"
+        if nginx -t >/dev/null 2>&1; then
+            systemctl reload nginx
+            echo "  - Nginx: location /dataroot/ (internal) ditambahkan"
+        else
+            mv "$SITE.bak-cbt" "$SITE"
+            echo "  [PERINGATAN] konfigurasi Nginx gagal diuji; dikembalikan, X-Accel-Redirect tidak dipasang"
+        fi
+        rm -f "$SITE.bak-cbt"
+    fi
+    if grep -q "location /dataroot/" "$SITE" && ! grep -q "xsendfile" "$CONFIG"; then
+        cp "$CONFIG" "$CONFIG.bak-cbt"
+        sed -i "s#^require_once(__DIR__ . '/lib/setup.php');#// --- Ditambahkan oleh pasang.sh: berkas dikirim Nginx ---\n\$CFG->xsendfile = 'X-Accel-Redirect';\n\$CFG->xsendfilealiases = ['/dataroot/' => \$CFG->dataroot];\n\nrequire_once(__DIR__ . '/lib/setup.php');#" "$CONFIG"
+        if php -l "$CONFIG" >/dev/null 2>&1 && grep -q "xsendfile" "$CONFIG"; then
+            echo "  - config.php: \$CFG->xsendfile = X-Accel-Redirect"
+        else
+            mv "$CONFIG.bak-cbt" "$CONFIG"
+            echo "  [PERINGATAN] config.php tidak bisa diubah; dikembalikan"
+        fi
+        rm -f "$CONFIG.bak-cbt"
+    fi
+fi
+
 if [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ]; then
     log "Server cadangan HA: setelan ikut tersalin dari server utama, tidak dipasang di sini"
     exit 0

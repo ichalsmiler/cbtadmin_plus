@@ -76,6 +76,7 @@ class Soal extends PanelController
             'berkas'     => $file->getClientName(),
             'soal'       => $simpan['soal'],
             'peringatan' => $hasil['peringatan'],
+            'gambar'     => $hasil['gambar'],
         ]);
     }
 

@@ -180,6 +180,12 @@ server {
     index index.php index.html;
     client_max_body_size 100M;
 
+    # X-Accel-Redirect: Moodle (PHP) memeriksa izin, Nginx yang mengirim berkas dari moodledata.
+    location /dataroot/ {
+        internal;
+        alias $DATA_DIR/;
+    }
+
     location / {
         $TRY_FILES
     }
@@ -234,6 +240,10 @@ $CFG->session_redis_host = '127.0.0.1';
 $CFG->session_redis_port = 6379;
 $CFG->session_redis_acquire_lock_timeout = 120;
 $CFG->session_redis_lock_expire = 7200;
+
+// Berkas (gambar soal dll.) dikirim langsung oleh Nginx; lihat location /dataroot/ di situs Nginx.
+$CFG->xsendfile = 'X-Accel-Redirect';
+$CFG->xsendfilealiases = ['/dataroot/' => $CFG->dataroot];
 
 EOF
 sed -i "/lib\/setup\.php/e cat $EXTRA" "$CONFIG"
