@@ -448,6 +448,8 @@ class Tools extends PanelController
             if ($rencana['buat'] !== []) {
                 MoodleBridge::call('create_categories', ['names' => $rencana['buat']]);
             }
+            // Kategori tanpa ujian SESI NONAKTIF selalu ada bersama hari-hari ujian (dibuat bila belum ada).
+            \App\Libraries\ActiveTest::kategoriNonaktif();
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Gagal membuat hari ujian: ' . $e->getMessage());
         }

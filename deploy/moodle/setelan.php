@@ -191,6 +191,20 @@ if (trim($baru) !== trim($scss)) {
 
 // ---------------------------------------------------------------------- Course dan quiz
 echo "== Course dan quiz\n";
+// Kategori "SESI NONAKTIF" (tanpa ujian): tes aktif saat semua sesi nonaktif, tidak bisa dihapus dari panel.
+// Dibuat sejak awal supaya selalu terlihat di Kategori Mapel (sama dengan cbt_kategori_nonaktif() di jembatan panel).
+$adaNonaktif = false;
+foreach ($DB->get_records('course_categories', ['parent' => 0], 'id', 'id, name') as $kat) {
+    if (core_text::strtoupper(trim((string) $kat->name)) === 'SESI NONAKTIF') {
+        $adaNonaktif = true;
+        break;
+    }
+}
+if (! $adaNonaktif) {
+    core_course_category::create(['name' => 'SESI NONAKTIF', 'parent' => 0]);
+    $catatan('kategori SESI NONAKTIF dibuat');
+    $ubah++;
+}
 $setel('format', 'singleactivity', 'moodlecourse');      // course baru: Single activity
 $setel('activitytype', 'quiz', 'format_singleactivity'); // ... berisi Quiz
 $setel('courseenddateenabled', 0, 'moodlecourse');       // tanpa tanggal selesai course

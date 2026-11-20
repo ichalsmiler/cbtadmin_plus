@@ -7,5 +7,5 @@ set -euo pipefail
 HOST="${1:-moodle}"
 cd "$(dirname "$0")/.."
 
-tar -czf - deploy/moodle moodle | ssh -o BatchMode=yes "$HOST" 'rm -rf ~/cbt-setelan && mkdir -p ~/cbt-setelan && tar -xzf - -C ~/cbt-setelan'
+tar -czf - deploy/moodle moodle | ssh -o BatchMode=yes "$HOST" 'rm -rf ~/cbt-setelan && mkdir -p ~/cbt-setelan && tar --no-same-owner -xzf - -C ~/cbt-setelan'
 ssh -o BatchMode=yes "$HOST" 'sed -i "s/\r$//" ~/cbt-setelan/deploy/moodle/pasang.sh && sudo bash ~/cbt-setelan/deploy/moodle/pasang.sh ~/cbt-setelan'
