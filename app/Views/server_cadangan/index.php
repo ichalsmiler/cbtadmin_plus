@@ -148,7 +148,16 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
     </div>
 </form>
 
-<div class="card mt-4">
+<?php
+// Sudah tersambung (utama terhubung ke VPS, atau server ini sendiri cadangan): langkah sambungkan tidak perlu
+// tampil lagi; tetap bisa dibuka lewat tautan kecil untuk menyambung ulang / mengganti VPS cadangan.
+$tersambung = $peran === 'cadangan' || ($peran === 'utama' && ($s['kontak_detik'] ?? null) !== null);
+?>
+<?php if ($tersambung): ?>
+<details class="mt-4 small text-muted">
+    <summary>Sambungkan ulang / ganti server cadangan</summary>
+<?php endif ?>
+<div class="card mt-<?= $tersambung ? '2' : '4' ?>">
     <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i>Sambungkan ke cadangan (sekali)</div>
     <div class="card-body small">
         <ol class="mb-3">
@@ -176,6 +185,9 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
         </ol>
     </div>
 </div>
+<?php if ($tersambung): ?>
+</details>
+<?php endif ?>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
