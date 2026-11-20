@@ -34,6 +34,9 @@ dan `vendor/` diunduh di server oleh `deploy/install.sh`.
 
 ## Server baru dari nol
 
+Tutorial langkah demi langkah untuk server utama (sekolah) dan server cadangan (VPS):
+**[docs/INSTALASI-SERVER.md](docs/INSTALASI-SERVER.md)**. Ringkasannya:
+
 Untuk Debian 12/13 (VPS atau container Proxmox). Ganti `IP_SERVER` dan `alamat` sesuai server.
 
 **1. Akses dari komputer ini** — di server sebagai root (konsol, atau `ssh user@IP_SERVER` lalu `su -`),

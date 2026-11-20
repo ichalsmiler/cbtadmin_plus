@@ -8,7 +8,7 @@ Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 ## Server dan alur kerja
 - **SATU-SATUNYA server kerja: `cbtplus` = 172.16.32.157** (sejak 19 Nov 2026, perintah pengguna). Alias SSH, user smiler,
   sudo tanpa sandi, kunci `id_ed25519_moodle`; LXC Debian 13, 2 core, RAM 2 GB, MariaDB 11.8, Redis (sesi + cache Moodle,
-  store `cbt_redis`, prefix `mdlc_`; berkas pluginfile dikirim Nginx lewat X-Accel-Redirect: `$CFG->xsendfile` + `location /dataroot/ { internal; }`, dipasang pasang.sh / install-moodle.sh), WITA. Kredensial: `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
+  store `cbt_redis`, prefix `mdlc_`; layar login konsol `/etc/issue` menampilkan IP server (`` agetty, dipasang pasang.sh); berkas pluginfile dikirim Nginx lewat X-Accel-Redirect: `$CFG->xsendfile` + `location /dataroot/ { internal; }`, dipasang pasang.sh / install-moodle.sh), WITA. Kredensial: `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
 - Server lama `moodle` (.154) dan `cadangan` (.155): ABAIKAN, jangan deploy/ubah ke sana kecuali pengguna meminta.
 - Panel di `/var/www/cbtadmin` (URL `/cbtadmin/`), Moodle di `/var/www/moodle` (web `public/`), data `/var/moodledata`.
 - PHP tidak ada di PC ini: lint di server (`ssh cbtplus 'php -l /var/www/cbtadmin/<file>'`).

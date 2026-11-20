@@ -36,6 +36,22 @@ for plugin in "$SRC"/moodle/local/*/; do
     echo "  - local_$name disalin"
 done
 
+log "Layar login konsol: alamat IP server"
+# /etc/issue tampil di konsol (Proxmox/VPS) sebelum login; \4 diganti agetty dengan IPv4 server saat itu,
+# jadi alamat akses tidak perlu dicek manual (ip a) setelah IP berubah.
+if ! grep -q "CBT Admin Plus" /etc/issue 2>/dev/null; then
+    cat > /etc/issue <<'ISSUE'
+Debian GNU/Linux \r \n \l
+
+  CBT Admin Plus
+  Alamat IP untuk akses VM => \4
+  Moodle (ujian)  : http://\4
+  CBT Admin       : http://\4/cbtadmin/
+
+ISSUE
+    echo "  - /etc/issue: alamat IP tampil di layar login"
+fi
+
 log "Berkas Moodle (gambar soal dll.) dikirim langsung oleh Nginx (X-Accel-Redirect)"
 # PHP hanya memeriksa izin lalu menyerahkan pengiriman berkas ke Nginx, jadi worker PHP cepat bebas saat ratusan
 # siswa membuka soal bergambar bersamaan.
