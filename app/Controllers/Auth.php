@@ -44,10 +44,14 @@ class Auth extends PanelController
             'last_seen'  => time(),
             'cred'       => \App\Filters\Guard::cap((string) $admin['password_hash']),
         ]);
-        $db->table('admins')->where('id', $admin['id'])->update(['last_login' => date('Y-m-d H:i:s')]);
+        try {
+            $db->table('admins')->where('id', $admin['id'])->update(['last_login' => date('Y-m-d H:i:s')]);
+        } catch (\Throwable $e) {
+            // Server cadangan siaga: database hanya-baca, login tetap boleh (untuk tombol PINDAH).
+        }
         ActivityLog::add('login');
 
-        return redirect()->to(site_url('/'));
+        return redirect()->to(site_url(\App\Libraries\ServerCadangan::siaga() ? 'server_cadangan' : '/'));
     }
 
     public function logout()

@@ -214,6 +214,22 @@ if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
     chmod 440 /etc/sudoers.d/cbtadmin-ha
     visudo -cf /etc/sudoers.d/cbtadmin-ha >/dev/null || { rm -f /etc/sudoers.d/cbtadmin-ha; echo "[PERINGATAN] sudoers Server Cadangan tidak valid, dilewati."; }
 fi
+
+# Server cadangan siaga yang dipasang versi lama: halaman siaga menutup /cbtadmin/ juga, sehingga tombol PINDAH
+# tidak bisa dibuka. Perbarui supaya panel tetap terbuka (isi sama dengan set_site_mode di ha-cadangan.sh).
+SIAGA=/etc/nginx/snippets/cbt-ha-mode.conf
+if [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ] && [ -f "$SIAGA" ] && ! grep -q 'cbtadmin' "$SIAGA"; then
+    cat > "$SIAGA" <<'EOF'
+# CBT HA: server cadangan belum aktif (dibuat oleh skrip ha)
+error_page 503 /cbt-cadangan.html;
+location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
+set $cbt_siaga 1;
+if ($uri = /cbt-cadangan.html) { set $cbt_siaga 0; }
+if ($uri ~ ^/cbtadmin(/|$)) { set $cbt_siaga 0; }
+if ($cbt_siaga) { return 503; }
+EOF
+    if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "  - halaman siaga cadangan: panel /cbtadmin/ dibuka"; fi
+fi
 # Kosongkan OPcache supaya kode baru langsung dipakai.
 systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
 sleep 1

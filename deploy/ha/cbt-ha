@@ -7,6 +7,7 @@
 #                            simpan /etc/cbt-ha/ha.conf, lalu pasang sisi utama
 #    cbt-ha cadangan KODE    di VPS CADANGAN: KODE disalin dari menu Server Cadangan di panel utama
 #    cbt-ha status           keadaan sambungan dan replikasi
+#    cbt-ha pindah           di VPS CADANGAN saat server utama mati: aktifkan cadangan (ketik PINDAH)
 # =============================================================================
 set -euo pipefail
 
@@ -58,8 +59,13 @@ case "${1:-}" in
             bash "$SKRIP/ha-utama.sh" status
         fi
         ;;
+    pindah)
+        # Server utama mati: aktifkan server cadangan ini (sama dengan tombol PINDAH di panel). Minta ketik PINDAH.
+        [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ] || gagal "Server ini bukan server cadangan."
+        bash "$SKRIP/ha-cadangan.sh" pindah
+        ;;
     *)
-        echo "Pakai: cbt-ha utama | cbt-ha cadangan KODE | cbt-ha status"
+        echo "Pakai: cbt-ha utama | cbt-ha cadangan KODE | cbt-ha status | cbt-ha pindah"
         exit 1
         ;;
 esac

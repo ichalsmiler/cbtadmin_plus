@@ -72,6 +72,22 @@ class Guard implements FilterInterface
             $session->set('last_seen', time());
         }
 
+        // Server cadangan siaga (database hanya-baca): panel hanya dipakai untuk menu Server Cadangan (tombol PINDAH).
+        if (\App\Libraries\ServerCadangan::siaga()) {
+            if ($session->get('admin_role') !== 'admin') {
+                $session->destroy();
+
+                return $this->deny($request, 'Server cadangan belum aktif. Pakai panel di alamat server utama.');
+            }
+            if (! in_array(explode('/', $path)[0], ['server_cadangan', 'logout'], true)) {
+                if ($request->isAJAX()) {
+                    return service('response')->setStatusCode(403)->setJSON(['error' => 'Server cadangan siaga.']);
+                }
+
+                return redirect()->to(site_url('server_cadangan'));
+            }
+        }
+
         if (! self::allowed((string) $session->get('admin_role'), $path)) {
             if ($request->isAJAX()) {
                 return service('response')->setStatusCode(403)->setJSON(['error' => 'Hanya untuk administrator.']);

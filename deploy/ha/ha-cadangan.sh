@@ -145,11 +145,16 @@ main{background:#fff;border-radius:12px;padding:32px;max-width:420px;text-align:
 <p>Server ini menyimpan salinan data ujian dan belum aktif. Silakan kerjakan ujian di alamat server utama.</p></main></body></html>
 EOF
     if [ "$mode" = cadangan ]; then
+        # Moodle untuk siswa ditutup, tetapi panel /cbtadmin/ tetap terbuka (mode siaga: hanya menu Server Cadangan,
+        # untuk tombol PINDAH saat server utama mati). install.sh menulis isi yang sama saat cbt-perbarui.
         cat > "$snip" <<'EOF'
 # CBT HA: server cadangan belum aktif (dibuat oleh skrip ha)
 error_page 503 /cbt-cadangan.html;
 location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
-if ($uri != /cbt-cadangan.html) { return 503; }
+set $cbt_siaga 1;
+if ($uri = /cbt-cadangan.html) { set $cbt_siaga 0; }
+if ($uri ~ ^/cbtadmin(/|$)) { set $cbt_siaga 0; }
+if ($cbt_siaga) { return 503; }
 EOF
     else
         echo "# CBT HA: server aktif melayani ujian (dibuat oleh skrip ha)" > "$snip"

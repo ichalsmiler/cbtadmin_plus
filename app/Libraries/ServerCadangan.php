@@ -25,6 +25,17 @@ class ServerCadangan
         'ha_https'           => 'PAKAI_HTTPS',   // ya = Cloudflare Proxied + sertifikat Origin; tidak = http (DNS only)
     ];
 
+    /**
+     * Server ini cadangan yang masih siaga (database hanya-baca, siswa belum boleh ujian di sini)?
+     * Dibaca dari /etc/cbt-ha-peran yang ditulis skrip HA (cadangan → utama setelah PINDAH).
+     */
+    public static function siaga(): bool
+    {
+        static $hasil = null;
+
+        return $hasil ??= is_readable('/etc/cbt-ha-peran') && trim((string) @file_get_contents('/etc/cbt-ha-peran')) === 'cadangan';
+    }
+
     public static function tersedia(): bool
     {
         return is_file(self::HELPER);

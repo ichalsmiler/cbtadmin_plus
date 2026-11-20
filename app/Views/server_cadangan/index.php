@@ -91,7 +91,8 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                 <div class="card-body small">
                     <ol class="mb-0">
                         <li>Buka panel di <strong>server cadangan (VPS)</strong>: <?= esc(($s['url_cadangan'] ?? '') !== '' ? $s['url_cadangan'] . '/cbtadmin/' : 'alamat cadangan/cbtadmin/') ?></li>
-                        <li>Masuk ke Admin Tools → Server Cadangan, ketik <code>PINDAH</code>, klik <strong>Aktifkan</strong>.</li>
+                        <li>Login admin (akun sama dengan sekolah); panel langsung membuka Server Cadangan. Ketik <code>PINDAH</code>, klik <strong>Aktifkan</strong>.
+                            <div class="text-muted">Panel tidak bisa dibuka? Di konsol VPS jalankan <code>cbt-ha pindah</code>.</div></li>
                         <li>Umumkan alamat ujian cadangan ke siswa. Siswa login lagi dan melanjutkan; jawaban yang sudah tersimpan tetap ada.</li>
                     </ol>
                     <p class="text-muted mt-2 mb-0">Panel di server cadangan memakai akun admin yang sama (data panel ikut tersalin).</p>
