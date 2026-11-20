@@ -30,7 +30,7 @@ Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 - Jangan masuk/mengubah repo lain di `F:\apps` (mis. `web-ujian`) kecuali diminta jelas.
 - Server lain: `konver-soal` = 172.16.32.150. Acuan tampilan: AIOCBT CBTAdmin (perlu login pengguna).
 - Saran yang belum dibuat: uji beban + tambah RAM utama (1 GB), backup di luar host, Safe Exam Browser,
-  matikan rememberusername/autolang di halaman login Moodle, rsync HA berprioritas rendah.
+  matikan rememberusername di halaman login Moodle (autolang sudah 0 di setelan.php), rsync HA berprioritas rendah.
 
 ## Struktur kode panel (`app/`)
 - `Controllers/PanelController.php` — basis: `render()`, `myRuang()` (ruang pengawas), `ruangList()`, `VERSION`;

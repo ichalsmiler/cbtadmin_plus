@@ -55,6 +55,7 @@ if ($sm->translation_exists('id', false)) {
     }
 }
 $setel('langmenu', 0);          // siswa tidak bisa mengganti bahasa
+$setel('autolang', 0);          // bahasa tidak mengikuti browser: halaman login selalu bahasa Indonesia
 $setel('country', 'ID');
 // Zona waktu Moodle = zona waktu server (diatur install-moodle.sh, bawaan Asia/Makassar).
 $zona = trim((string) @file_get_contents('/etc/timezone')) ?: date_default_timezone_get();
