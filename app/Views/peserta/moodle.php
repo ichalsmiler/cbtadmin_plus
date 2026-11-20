@@ -65,7 +65,7 @@
             <div class="modal-header"><h5 class="modal-title" id="tambahModalLabel">Tambah user Moodle</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
             <div class="modal-body row g-3">
                 <div class="col-12"><label class="form-label" for="tm_nama">Nama</label><input class="form-control" id="tm_nama" name="nama" maxlength="100" required value="<?= esc(old('nama') ?? '', 'attr') ?>"></div>
-                <div class="col-6"><label class="form-label" for="tm_username">Username</label><input class="form-control" id="tm_username" name="username" maxlength="100" required placeholder="mis. 01-26-0001" value="<?= esc(old('username') ?? '', 'attr') ?>"></div>
+                <div class="col-6"><label class="form-label" for="tm_username">Username</label><input class="form-control" id="tm_username" name="username" maxlength="100" required placeholder="mis. 91-26-0001" value="<?= esc(old('username') ?? '', 'attr') ?>"></div>
                 <div class="col-6"><label class="form-label" for="tm_password">Password</label><input class="form-control" id="tm_password" name="password" maxlength="100" placeholder="kosong = acak"></div>
                 <div class="col-6"><label class="form-label" for="tm_kelas">Kelas</label><input class="form-control" id="tm_kelas" name="kelas" maxlength="60" placeholder="mis. X-1" value="<?= esc(old('kelas') ?? '', 'attr') ?>"></div>
                 <div class="col-6"><label class="form-label" for="tm_ruang">Ruang</label><input class="form-control" id="tm_ruang" name="ruang" maxlength="60" placeholder="mis. 1" value="<?= esc(old('ruang') ?? '', 'attr') ?>"></div>

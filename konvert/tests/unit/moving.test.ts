@@ -306,7 +306,7 @@ describe('nama disingkat, terpotong, atau salah ketik', async () => {
   const SISWA = [
     p('92-26-0101', 'PUTRI CONTOH BINTANG SEKARWANGI', 'XI-9'),
     p('92-26-0102', 'PUTRI CONTOH MELATI', 'XI-3'),
-    p('92-26-0103', 'PUTRI MAHARANI', 'XI-9'),
+    p('92-26-0103', 'PUTRI CONTOH MAHARANI', 'XI-9'),
     p('92-26-0104', 'MUHAMMAD CONTOH DELIMA', 'XI-9'),
     p('92-26-0105', 'MUHAMMAD CONTOH DAMAR', 'XI-9'),
   ];
