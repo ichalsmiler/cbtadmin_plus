@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  cbt-ha — sambungkan server utama dan cadangan langsung dari konsol server (tanpa laptop).
+#  Dipasang oleh pasang-cbt.sh ke /usr/local/sbin/cbt-ha.
+#
+#    cbt-ha utama            di server UTAMA: ambil pengaturan dari menu Server Cadangan (CBT Admin),
+#                            simpan /etc/cbt-ha/ha.conf, lalu pasang sisi utama
+#    cbt-ha cadangan KODE    di VPS CADANGAN: KODE disalin dari menu Server Cadangan di panel utama
+#    cbt-ha status           keadaan sambungan dan replikasi
+# =============================================================================
+set -euo pipefail
+
+HA_DIR="/etc/cbt-ha"
+SKRIP="/usr/local/share/cbt-ha"
+
+gagal() { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || gagal "Jalankan sebagai root (sudo cbt-ha …)."
+[ -f "$SKRIP/ha-utama.sh" ] || gagal "Skrip HA belum terpasang. Jalankan dulu: cbt-perbarui"
+
+simpan_conf() { install -d -m 700 "$HA_DIR"; install -m 600 /dev/stdin "$HA_DIR/ha.conf"; }
+
+case "${1:-}" in
+    utama)
+        # Pengaturan disimpan panel di tabel settings (kunci ha_*), lihat App\Libraries\ServerCadangan::CONF.
+        nilai() { mariadb -N -B cbtadmin -e "SELECT svalue FROM settings WHERE skey='$1'" 2>/dev/null | head -1 | tr -d '"$`'; }
+        utama_ip="$(nilai ha_utama_ip)"; cadangan_ip="$(nilai ha_cadangan_ip)"; rahasia="$(nilai ha_secret)"
+        [ -n "$utama_ip" ] && [ -n "$cadangan_ip" ] && [ -n "$rahasia" ] \
+            || gagal "Pengaturan belum lengkap. Isi dan Simpan dulu di CBT Admin → Admin Tools → Server Cadangan."
+        {
+            echo "# Konfigurasi CBT HA (dibuat cbt-ha dari pengaturan panel, $(date '+%Y-%m-%d %H:%M'))."
+            echo "DOMAIN_UTAMA=\"$(nilai ha_domain_utama)\""
+            echo "DOMAIN_CADANGAN=\"$(nilai ha_domain_cadangan)\""
+            echo "UTAMA_IP=\"$utama_ip\""
+            echo "CADANGAN_IP=\"$cadangan_ip\""
+            echo "HA_SECRET=\"$rahasia\""
+            echo "BACKUP_KEEP_DAYS=\"$(nilai ha_backup_hari | grep . || echo 7)\""
+            echo "BACKUP_JAM_UJIAN=\"$(nilai ha_backup_jam | grep . || echo 6-17)\""
+        } | simpan_conf
+        bash "$SKRIP/ha-utama.sh" pasang
+        echo
+        echo "Berikutnya: buka CBT Admin server utama → Admin Tools → Server Cadangan, salin perintah"
+        echo "\"cbt-ha cadangan …\" lalu jalankan di konsol VPS cadangan."
+        ;;
+    cadangan)
+        kode="${2:-}"
+        [ -n "$kode" ] || gagal "Pakai: cbt-ha cadangan KODE  (KODE disalin dari menu Server Cadangan di panel utama)."
+        isi="$(printf '%s' "$kode" | base64 -d 2>/dev/null)" || gagal "KODE tidak valid; salin ulang seluruh baris dari panel."
+        printf '%s\n' "$isi" | grep -q '^HA_SECRET="' || gagal "KODE tidak berisi pengaturan HA; salin ulang dari panel."
+        printf '%s\n' "$isi" | simpan_conf
+        bash "$SKRIP/ha-cadangan.sh" pasang
+        ;;
+    status)
+        if [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ]; then
+            bash "$SKRIP/ha-cadangan.sh" status
+        else
+            bash "$SKRIP/ha-utama.sh" status
+        fi
+        ;;
+    *)
+        echo "Pakai: cbt-ha utama | cbt-ha cadangan KODE | cbt-ha status"
+        exit 1
+        ;;
+esac

@@ -140,15 +140,30 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 </form>
 
 <div class="card mt-4">
-    <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i>Langkah pemasangan (sekali)</div>
+    <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i>Sambungkan ke cadangan (sekali)</div>
     <div class="card-body small">
-        <ol class="mb-0">
-            <li>Isi pengaturan di atas, <strong>Simpan</strong>, lalu <strong>Unduh ha.conf</strong>.</li>
-            <li>Di VPS: pasang Moodle dan panel dengan versi yang sama seperti server utama (<code>install-moodle.sh</code>, <code>setelan-moodle.sh</code>, <code>deploy.sh</code>), buka UDP 51820.</li>
-            <li>Salin <code>ha.conf</code> ke <code>/usr/local/share/cbt-ha/ha.conf</code> di <strong>kedua</strong> server.</li>
-            <li>Di server utama (sekolah): <code>sudo bash /usr/local/share/cbt-ha/ha-utama.sh pasang</code></li>
-            <li>Di VPS: <code>sudo bash /usr/local/share/cbt-ha/ha-cadangan.sh pasang</code> (data VPS diganti data utama).</li>
-            <li>Buka halaman ini di kedua server: utama berstatus <em>UTAMA</em>, VPS berstatus <em>CADANGAN</em> dengan salinan database <em>Berjalan</em>.</li>
+        <ol class="mb-3">
+            <li>VPS sudah dipasang dengan perintah yang sama seperti server utama (<em>pasang-cbt.sh</em>, lihat tutorial), port <strong>UDP 51820</strong> dibuka.</li>
+            <li>Isi pengaturan di atas lalu <strong>Simpan</strong>.</li>
+            <li>Di <strong>konsol server utama</strong> (login root), jalankan:</li>
+        </ol>
+        <div class="input-group mb-3">
+            <input class="form-control font-monospace" readonly value="cbt-ha utama" id="cmdUtama">
+            <button class="btn btn-outline-secondary" type="button" data-salin="#cmdUtama"><i class="bi bi-clipboard me-1"></i>Salin</button>
+        </div>
+        <ol class="mb-3" start="4">
+            <li>Di <strong>konsol VPS cadangan</strong> (login root), jalankan perintah ini (berisi kunci rahasia, jangan dibagikan):</li>
+        </ol>
+        <?php if ($kode !== null): ?>
+            <div class="input-group mb-3">
+                <input class="form-control font-monospace" readonly value="<?= esc('cbt-ha cadangan ' . $kode, 'attr') ?>" id="cmdCadangan">
+                <button class="btn btn-outline-secondary" type="button" data-salin="#cmdCadangan"><i class="bi bi-clipboard me-1"></i>Salin</button>
+            </div>
+        <?php else: ?>
+            <div class="alert alert-warning py-2">Perintah muncul setelah IP server utama, IP server cadangan, dan pengaturan disimpan.</div>
+        <?php endif ?>
+        <ol class="mb-0" start="5">
+            <li>Muat ulang halaman ini di kedua server: utama berstatus <em>UTAMA</em>, VPS berstatus <em>CADANGAN</em> dengan salinan database <em>Berjalan</em>.</li>
         </ol>
     </div>
 </div>
@@ -158,6 +173,16 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 <script>
 (function () {
     'use strict';
+    // Tombol Salin perintah konsol.
+    document.querySelectorAll('[data-salin]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var el = document.querySelector(b.dataset.salin);
+            el.select();
+            var selesai = function () { b.innerHTML = '<i class="bi bi-check2 me-1"></i>Tersalin'; };
+            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(el.value).then(selesai); }
+            else { document.execCommand('copy'); selesai(); }
+        });
+    });
     // Catatan proses pindah: diperbarui tiap 3 detik selama berjalan.
     var kartu = document.getElementById('proses'), pre = document.getElementById('prosesLog'), spin = document.getElementById('prosesSpin');
     var ambil = function () {

@@ -1,6 +1,7 @@
 # Tutorial Instalasi Server Ujian (Utama + Cadangan)
 
-Tutorial ini untuk memasang **Moodle + CBT Admin Plus** di dua server, tanpa perlu paham Linux:
+Semua langkah dilakukan **langsung di konsol server**. Tidak perlu laptop khusus, Git, atau SSH — cukup browser
+untuk membuka panel.
 
 - **Server UTAMA** = server di sekolah (Proxmox). Siswa mengerjakan ujian di sini.
 - **Server CADANGAN** = VPS sewaan. Diam-diam menyalin semua data dari server utama. Kalau server utama mati saat
@@ -8,206 +9,59 @@ Tutorial ini untuk memasang **Moodle + CBT Admin Plus** di dua server, tanpa per
 
 **Cara membaca tutorial ini**
 
-- Kotak gelap = perintah. **Salin persis**, tempel, lalu tekan **Enter**.
-- Ganti tulisan `IP_SERVER` dengan alamat IP server Anda, mis. `172.16.32.157`.
-- Setiap langkah ada keterangan **di mana** perintah diketik dan **hasil yang benar**.
-- **Konsol server** = layar hitam server (Proxmox: pilih server → **Console**; VPS: konsol web dari penyedia).
-- **Git Bash PC admin** = buka folder proyek `cbtadmin_plus` (dari langkah 0), klik kanan → **Open Git Bash here**.
+- Kotak gelap = perintah. **Salin persis**, tempel di konsol server, lalu tekan **Enter**.
+- **Konsol server** = layar hitam server: Proxmox → pilih server → **Console**; VPS → konsol web dari penyedia
+  (atau `ssh root@IP` dari komputer mana pun).
+- Login konsol sebagai **root**.
 
 ---
 
-## Langkah 0 — Siapkan PC admin (sekali per komputer)
-
-PC admin = komputer Windows yang dipakai untuk memasang dan memperbarui server. Lewati langkah ini bila PC sudah
-punya folder `cbtadmin_plus` (mis. `F:\apps\cbtadmin_plus`).
-
-1. **Pasang Git for Windows** dari **git-scm.com/download/win** (klik Next sampai selesai). Git Bash ikut terpasang.
-2. **Pastikan akun GitHub Anda sudah diberi akses** ke repositori `ichalsmiler/cbtadmin_plus` (repositori ini privat;
-   minta pemilik menambahkan akun Anda di *Settings → Collaborators*).
-3. **Ambil proyek dari GitHub.** Buka folder tempat menyimpan proyek (mis. drive `F:`), klik kanan → **Open Git Bash
-   here**, lalu:
-
-```bash
-git clone https://github.com/ichalsmiler/cbtadmin_plus.git
-```
-
-Bila muncul jendela login GitHub, pilih **Sign in with your browser** dan masuk dengan akun yang diberi akses.
-Hasil benar: muncul folder baru `cbtadmin_plus`.
-
-4. **Buat kunci SSH PC ini** (cukup sekali; lewati bila sudah ada). Di Git Bash:
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_moodle
-```
-
-Tekan **Enter** terus sampai selesai (tanpa mengisi apa pun).
-
-5. **Mengambil pembaruan proyek** di kemudian hari: buka Git Bash di folder `cbtadmin_plus`, lalu `git pull`.
-
----
-
-## Bagian A — Siapkan server (sekali per server)
-
-Lakukan Bagian A untuk server utama, lalu ulangi untuk VPS cadangan.
-
-### A1. Buat server Debian
+## Langkah 1 — Siapkan server
 
 - **Server utama (Proxmox):** buat container/VM **Debian 13**, RAM minimal 8 GB, 6 core, disk 80 GB, IP tetap
   (mis. `172.16.32.157`).
-- **VPS cadangan:** sewa VPS **Debian 13**, 4 vCPU, RAM 8 GB, SSD 80 GB. Di pengaturan firewall penyedia VPS,
-  buka port **80**, **443**, dan **UDP 51820**.
-
-### A2. Buat user untuk PC admin
-
-**Di konsol server**, login sebagai `root`, lalu ketik satu per satu:
-
-```bash
-apt-get update && apt-get install -y sudo openssh-server
-```
-
-```bash
-adduser --gecos "" smiler
-```
-
-Diminta password: ketik password baru untuk `smiler` dua kali (huruf tidak terlihat saat diketik, itu normal).
-
-```bash
-echo 'smiler ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-smiler && chmod 440 /etc/sudoers.d/90-smiler
-```
-
-Lihat IP server (catat angkanya, mis. `172.16.32.157`):
-
-```bash
-hostname -I
-```
-
-### A3. Hubungkan PC admin ke server
-
-**Di Git Bash PC admin.** Kirim kunci SSH PC (dari langkah 0) ke server (ganti `IP_SERVER`):
-
-```bash
-ssh-copy-id -i ~/.ssh/id_ed25519_moodle.pub smiler@IP_SERVER
-```
-
-Ditanya *"Are you sure…"* → ketik `yes`. Ditanya password → ketik password `smiler` dari langkah A2.
-Setelah ini PC tidak perlu password lagi.
-
-
-### A4. Beri nama singkat untuk server
-
-**Di Git Bash PC admin:**
-
-```bash
-notepad ~/.ssh/config
-```
-
-Tambahkan di paling bawah, lalu **Simpan** (Ctrl+S). Nama setelah `Host` bebas, contoh `utama` untuk server sekolah
-dan `vps` untuk cadangan:
-
-```
-Host utama
-    HostName 172.16.32.157
-    User smiler
-    IdentityFile ~/.ssh/id_ed25519_moodle
-    IdentitiesOnly yes
-
-Host vps
-    HostName IP_PUBLIK_VPS
-    User smiler
-    IdentityFile ~/.ssh/id_ed25519_moodle
-    IdentitiesOnly yes
-```
-
-**Cek:**
-
-```bash
-ssh utama 'sudo whoami'
-```
-
-Hasil benar: muncul `root` **tanpa** ditanya password. Lakukan juga `ssh vps 'sudo whoami'`.
+- **VPS cadangan:** sewa VPS **Debian 13**, 4 vCPU, RAM 8 GB, SSD 80 GB. Di firewall penyedia VPS buka port
+  **80**, **443**, dan **UDP 51820**.
 
 ---
 
-## Bagian B — Pasang server UTAMA
+## Langkah 2 — Pasang (sama untuk utama dan VPS)
 
-Semua perintah di **Git Bash PC admin**, satu per satu, tunggu sampai selesai.
-
-### B1. Pasang Moodle (±15 menit)
+Di **konsol server**, jalankan dua perintah ini (satu per satu):
 
 ```bash
-scp deploy/install-moodle.sh utama:~/
+apt-get update && apt-get install -y curl
 ```
 
 ```bash
-ssh utama 'sudo WWWROOT=http://172.16.32.157 bash ~/install-moodle.sh'
+curl -fsSL https://raw.githubusercontent.com/ichalsmiler/cbtadmin_plus/main/pasang-cbt.sh | bash
 ```
 
-`WWWROOT` = alamat yang dibuka siswa (IP server utama). Hasil benar: muncul *MOODLE SIAP DIPAKAI* dan *HTTP 200*.
+Skrip akan bertanya dua hal (tekan **Enter** untuk memakai jawaban bawaan):
 
-### B2. Pasang setelan ujian
+| Pertanyaan | Jawaban |
+|---|---|
+| Alamat yang dibuka siswa | Bawaan = IP server ini. VPS dengan domain: ketik mis. `https://cadangan.sekolah.sch.id` |
+| Zona waktu | Bawaan WITA (`Asia/Makassar`); WIB = `Asia/Jakarta`, WIT = `Asia/Jayapura` |
 
-```bash
-bash deploy/setelan-moodle.sh utama
-```
+Tunggu ±20 menit. Hasil benar: muncul **CBT ADMIN PLUS SIAP** beserta alamat dan **akun admin** Moodle dan CBT Admin.
+**Catat akun tersebut.** Sejak ini, layar login konsol juga menampilkan **Alamat IP untuk akses VM**.
 
-Hasil benar: muncul *SETELAN MOODLE CBT TERPASANG*. Sejak ini, layar login konsol server menampilkan
-**Alamat IP untuk akses VM**, jadi IP tidak perlu dicek manual lagi.
-
-### B3. Pasang CBT Admin Plus
-
-```bash
-bash deploy/deploy.sh utama
-```
-
-Hasil benar: muncul *CBT ADMIN TERPASANG* dan *HTTP 200*.
-
-### B4. Ambil password admin
-
-```bash
-ssh utama 'sudo cat /root/cbtadmin-credentials.txt /root/moodle-credentials.txt'
-```
-
-Catat username/password **CBT Admin** dan **Moodle**. Lalu buka di browser:
-
-- Moodle: `http://172.16.32.157`
-- CBT Admin: `http://172.16.32.157/cbtadmin/`
-
-Setelah login CBT Admin: **Tools → Info Sekolah** (isi nama sekolah, NPSN, kegiatan, tahun pelajaran, logo) dan
-**Ganti Password**.
-
----
-
-## Bagian C — Pasang server CADANGAN (VPS)
-
-Sama seperti Bagian B, tetapi pakai `vps` dan alamat VPS. **Jangan isi peserta/soal di VPS** — nanti tersalin
+Lakukan Langkah 2 di **server utama**, lalu ulangi di **VPS**. Di VPS jangan mengisi peserta/soal — nanti tersalin
 otomatis dari server utama.
 
-```bash
-scp deploy/install-moodle.sh vps:~/
-```
+### Setelah terpasang (server utama)
 
-```bash
-ssh vps 'sudo WWWROOT=http://IP_PUBLIK_VPS bash ~/install-moodle.sh'
-```
+Buka di browser `http://IP_SERVER/cbtadmin/`, login, lalu:
 
-```bash
-bash deploy/setelan-moodle.sh vps
-```
-
-```bash
-bash deploy/deploy.sh vps
-```
-
-> Punya domain (mis. `cadangan.sekolah.sch.id`)? Pakai `WWWROOT=https://cadangan.sekolah.sch.id` dan siapkan
-> sertifikat Cloudflare (lihat *Penjelasan tambahan* di akhir). Tanpa domain, IP VPS cukup untuk uji coba.
+- **Tools → Info Sekolah**: nama sekolah, NPSN, kegiatan, tahun pelajaran, logo.
+- **Ganti Password** akun admin.
 
 ---
 
-## Bagian D — Sambungkan utama ke cadangan
+## Langkah 3 — Sambungkan utama ke cadangan
 
-### D1. Isi pengaturan di panel UTAMA
-
-Buka CBT Admin **server utama** → **Admin Tools → Server Cadangan**. Isi:
+1. Buka CBT Admin **server utama** → **Admin Tools → Server Cadangan**. Isi pengaturan:
 
 | Isian | Diisi |
 |---|---|
@@ -217,56 +71,32 @@ Buka CBT Admin **server utama** → **Admin Tools → Server Cadangan**. Isi:
 | IP server cadangan | IP publik VPS |
 | Kunci rahasia bersama | **biarkan kosong** (dibuat otomatis) |
 
-Klik **Simpan**, lalu **Unduh ha.conf**. Berkas `ha.conf` tersimpan di folder *Downloads*.
-
-### D2. Kirim ha.conf ke kedua server
-
-**Di Git Bash**, pindah ke folder Downloads lalu kirim:
+2. Klik **Simpan**. Di kartu **Sambungkan ke cadangan** muncul dua perintah, masing-masing dengan tombol **Salin**.
+3. Di **konsol server utama**, jalankan perintah pertama:
 
 ```bash
-cd ~/Downloads
+cbt-ha utama
 ```
 
-```bash
-scp ha.conf utama:~/ && ssh utama 'sudo install -D -m 600 ~/ha.conf /etc/cbt-ha/ha.conf && rm ~/ha.conf'
-```
-
-```bash
-scp ha.conf vps:~/ && ssh vps 'sudo install -D -m 600 ~/ha.conf /etc/cbt-ha/ha.conf && rm ~/ha.conf'
-```
-
-### D3. Nyalakan sambungan (urutan: utama dulu, baru VPS)
-
-```bash
-ssh utama 'sudo bash /usr/local/share/cbt-ha/ha-utama.sh pasang'
-```
-
-```bash
-ssh vps 'sudo bash /usr/local/share/cbt-ha/ha-cadangan.sh pasang'
-```
-
-Langkah kedua mengganti isi VPS dengan salinan server utama (beberapa menit).
-
-### D4. Cek
-
-Panel **server utama** → **Admin Tools → Server Cadangan → Status**. Hasil benar: semua hijau (terhubung,
-replikasi berjalan, salinan berkas dan backup ada). Mulai sekarang setiap data di server utama otomatis tersalin
-ke VPS.
+4. Di **konsol VPS**, tempel perintah kedua (`cbt-ha cadangan …`, satu baris panjang dari panel), lalu ketik `YA`
+   saat diminta. Isi VPS diganti salinan server utama (beberapa menit).
+5. Muat ulang halaman **Server Cadangan**. Hasil benar: semua hijau — server utama berstatus **UTAMA**, VPS
+   **CADANGAN**, salinan database **Berjalan**.
 
 ---
 
-## Bagian E — Pemakaian sehari-hari
+## Langkah 4 — Pemakaian sehari-hari
 
 | Kapan | Yang dilakukan |
 |---|---|
 | Mengisi peserta, ruang, soal | **Hanya di server utama**. VPS menyalin sendiri. |
-| Ada pembaruan aplikasi | `bash deploy/deploy.sh utama` lalu `bash deploy/deploy.sh vps` |
-| Ada pembaruan setelan Moodle | `bash deploy/setelan-moodle.sh utama` lalu `bash deploy/setelan-moodle.sh vps` |
-| H-1 ujian | Cek **Server Cadangan → Status** semua hijau |
+| Ada pembaruan aplikasi | Di konsol server utama lalu VPS: `cbt-perbarui` |
+| H-1 ujian | Cek **Admin Tools → Server Cadangan** semua hijau |
+| Cek sambungan lewat konsol | `cbt-ha status` |
 
 ---
 
-## Bagian F — Server utama mati saat ujian
+## Langkah 5 — Server utama mati saat ujian
 
 1. Buka CBT Admin **di VPS**: `http://IP_PUBLIK_VPS/cbtadmin/` (atau domain cadangan).
 2. **Admin Tools → Server Cadangan → PINDAH**, ketik `PINDAH`, konfirmasi. Tunggu sampai selesai.
@@ -282,28 +112,33 @@ Mengembalikan ujian ke server sekolah dilakukan setelah ujian selesai, di luar j
 
 | Masalah | Solusi |
 |---|---|
-| `ssh-copy-id` gagal / `Permission denied` | Ulangi A2 (cek password `smiler`), lalu A3. |
-| `ssh utama` masih minta password | Ulangi A3. Pastikan baris `IdentityFile` di A4 benar. |
-| Tidak bisa ke server setelah restart Proxmox | IP berubah. Lihat IP di layar login konsol, perbarui `HostName` di A4. |
-| Status Server Cadangan *tidak terhubung* | Port **UDP 51820** di firewall VPS belum dibuka, atau ha.conf belum dikirim ke kedua server (D2). |
+| `curl: command not found` | Jalankan dulu perintah pertama di Langkah 2 (memasang curl). |
+| `Jalankan sebagai root` | Login konsol sebagai `root`, atau ketik `sudo -i` lalu ulangi. |
+| Lupa akun admin | Di konsol: `cat /root/cbtadmin-credentials.txt /root/moodle-credentials.txt` |
+| Tidak bisa membuka panel setelah restart Proxmox | IP berubah: lihat **Alamat IP untuk akses VM** di layar login konsol. |
+| Status Server Cadangan *tidak terhubung* | Port **UDP 51820** di firewall VPS belum dibuka, atau `cbt-ha` belum dijalankan di kedua server (Langkah 3). |
 | Tampilan Moodle tidak berubah | Tekan **Ctrl+F5** di browser. |
-| Lupa password admin | Ulangi B4. |
 
 ---
 
 ## Penjelasan tambahan (untuk teknisi)
 
-- **Versi Moodle** kedua server harus sama (bawaan 5.1). Zona waktu bawaan WITA; untuk WIB tambahkan
-  `ZONA_WAKTU=Asia/Jakarta` sebelum `bash ~/install-moodle.sh`.
+- Pemasang menyimpan kode di `/opt/cbtadmin_plus` (diambil dari GitHub, repo publik `ichalsmiler/cbtadmin_plus`).
+  `cbt-perbarui` = menjalankan ulang pemasang (ambil versi terbaru, setelan Moodle, panel); Moodle tidak dipasang ulang.
+- **Versi Moodle** kedua server harus sama (bawaan 5.1). Pilihan tanpa tanya:
+  `curl -fsSL …/pasang-cbt.sh | WWWROOT=http://alamat ZONA_WAKTU=Asia/Jakarta bash`.
 - **Domain + Cloudflare untuk VPS:** DNS record **A** `cadangan` → IP VPS (**Proxied**), SSL/TLS **Full (strict)**,
   buat **Origin Certificate**, simpan di VPS sebagai `/etc/ssl/cbt/origin.pem` dan `/etc/ssl/cbt/origin.key`
-  (`chmod 600` untuk key), lalu pakai domain itu di B1/C dan D1.
+  (`chmod 600` untuk key) sebelum Langkah 3, lalu pakai domain itu di Langkah 2 dan 3.
 - **Cara kerja sambungan:** server sekolah membuka jalur WireGuard ke VPS (router sekolah tidak perlu buka port),
   database disalin terus lewat replikasi MariaDB (jeda < 1 detik), berkas Moodle tiap menit, backup di VPS
   `/var/backups/cbt` (database tiap 15 menit pada jam ujian, penuh tiap 01:30, simpan 7 hari).
-  Status lewat terminal: `ssh vps 'sudo bash /usr/local/share/cbt-ha/ha-cadangan.sh status'`.
-- **Kembali ke server sekolah setelah PINDAH** (sementara manual, di luar jam ujian): di `ha.conf` kedua server tukar
-  `UTAMA_IP` ↔ `CADANGAN_IP` dan `DOMAIN_UTAMA` ↔ `DOMAIN_CADANGAN`; jalankan `ha-utama.sh pasang` di VPS dan
-  `ha-cadangan.sh pasang` di server sekolah (jawaban selama padam tersalin ke sekolah); sebelum ujian berikutnya
-  `ha-cadangan.sh pindah` di server sekolah, kembalikan `ha.conf`, ulangi D3.
+  `cbt-ha utama` membuat `/etc/cbt-ha/ha.conf` dari pengaturan panel; KODE di `cbt-ha cadangan` = isi ha.conf yang
+  sama (base64, berisi kunci rahasia — jangan dibagikan).
+- **Kembali ke server sekolah setelah PINDAH** (sementara manual, di luar jam ujian): di `/etc/cbt-ha/ha.conf` kedua
+  server tukar `UTAMA_IP` ↔ `CADANGAN_IP` dan `DOMAIN_UTAMA` ↔ `DOMAIN_CADANGAN`; jalankan
+  `bash /usr/local/share/cbt-ha/ha-utama.sh pasang` di VPS dan `bash /usr/local/share/cbt-ha/ha-cadangan.sh pasang`
+  di server sekolah (jawaban selama padam tersalin ke sekolah); sebelum ujian berikutnya `ha-cadangan.sh pindah` di
+  server sekolah, kembalikan ha.conf, lalu ulangi Langkah 3.
+- **Cara lama dari laptop** (`deploy/deploy.sh`, `deploy/setelan-moodle.sh` lewat SSH) tetap bisa dipakai pengembang.
 - **Ukuran server** untuk ±440 siswa: utama 6 core / 8 GB, VPS 4 vCPU / 8 GB; uji beban sebelum ujian sungguhan.

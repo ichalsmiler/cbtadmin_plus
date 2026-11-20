@@ -71,6 +71,20 @@ class ServerCadangan
         return $v;
     }
 
+    /**
+     * KODE untuk perintah "cbt-ha cadangan KODE" di konsol VPS: ha.conf dalam base64 (satu baris, mudah disalin).
+     * null bila pengaturan belum lengkap.
+     */
+    public static function kodeCadangan(): ?string
+    {
+        $v = self::nilai();
+        if ($v['ha_utama_ip'] === '' || $v['ha_cadangan_ip'] === '' || $v['ha_secret'] === '') {
+            return null;
+        }
+
+        return base64_encode(self::haConf());
+    }
+
     /** Isi berkas ha.conf dari pengaturan panel (sama untuk kedua server). */
     public static function haConf(): string
     {

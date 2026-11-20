@@ -119,4 +119,5 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - `deploy/install-moodle.sh` (server baru, `ZONA_WAKTU`), `deploy/install.sh` (panel; dilewati migrasi di cadangan HA),
   `deploy/ha/` (replikasi MariaDB + rsync; dua IP LAN → langsung, ada IP publik → WireGuard 10.77.0.x;
   mode campuran utama LAN + cadangan VPS: peer ber-IP lokal tanpa Endpoint (`ip_lokal`), skema http/https per server; `/etc/cbt-ha-peran`).
+- Pasang tanpa laptop: `pasang-cbt.sh` di akar repo (repo publik; `curl … | bash` di konsol server → /opt/cbtadmin_plus, install-moodle bila belum ada, pasang.sh, install.sh, memasang `cbt-perbarui` + `cbt-ha`); `deploy/ha/cbt-ha` utama (ha.conf dari settings ha_* lewat mariadb) / cadangan KODE (base64 ha.conf, `ServerCadangan::kodeCadangan()` di panel) / status. Tutorial `docs/INSTALASI-SERVER.md` (PDF di docs, diabaikan git).
 - README.md berisi panduan lengkap untuk manusia.

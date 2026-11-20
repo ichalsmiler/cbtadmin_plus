@@ -27,6 +27,7 @@ class ServerCadanganPanel extends PanelController
             'status' => $status,
             'error'  => $error,
             'nilai'  => ServerCadangan::nilai(),
+            'kode'   => ServerCadangan::kodeCadangan(),
         ]);
     }
 

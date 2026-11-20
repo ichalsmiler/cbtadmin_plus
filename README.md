@@ -34,8 +34,16 @@ dan `vendor/` diunduh di server oleh `deploy/install.sh`.
 
 ## Server baru dari nol
 
-Tutorial langkah demi langkah untuk server utama (sekolah) dan server cadangan (VPS):
-**[docs/INSTALASI-SERVER.md](docs/INSTALASI-SERVER.md)**. Ringkasannya:
+Cara termudah — di konsol server baru (Debian 12/13, sebagai root), satu baris:
+
+```bash
+apt-get update && apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/ichalsmiler/cbtadmin_plus/main/pasang-cbt.sh | bash
+```
+
+Pembaruan: `cbt-perbarui`. Sambungkan server cadangan: `cbt-ha utama` / `cbt-ha cadangan KODE` (perintah siap salin
+di Admin Tools → Server Cadangan). Tutorial lengkap: **[docs/INSTALASI-SERVER.md](docs/INSTALASI-SERVER.md)**.
+
+Cara lama dari laptop pengembang (SSH):
 
 Untuk Debian 12/13 (VPS atau container Proxmox). Ganti `IP_SERVER` dan `alamat` sesuai server.
 

@@ -207,6 +207,7 @@ if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
     install -m 755 "$SRC/deploy/ha/ha-utama.sh" "$SRC/deploy/ha/ha-cadangan.sh" /usr/local/share/cbt-ha/
     install -m 644 "$SRC/deploy/ha/ha.conf.contoh" /usr/local/share/cbt-ha/
     install -m 755 "$SRC/deploy/ha/cbt-ha-panel" /usr/local/sbin/cbt-ha-panel
+    [ -f "$SRC/deploy/ha/cbt-ha" ] && install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
     printf '%s\n' '# Panel CBT Admin: menu Server Cadangan (dibuat oleh install.sh)' \
         'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel log' \
         > /etc/sudoers.d/cbtadmin-ha
