@@ -40,6 +40,14 @@ case "$(echo "$ZONA_WAKTU" | tr '[:lower:]' '[:upper:]' | tr -d ' ')" in
 esac
 [ -f "/usr/share/zoneinfo/$ZONA_WAKTU" ] || die "Zona waktu \"$ZONA_WAKTU\" tidak dikenal. Isi WITA, WIB, atau WIT."
 
+# Alamat Moodle wajib lengkap (http://...). Boleh diketik "172.16.32.159" atau "ujian.sekolah.sch.id/"
+# saja: http:// ditambahkan dan garis miring di akhir dibuang.
+WWWROOT="$(echo "$WWWROOT" | tr -d ' ')"
+WWWROOT="${WWWROOT%/}"
+case "$WWWROOT" in http://*|https://*) ;; *) WWWROOT="http://$WWWROOT" ;; esac
+[[ "$WWWROOT" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]] \
+    || die "Alamat \"$WWWROOT\" tidak valid. Contoh: http://172.16.32.159"
+
 export DEBIAN_FRONTEND=noninteractive
 APT_OPTS=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
