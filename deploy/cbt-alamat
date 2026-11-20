@@ -30,7 +30,24 @@ BARU="${BARU%/}"
 case "$BARU" in http://*|https://*) ;; *) BARU="http://$BARU" ;; esac
 [[ "$BARU" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]] \
     || gagal "Alamat \"$BARU\" tidak valid. Contoh: cbt-alamat ujian.sekolah.sch.id"
-[ "$BARU" = "$LAMA" ] && { echo "Alamat sudah $BARU, tidak ada yang diubah."; exit 0; }
+# Alamat https di belakang Cloudflare: cookie Moodle dibuat khusus https, jadi halaman yang dibuka lewat http
+# (X-Forwarded-Proto: http) membuat login selalu gagal. Nginx mengalihkannya ke https; akses langsung ke IP
+# lokal (tanpa header itu) tidak terpengaruh.
+pasang_https_redirect() {
+    SNIP=/etc/nginx/snippets/cbt-https.conf
+    SITE=/etc/nginx/sites-available/moodle
+    mkdir -p /etc/nginx/snippets
+    case "$BARU" in
+        https://*) echo 'if ($http_x_forwarded_proto = "http") { return 301 https://$host$request_uri; }  # cbt-alamat' > "$SNIP" ;;
+        *)         echo '# cbt-alamat: alamat http, tanpa pengalihan ke https' > "$SNIP" ;;
+    esac
+    if [ -f "$SITE" ] && ! grep -q "snippets/cbt-https.conf" "$SITE"; then
+        sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-https.conf;#" "$SITE"
+    fi
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx || echo "[PERINGATAN] Konfigurasi Nginx tidak valid; pengalihan https dilewati."
+}
+
+[ "$BARU" = "$LAMA" ] && { pasang_https_redirect; echo "Alamat sudah $BARU, tidak ada yang diubah (pengalihan https dipastikan)."; exit 0; }
 
 cp -a "$CONFIG" "$CONFIG.bak-alamat"
 sed -i "s|^\(\$CFG->wwwroot *= *\).*|\1'$BARU';|" "$CONFIG"
@@ -40,6 +57,8 @@ case "$BARU" in
     https://*) sed -i "s|^require_once(__DIR__ . '/lib/setup.php');|\$CFG->sslproxy = true;   // https ditangani Cloudflare (dipasang cbt-alamat)\n&|" "$CONFIG" ;;
 esac
 php -l "$CONFIG" >/dev/null || { cp -a "$CONFIG.bak-alamat" "$CONFIG"; gagal "config.php rusak, dikembalikan ke semula."; }
+
+pasang_https_redirect
 if [ -f "$ENV" ]; then
     cp -a "$ENV" "$ENV.bak-alamat"
     sed -i "s|^app.baseURL = .*|app.baseURL = '$BARU/cbtadmin/'|; s|^moodle.url = .*|moodle.url = '$BARU'|" "$ENV"
