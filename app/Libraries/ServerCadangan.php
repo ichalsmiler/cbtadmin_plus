@@ -79,7 +79,11 @@ class ServerCadangan
         }
         $v['ha_backup_hari'] = $v['ha_backup_hari'] !== '' ? $v['ha_backup_hari'] : '7';
         $v['ha_backup_jam']  = $v['ha_backup_jam'] !== '' ? $v['ha_backup_jam'] : '6-17';
-        $v['ha_https']       = $v['ha_https'] === 'ya' ? 'ya' : 'tidak';
+        // Belum pernah disimpan: alamat utama berupa domain (Cloudflare Tunnel/Proxied) → https aktif.
+        if ($v['ha_https'] === '') {
+            $v['ha_https'] = $v['ha_domain_utama'] !== '' && ! preg_match('/^[0-9.]+$/', $v['ha_domain_utama']) ? 'ya' : 'tidak';
+        }
+        $v['ha_https'] = $v['ha_https'] === 'ya' ? 'ya' : 'tidak';
 
         return $v;
     }

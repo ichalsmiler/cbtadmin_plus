@@ -27,6 +27,18 @@ case "${1:-}" in
         utama_ip="$(nilai ha_utama_ip)"; cadangan_ip="$(nilai ha_cadangan_ip)"; rahasia="$(nilai ha_secret)"
         [ -n "$utama_ip" ] && [ -n "$cadangan_ip" ] && [ -n "$rahasia" ] \
             || gagal "Pengaturan belum lengkap. Isi dan Simpan dulu di CBT Admin → Admin Tools → Server Cadangan."
+        # HTTPS otomatis aktif bila server ini sudah dibuka lewat https (wwwroot https / sslproxy dari cbt-alamat)
+        # atau alamat utama berupa domain (Cloudflare Tunnel/Proxied). Hasilnya disimpan balik ke panel.
+        https="$(nilai ha_https)"; domain_utama="$(nilai ha_domain_utama)"
+        if [ "$https" != ya ]; then
+            if grep -qE "^[\$]CFG->(wwwroot *= *'https://|sslproxy *= *true)" /var/www/moodle/config.php 2>/dev/null \
+               || { [ -n "$domain_utama" ] && [[ ! "$domain_utama" =~ ^[0-9.]+$ ]]; }; then
+                https=ya
+                mariadb cbtadmin -e "INSERT INTO settings (skey, svalue) VALUES ('ha_https','ya') ON DUPLICATE KEY UPDATE svalue='ya'" 2>/dev/null \
+                    || echo "[PERINGATAN] Sakelar Pakai HTTPS di panel gagal diperbarui; nyalakan manual."
+                echo "Pakai HTTPS diaktifkan otomatis (alamat https lewat Cloudflare)."
+            fi
+        fi
         {
             echo "# Konfigurasi CBT HA (dibuat cbt-ha dari pengaturan panel, $(date '+%Y-%m-%d %H:%M'))."
             echo "DOMAIN_UTAMA=\"$(nilai ha_domain_utama)\""
@@ -36,8 +48,8 @@ case "${1:-}" in
             echo "HA_SECRET=\"$rahasia\""
             echo "BACKUP_KEEP_DAYS=\"$(nilai ha_backup_hari | grep . || echo 7)\""
             echo "BACKUP_JAM_UJIAN=\"$(nilai ha_backup_jam | grep . || echo 6-17)\""
-            # ya = HTTPS Cloudflare Proxied (butuh sertifikat Origin); selain itu http biasa (DNS only).
-            echo "PAKAI_HTTPS=\"$([ "$(nilai ha_https)" = ya ] && echo ya || echo tidak)\""
+            # ya = https lewat Cloudflare (Tunnel/Proxied); selain itu http biasa (DNS only).
+            echo "PAKAI_HTTPS=\"$([ "$https" = ya ] && echo ya || echo tidak)\""
         } | simpan_conf
         bash "$SKRIP/ha-utama.sh" pasang
         echo
