@@ -285,6 +285,30 @@ EOF
 }
 
 # ----------------------------------------------------------------- pasang
+# Catatan password dari instalasi server ini sendiri sudah tidak berlaku: database (termasuk akun) kini salinan
+# server utama. Isinya diganti keterangan supaya tidak mengecoh; aslinya disimpan sebagai .lama.
+tandai_kredensial() {
+    local f
+    for f in /root/cbtadmin-credentials.txt /root/moodle-credentials.txt; do
+        [ -f "$f" ] || continue
+        grep -q "MENGIKUTI SERVER UTAMA" "$f" && continue
+        mv "$f" "$f.lama"
+        cat > "$f" <<EOF
+AKUN DI SERVER INI MENGIKUTI SERVER UTAMA
+-----------------------------------------
+Server ini adalah server CADANGAN. Database (termasuk semua akun dan password)
+adalah salinan server utama ($UTAMA_IP / $URL_UTAMA).
+
+  Username & password : sama dengan server utama, lihat berkas
+                        $f di SERVER UTAMA.
+  Ganti password      : hanya di panel server utama (di sini database hanya-baca).
+
+Catatan password lama dari instalasi server ini (SUDAH TIDAK BERLAKU): $f.lama
+EOF
+        chmod 600 "$f"
+    done
+}
+
 pasang() {
     check_prereq
     load_conf
@@ -407,6 +431,7 @@ EOF
     write_helpers
     /usr/local/sbin/cbt-sync && echo "File Moodle tersalin."
     /usr/local/sbin/cbt-backup db && echo "Backup database pertama dibuat."
+    tandai_kredensial
 
     echo
     echo "============================================================"
