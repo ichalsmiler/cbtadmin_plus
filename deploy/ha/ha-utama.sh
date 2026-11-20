@@ -201,6 +201,8 @@ setup_web() {
 # Alamat Moodle dan CBT Admin di server ini.
 set_wwwroot() {
     local url="$1" pat
+    # Moodle di belakang Cloudflare Tunnel/Proxied (sslproxy dipasang cbt-alamat): alamat tetap https.
+    grep -qE "^[$]CFG->sslproxy *= *true" "$CONFIG" && url="https://${url#http*://}"
     pat='^([$]CFG->wwwroot[[:space:]]*=).*'
     sed -i -E "s#$pat#\\1 '$url';#" "$CONFIG"
     php -l "$CONFIG" >/dev/null || die "config.php rusak setelah alamat diganti."

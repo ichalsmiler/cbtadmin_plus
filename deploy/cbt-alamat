@@ -34,6 +34,12 @@ case "$BARU" in http://*|https://*) ;; *) BARU="http://$BARU" ;; esac
 
 cp -a "$CONFIG" "$CONFIG.bak-alamat"
 sed -i "s|^\(\$CFG->wwwroot *= *\).*|\1'$BARU';|" "$CONFIG"
+# https lewat Cloudflare (Tunnel / Proxied): server tetap http, Moodle diberi tahu bahwa SSL ditangani proxy.
+sed -i '/^\$CFG->sslproxy/d' "$CONFIG"
+case "$BARU" in
+    https://*) sed -i "s|^require_once(__DIR__ . '/lib/setup.php');|\$CFG->sslproxy = true;   // https ditangani Cloudflare (dipasang cbt-alamat)\n&|" "$CONFIG" ;;
+esac
+php -l "$CONFIG" >/dev/null || { cp -a "$CONFIG.bak-alamat" "$CONFIG"; gagal "config.php rusak, dikembalikan ke semula."; }
 if [ -f "$ENV" ]; then
     cp -a "$ENV" "$ENV.bak-alamat"
     sed -i "s|^app.baseURL = .*|app.baseURL = '$BARU/cbtadmin/'|; s|^moodle.url = .*|moodle.url = '$BARU'|" "$ENV"
