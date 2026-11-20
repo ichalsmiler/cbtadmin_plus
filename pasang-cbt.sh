@@ -61,17 +61,45 @@ install -m 755 "$SRC/pasang-cbt.sh" /usr/local/sbin/cbt-perbarui
 install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
 
 ALAMAT="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" /var/www/moodle/config.php | head -1)"
+# Ringkasan akhir: dibaca dari berkas kredensial yang ditulis install-moodle.sh dan install.sh.
+nilai() { [ -f "$1" ] && sed -n "s/^$2 *: *//p" "$1" | head -1; }
+CBT=/root/cbtadmin-credentials.txt; MDL=/root/moodle-credentials.txt
+ALAMAT="${ALAMAT:-http://$IP}"
+GARIS="============================================================"
+baris() { printf '    %-16s: %s\n' "$1" "$2"; }
 echo
-echo "============================================================"
+echo "$GARIS"
 echo "  CBT ADMIN PLUS SIAP"
-echo "  Moodle (siswa) : ${ALAMAT:-http://$IP}"
-echo "  CBT Admin      : ${ALAMAT:-http://$IP}/cbtadmin/"
+echo "$GARIS"
 echo
-echo "  Akun admin (simpan, lalu ganti password setelah login):"
-for f in /root/cbtadmin-credentials.txt /root/moodle-credentials.txt; do
-    [ -f "$f" ] && sed 's/^/    /' "$f"
-done
+echo "  ALAMAT"
+baris "Ujian (siswa)" "$ALAMAT"
+baris "CBT Admin"     "$ALAMAT/cbtadmin/"
 echo
-echo "  Perbarui nanti      : cbt-perbarui"
-echo "  Sambungkan cadangan : lihat CBT Admin → Admin Tools → Server Cadangan"
-echo "============================================================"
+echo "  AKUN CBT ADMIN"
+baris "Username" "$(nilai "$CBT" Username)"
+baris "Password" "$(nilai "$CBT" Password)"
+echo
+echo "  AKUN MOODLE (admin situs)"
+baris "Username" "$(nilai "$MDL" 'Admin user')"
+baris "Password" "$(nilai "$MDL" 'Admin pass')"
+echo
+echo "  DATABASE MOODLE"
+baris "Nama database" "$(nilai "$MDL" Database)"
+baris "User"          "$(nilai "$MDL" 'DB user')"
+baris "Password"      "$(nilai "$MDL" 'DB pass')"
+echo
+echo "  FOLDER"
+baris "Kode Moodle" "$(nilai "$MDL" 'Folder kode')"
+baris "Data Moodle" "$(nilai "$MDL" 'Folder data')"
+baris "CBT Admin"   "/var/www/cbtadmin"
+echo
+echo "$GARIS"
+echo "  PENTING"
+echo "   - Catat data di atas. Salinannya tersimpan di:"
+echo "       $CBT"
+echo "       $MDL"
+echo "   - Ganti password kedua admin setelah login pertama."
+echo "   - Perbarui ke versi terbaru : cbt-perbarui"
+echo "   - Server cadangan           : CBT Admin -> Admin Tools -> Server Cadangan"
+echo "$GARIS"
