@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  cbt-alamat — ganti alamat Moodle + CBT Admin di server ini (mis. dari IP ke domain).
+#  Dipasang oleh pasang-cbt.sh ke /usr/local/sbin/cbt-alamat.
+#
+#    cbt-alamat                         tampilkan alamat sekarang
+#    cbt-alamat ujian.sekolah.sch.id    ganti ke domain (http:// ditambahkan otomatis)
+#    cbt-alamat https://ujian.sekolah.sch.id
+#    cbt-alamat 172.16.32.159
+# =============================================================================
+set -euo pipefail
+
+CONFIG=/var/www/moodle/config.php
+ENV=/var/www/cbtadmin/.env
+
+gagal() { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || gagal "Jalankan sebagai root (login root di konsol, atau ketik: sudo -i)."
+[ -f "$CONFIG" ] || gagal "Moodle belum terpasang ($CONFIG tidak ada)."
+
+LAMA="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" "$CONFIG" | head -1)"
+if [ $# -eq 0 ]; then
+    echo "Alamat sekarang: ${LAMA:-(tidak terbaca)}"
+    echo "Ganti dengan    : cbt-alamat <domain atau IP>"
+    exit 0
+fi
+
+# Sama seperti penginstal: http:// ditambahkan bila belum ada, garis miring di akhir dibuang.
+BARU="$(echo "$1" | tr -d ' ')"
+BARU="${BARU%/}"
+case "$BARU" in http://*|https://*) ;; *) BARU="http://$BARU" ;; esac
+[[ "$BARU" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]] \
+    || gagal "Alamat \"$BARU\" tidak valid. Contoh: cbt-alamat ujian.sekolah.sch.id"
+[ "$BARU" = "$LAMA" ] && { echo "Alamat sudah $BARU, tidak ada yang diubah."; exit 0; }
+
+cp -a "$CONFIG" "$CONFIG.bak-alamat"
+sed -i "s|^\(\$CFG->wwwroot *= *\).*|\1'$BARU';|" "$CONFIG"
+if [ -f "$ENV" ]; then
+    cp -a "$ENV" "$ENV.bak-alamat"
+    sed -i "s|^app.baseURL = .*|app.baseURL = '$BARU/cbtadmin/'|; s|^moodle.url = .*|moodle.url = '$BARU'|" "$ENV"
+fi
+(cd /tmp && runuser -u www-data -- php /var/www/moodle/admin/cli/purge_caches.php)
+systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null || true
+
+echo "============================================================"
+echo "  Alamat diganti"
+echo "    dari : ${LAMA:-?}"
+echo "    ke   : $BARU"
+echo
+echo "  Moodle (siswa) : $BARU"
+echo "  CBT Admin      : $BARU/cbtadmin/"
+echo "  Pastikan domain/IP itu memang mengarah ke server ini (DNS di Cloudflare)."
+echo "============================================================"

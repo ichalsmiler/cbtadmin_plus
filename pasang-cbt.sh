@@ -6,6 +6,7 @@
 #    apt-get update && apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/ichalsmiler/cbtadmin_plus/main/pasang-cbt.sh | bash
 #
 #  Perbarui kemudian hari:   cbt-perbarui
+#  Ganti alamat (IP -> domain): cbt-alamat ujian.sekolah.sch.id
 #
 #  Yang dikerjakan: ambil kode terbaru dari GitHub ke /opt/cbtadmin_plus, pasang Moodle (bila belum ada),
 #  setelan ujian Moodle + plugin CBT, lalu panel CBT Admin. Aman dijalankan berulang.
@@ -45,13 +46,18 @@ if [ ! -f /var/www/moodle/config.php ]; then
     hijau "2/4 Memasang Moodle (pertama kali, ±15 menit)"
     # VPS (mis. IDCloudHost) hanya "melihat" IP privatnya; IP publik ditanyakan ke luar supaya bisa ditunjukkan.
     PUBLIK="$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
-    if [ -z "${WWWROOT:-}" ] && [ -n "$PUBLIK" ] && [ "$PUBLIK" != "$IP" ]; then
-        echo "  IP server ini : $IP (lokal)"
-        echo "  IP publik     : $PUBLIK"
-        echo "  Server di sekolah (siswa di lab) -> pakai IP lokal."
-        echo "  VPS / server internet            -> ketik IP publik: $PUBLIK"
+    if [ -z "${WWWROOT:-}" ]; then
+        echo
+        echo "  Alamat yang dibuka siswa: boleh DOMAIN (paling baik bila sudah diarahkan di Cloudflare)"
+        echo "  atau IP. Tanpa http:// juga boleh. Bisa diganti nanti dengan: cbt-alamat <alamat>"
+        echo "    Contoh domain : ujian.sekolah.sch.id  /  cadangan.sekolah.sch.id"
+        echo "    IP server ini : $IP (lokal)"
+        if [ -n "$PUBLIK" ] && [ "$PUBLIK" != "$IP" ]; then
+            echo "    IP publik     : $PUBLIK"
+            echo "    Server di sekolah (siswa di lab) -> IP lokal; VPS / server internet -> domain atau IP publik."
+        fi
     fi
-    WWWROOT="${WWWROOT:-$(tanya "Alamat yang dibuka siswa" "http://$IP")}"
+    WWWROOT="${WWWROOT:-$(tanya "Alamat yang dibuka siswa (domain atau IP)" "http://$IP")}"
     ZONA_WAKTU="${ZONA_WAKTU:-$(tanya "Zona waktu: WITA, WIB, atau WIT" "WITA")}"
     WWWROOT="$WWWROOT" ZONA_WAKTU="$ZONA_WAKTU" bash "$SRC/deploy/install-moodle.sh"
 else
@@ -67,6 +73,7 @@ bash "$SRC/deploy/install.sh" "$SRC"
 # Perintah singkat untuk pembaruan berikutnya dan untuk menyambungkan server cadangan.
 install -m 755 "$SRC/pasang-cbt.sh" /usr/local/sbin/cbt-perbarui
 install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
+install -m 755 "$SRC/deploy/cbt-alamat" /usr/local/sbin/cbt-alamat
 
 ALAMAT="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" /var/www/moodle/config.php | head -1)"
 # Ringkasan akhir: dibaca dari berkas kredensial yang ditulis install-moodle.sh dan install.sh.
@@ -109,5 +116,6 @@ echo "       $CBT"
 echo "       $MDL"
 echo "   - Ganti password kedua admin setelah login pertama."
 echo "   - Perbarui ke versi terbaru : cbt-perbarui"
+echo "   - Ganti alamat (mis. ke domain) : cbt-alamat <domain>"
 echo "   - Server cadangan           : CBT Admin -> Admin Tools -> Server Cadangan"
 echo "$GARIS"
