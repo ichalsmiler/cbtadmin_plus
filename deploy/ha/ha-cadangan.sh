@@ -232,7 +232,7 @@ write_helpers() {
 # Salin moodledata dan upload CBT Admin dari server utama (dibuat oleh ha-cadangan.sh)
 set -euo pipefail
 [ "\$(cat $ROLE_FILE 2>/dev/null)" = cadangan ] || exit 0
-EX=(--exclude cache/ --exclude localcache/ --exclude sessions/ --exclude temp/ --exclude trashdir/ --exclude lock/)
+EX=(--exclude cache/ --exclude localcache/ --exclude "localcache-*/" --exclude sessions/ --exclude temp/ --exclude trashdir/ --exclude lock/)
 rsync -a --delete --timeout=50 --password-file=$HA_DIR/rsync.pass "\${EX[@]}" \\
     rsync://cbtsync@$PEER_WG_IP/moodledata/ $DATA_DIR/
 rsync -a --delete --timeout=50 --password-file=$HA_DIR/rsync.pass \\
@@ -263,7 +263,7 @@ case "\${1:-}" in
         today="\$(date +%Y%m%d)"
         last="\$(ls -1d "\$DIR"/files/20* 2>/dev/null | grep -v "/\$today\\\$" | tail -1 || true)"
         rsync -a --delete \${last:+--link-dest="\$last"} \\
-            --exclude cache/ --exclude localcache/ --exclude sessions/ --exclude temp/ --exclude trashdir/ --exclude lock/ \\
+            --exclude cache/ --exclude localcache/ --exclude "localcache-*/" --exclude sessions/ --exclude temp/ --exclude trashdir/ --exclude lock/ \\
             $DATA_DIR/ "\$DIR/files/\$today/"
         ;;
     *) echo "Pakai: cbt-backup db | penuh"; exit 1 ;;
