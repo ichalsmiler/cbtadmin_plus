@@ -76,11 +76,19 @@ if systemctl is-active --quiet apache2 2>/dev/null; then
     systemctl disable --now apache2
 fi
 
-apt-get "${APT_OPTS[@]}" install \
+# Sebagian VPS tidak punya IPv6: situs bawaan Nginx Debian ("listen [::]:80") membuat Nginx gagal jalan
+# saat paketnya dipasang. Baris IPv6 hanya dipakai bila server mendukungnya.
+if [ -e /proc/net/if_inet6 ]; then LISTEN6="    listen [::]:80 default_server;"; else LISTEN6=""; fi
+if ! apt-get "${APT_OPTS[@]}" install \
     nginx mariadb-server redis-server \
     php-fpm php-cli php-mysql php-xml php-mbstring php-curl php-zip php-gd \
     php-intl php-soap php-redis \
-    curl unzip git cron openssl ca-certificates ghostscript
+    curl unzip git cron openssl ca-certificates ghostscript; then
+    [ -z "$LISTEN6" ] || die "Pemasangan paket gagal (lihat pesan di atas)."
+    warn "Server tanpa IPv6: baris IPv6 di situs bawaan Nginx dihapus, pemasangan paket dilanjutkan."
+    sed -i '/listen \[::\]/d' /etc/nginx/sites-available/* 2>/dev/null || true
+    dpkg --configure -a || die "Pemasangan paket gagal (lihat pesan di atas)."
+fi
 
 PHPV="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 php -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);' \
@@ -190,7 +198,7 @@ sed -i 's/worker_connections [0-9]*;/worker_connections 4096;/' /etc/nginx/nginx
 cat > /etc/nginx/sites-available/moodle <<EOF
 server {
     listen 80 default_server;
-    listen [::]:80 default_server;
+$LISTEN6
     server_name _;
     root $DOCROOT;
     index index.php index.html;

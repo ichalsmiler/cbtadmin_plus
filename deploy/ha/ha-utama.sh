@@ -174,7 +174,9 @@ setup_web() {
 
     local site=/etc/nginx/sites-available/moodle
     if ! grep -q "listen 443" "$site"; then
-        sed -i "/listen \[::\]:80 default_server;/a\\    listen 443 ssl default_server;\\n    listen [::]:443 ssl default_server;\\n    ssl_certificate $SSL_DIR/origin.pem;\\n    ssl_certificate_key $SSL_DIR/origin.key;" "$site"
+        # Baris IPv6 hanya bila server mendukungnya (sebagian VPS tanpa IPv6).
+        local l6=""; [ -e /proc/net/if_inet6 ] && l6="\\n    listen [::]:443 ssl default_server;"
+        sed -i "0,/listen 80 default_server;/s||listen 80 default_server;\\n    listen 443 ssl default_server;$l6\\n    ssl_certificate $SSL_DIR/origin.pem;\\n    ssl_certificate_key $SSL_DIR/origin.key;|" "$site"
     fi
 
     local tmp; tmp="$(mktemp)"
