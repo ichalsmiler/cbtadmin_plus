@@ -61,7 +61,7 @@ echo 'smiler ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-smiler && chmod 440 /et
 Lalu tambahkan alias di `~/.ssh/config` komputer ini (contoh `Host vps`, `HostName IP_SERVER`,
 `User smiler`, `IdentityFile ~/.ssh/id_ed25519_moodle`).
 
-**2. Moodle** (zona waktu bawaan WITA; `ZONA_WAKTU=Asia/Jakarta` untuk WIB):
+**2. Moodle** (zona waktu bawaan WITA; `ZONA_WAKTU=WIB` untuk WIB, `WIT` untuk WIT):
 
 ```bash
 scp deploy/install-moodle.sh vps:~/

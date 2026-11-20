@@ -9,7 +9,7 @@
 #
 #  Yang dikerjakan: ambil kode terbaru dari GitHub ke /opt/cbtadmin_plus, pasang Moodle (bila belum ada),
 #  setelan ujian Moodle + plugin CBT, lalu panel CBT Admin. Aman dijalankan berulang.
-#  Pilihan tanpa tanya:  WWWROOT=http://alamat ZONA_WAKTU=Asia/Jakarta (sebelum "bash").
+#  Pilihan tanpa tanya:  WWWROOT=http://alamat ZONA_WAKTU=WIB (sebelum "bash").
 # =============================================================================
 set -euo pipefail
 
@@ -44,7 +44,7 @@ IP="$(hostname -I | awk '{print $1}')"
 if [ ! -f /var/www/moodle/config.php ]; then
     hijau "2/4 Memasang Moodle (pertama kali, ±15 menit)"
     WWWROOT="${WWWROOT:-$(tanya "Alamat yang dibuka siswa" "http://$IP")}"
-    ZONA_WAKTU="${ZONA_WAKTU:-$(tanya "Zona waktu (Asia/Makassar=WITA, Asia/Jakarta=WIB, Asia/Jayapura=WIT)" "Asia/Makassar")}"
+    ZONA_WAKTU="${ZONA_WAKTU:-$(tanya "Zona waktu: WITA, WIB, atau WIT" "WITA")}"
     WWWROOT="$WWWROOT" ZONA_WAKTU="$ZONA_WAKTU" bash "$SRC/deploy/install-moodle.sh"
 else
     hijau "2/4 Moodle sudah terpasang, dilewati"

@@ -14,7 +14,7 @@ SITE_FULLNAME="${SITE_FULLNAME:-Ujian Online}"
 SITE_SHORTNAME="${SITE_SHORTNAME:-Ujian}"
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
-ZONA_WAKTU="${ZONA_WAKTU:-Asia/Makassar}"     # WITA; Asia/Jakarta = WIB, Asia/Jayapura = WIT
+ZONA_WAKTU="${ZONA_WAKTU:-WITA}"     # WITA / WIB / WIT, atau nama lengkap mis. Asia/Makassar
 
 MOODLE_DIR="/var/www/moodle"
 DATA_DIR="/var/moodledata"
@@ -31,6 +31,15 @@ die()  { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
 [ -f /etc/debian_version ] || die "Skrip ini hanya untuk Debian."
 [ -f "$MOODLE_DIR/config.php" ] && die "Moodle sudah terpasang di $MOODLE_DIR. Skrip dihentikan agar tidak menimpa."
 
+# Zona waktu boleh singkatan (WITA/WIB/WIT, huruf besar/kecil sama saja) atau nama lengkap Linux.
+# Dicek di awal supaya salah ketik langsung ketahuan, bukan setelah upgrade sistem yang lama.
+case "$(echo "$ZONA_WAKTU" | tr '[:lower:]' '[:upper:]' | tr -d ' ')" in
+    WITA|ASIA/MAKASSAR) ZONA_WAKTU="Asia/Makassar" ;;
+    WIB|ASIA/JAKARTA)   ZONA_WAKTU="Asia/Jakarta" ;;
+    WIT|ASIA/JAYAPURA)  ZONA_WAKTU="Asia/Jayapura" ;;
+esac
+[ -f "/usr/share/zoneinfo/$ZONA_WAKTU" ] || die "Zona waktu \"$ZONA_WAKTU\" tidak dikenal. Isi WITA, WIB, atau WIT."
+
 export DEBIAN_FRONTEND=noninteractive
 APT_OPTS=(-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
@@ -40,7 +49,6 @@ apt-get update
 apt-get "${APT_OPTS[@]}" full-upgrade
 
 # Zona waktu dan jam server: waktu quiz dan jadwal backup bergantung pada jam yang benar.
-[ -f "/usr/share/zoneinfo/$ZONA_WAKTU" ] || die "Zona waktu $ZONA_WAKTU tidak dikenal."
 ln -sf "/usr/share/zoneinfo/$ZONA_WAKTU" /etc/localtime
 echo "$ZONA_WAKTU" > /etc/timezone
 if systemd-detect-virt --container --quiet 2>/dev/null; then

@@ -42,7 +42,7 @@ Skrip akan bertanya dua hal (tekan **Enter** untuk memakai jawaban bawaan):
 | Pertanyaan | Jawaban |
 |---|---|
 | Alamat yang dibuka siswa | Bawaan = IP server ini. VPS dengan domain: ketik mis. `https://cadangan.sekolah.sch.id` |
-| Zona waktu | Bawaan WITA (`Asia/Makassar`); WIB = `Asia/Jakarta`, WIT = `Asia/Jayapura` |
+| Zona waktu | Ketik `WITA` (bawaan, cukup Enter), `WIB`, atau `WIT`; huruf besar/kecil sama saja. Nama lengkap seperti `Asia/Makassar` juga diterima |
 
 Tunggu ±20 menit. Hasil benar: muncul **CBT ADMIN PLUS SIAP** beserta alamat dan **akun admin** Moodle dan CBT Admin.
 **Catat akun tersebut.** Sejak ini, layar login konsol juga menampilkan **Alamat IP untuk akses VM**.
@@ -126,7 +126,7 @@ Mengembalikan ujian ke server sekolah dilakukan setelah ujian selesai, di luar j
 - Pemasang menyimpan kode di `/opt/cbtadmin_plus` (diambil dari GitHub, repo publik `ichalsmiler/cbtadmin_plus`).
   `cbt-perbarui` = menjalankan ulang pemasang (ambil versi terbaru, setelan Moodle, panel); Moodle tidak dipasang ulang.
 - **Versi Moodle** kedua server harus sama (bawaan 5.1). Pilihan tanpa tanya:
-  `curl -fsSL …/pasang-cbt.sh | WWWROOT=http://alamat ZONA_WAKTU=Asia/Jakarta bash`.
+  `curl -fsSL …/pasang-cbt.sh | WWWROOT=http://alamat ZONA_WAKTU=WIB bash`.
 - **Domain + Cloudflare untuk VPS:** DNS record **A** `cadangan` → IP VPS (**Proxied**), SSL/TLS **Full (strict)**,
   buat **Origin Certificate**, simpan di VPS sebagai `/etc/ssl/cbt/origin.pem` dan `/etc/ssl/cbt/origin.key`
   (`chmod 600` untuk key) sebelum Langkah 3, lalu pakai domain itu di Langkah 2 dan 3.
