@@ -233,7 +233,8 @@ if   [ -f "$MOODLE_DIR/admin/cli/install.php" ]; then CLI_DIR="$MOODLE_DIR/admin
 elif [ -f "$DOCROOT/admin/cli/install.php" ];    then CLI_DIR="$DOCROOT/admin/cli"
 else die "admin/cli/install.php tidak ditemukan."; fi
 
-sudo_www() { runuser -u www-data -- "$@"; }
+# Jalankan sebagai www-data dari folder yang boleh dimasukinya (bukan /root), supaya tidak ada peringatan chdir().
+sudo_www() { (cd /tmp && runuser -u www-data -- "$@"); }
 sudo_www php "$CLI_DIR/install.php" \
     --non-interactive --agree-license \
     --lang=en \

@@ -88,7 +88,7 @@ if [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ]; then
     exit 0
 fi
 
-PHP=(runuser -u www-data -- php)
+PHP=(env --chdir=/tmp runuser -u www-data -- php)   # dari /tmp: www-data tidak boleh masuk /root
 log "Pasang/perbarui plugin di database Moodle"
 "${PHP[@]}" "$MOODLE_DIR/admin/cli/upgrade.php" --non-interactive | tail -2
 
