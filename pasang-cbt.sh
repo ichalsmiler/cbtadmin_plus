@@ -43,6 +43,14 @@ echo "  - versi: $(git -C "$SRC" log -1 --format='%h %ad %s' --date=format:'%d-%
 IP="$(hostname -I | awk '{print $1}')"
 if [ ! -f /var/www/moodle/config.php ]; then
     hijau "2/4 Memasang Moodle (pertama kali, ±15 menit)"
+    # VPS (mis. IDCloudHost) hanya "melihat" IP privatnya; IP publik ditanyakan ke luar supaya bisa ditunjukkan.
+    PUBLIK="$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+    if [ -z "${WWWROOT:-}" ] && [ -n "$PUBLIK" ] && [ "$PUBLIK" != "$IP" ]; then
+        echo "  IP server ini : $IP (lokal)"
+        echo "  IP publik     : $PUBLIK"
+        echo "  Server di sekolah (siswa di lab) -> pakai IP lokal."
+        echo "  VPS / server internet            -> ketik IP publik: $PUBLIK"
+    fi
     WWWROOT="${WWWROOT:-$(tanya "Alamat yang dibuka siswa" "http://$IP")}"
     ZONA_WAKTU="${ZONA_WAKTU:-$(tanya "Zona waktu: WITA, WIB, atau WIT" "WITA")}"
     WWWROOT="$WWWROOT" ZONA_WAKTU="$ZONA_WAKTU" bash "$SRC/deploy/install-moodle.sh"

@@ -115,7 +115,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Nilai quiz skala 0–100: `quiz/maximumgrade`=100 dan setiap quiz dengan grade ≠ 100 diubah ke 100 lewat
   `grade_calculator::update_quiz_maximum_grade` (setelan.php; jalankan ulang setelah guru membuat quiz).
 ## Lain-lain
-- VPS cadangan: alias SSH `vps` = root@157.10.160.125 (IDCloudHost, Debian 12, 2 core, 2 GB, TANPA IPv6, hostname cadangan), kunci id_ed25519_moodle.
+- VPS cadangan: alias SSH `vps` = root@103.176.78.30 (IP privat 10.138.210.3; IDCloudHost, di-reinstall 20 Nov 2026, 2 core, 2 GB, TANPA IPv6, hostname cadangan), kunci id_ed25519_moodle.
 - Admin Tools → Server Cadangan (`server_cadangan` → `ServerCadanganPanel`, `Libraries/ServerCadangan`): pengaturan ha.conf di settings `ha_*` + Unduh ha.conf, status peran/hubungan/replikasi/salinan/backup, tombol PINDAH (hanya di server cadangan) → jembatan root `/usr/local/sbin/cbt-ha-panel status|pindah|log` (sumber `deploy/ha/cbt-ha-panel`, dipasang install.sh + `/etc/sudoers.d/cbtadmin-ha` + skrip di `/usr/local/share/cbt-ha/`; deploy.sh ikut mengirim deploy/ha). Rencana: utama Proxmox sekolah (MikroTik IP publik), cadangan VPS, dua alamat berbeda, pindah manual.
 - `deploy/install-moodle.sh` (server baru, `ZONA_WAKTU` = WITA|WIB|WIT atau nama lengkap, dicek di awal; `WWWROOT` diberi http:// otomatis; tanpa IPv6 (`/proc/net/if_inet6` tidak ada, mis. VPS IDCloudHost) baris `listen [::]` tidak dipakai, juga di ha-*.sh untuk 443), `deploy/install.sh` (panel; dilewati migrasi di cadangan HA),
   `deploy/ha/` (replikasi MariaDB + rsync; dua IP LAN → langsung, ada IP publik → WireGuard 10.77.0.x;
