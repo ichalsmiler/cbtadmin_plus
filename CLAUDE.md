@@ -44,6 +44,7 @@ Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
 - `Views/layout/main.php` — array `$menu` sidebar; admin menyembunyikan `token`,`kehadiran`; Reset Login muncul
   hanya bila setting `lock_login`=1. Tombol "Kembali ke Admin" saat Tukar Akses (`session tukar_dari`).
 - `Config/Routes.php` — semua rute (grup terfilter Guard).
+- `Config/Registrar.php` — host permintaan didaftarkan ke `allowedHostnames`, jadi base_url/CSS/JS mengikuti alamat yang dibuka (IP lokal atau domain) walau `app.baseURL` berisi domain.
 - JS `public/assets/js/panel.js`: `data-post`+`data-fields`+`data-confirm-text` (POST via `#postForm`),
   `data-confirm-button` (form massal), `data-fill-modal`+`data-fill` (isi modal), `table.datatable` (DataTables; isi tbody disembunyikan sampai siap: `html.js` dari `partials/tema_awal` + kelas `.dt-siap` dari panel.js,
   `data-order-col`), `a[data-pdf]`/`form[data-pdf]` (pratinjau PDF di `#pdfModal`, Unduh = `?unduh=1` → attachment

@@ -64,10 +64,13 @@ if ($aksi === 'status') {
     // Kontak ke server lain: lewat WireGuard (handshake terakhir) atau ping IP pasangan.
     $peerIp  = $peran === 'cadangan' ? '10.77.0.1' : '10.77.0.2';
     $kontak  = null;
+    $adaWg   = jalan('ip link show wg-cbt >/dev/null && echo ya') === 'ya';
     $hs      = (int) jalan("wg show wg-cbt latest-handshakes | awk '{print \$2}' | head -1");
     if ($hs > 0) {
         $kontak = time() - $hs;
-    } elseif ($peran !== '') {
+    } elseif (! $adaWg && $peran !== '') {
+        // Tanpa WireGuard (kedua server di LAN): cukup ping. Dengan WireGuard, hanya handshake yang dihitung;
+        // ping ke IP publik VPS bisa berhasil walau terowongan belum tersambung.
         $peer = $peran === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? '');
         foreach (array_filter([$peerIp, $peer]) as $ip) {
             if (jalan('ping -c1 -W2 ' . escapeshellarg($ip) . ' >/dev/null && echo ok') === 'ok') {
