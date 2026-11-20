@@ -35,6 +35,8 @@ case "${1:-}" in
             echo "HA_SECRET=\"$rahasia\""
             echo "BACKUP_KEEP_DAYS=\"$(nilai ha_backup_hari | grep . || echo 7)\""
             echo "BACKUP_JAM_UJIAN=\"$(nilai ha_backup_jam | grep . || echo 6-17)\""
+            # ya = HTTPS Cloudflare Proxied (butuh sertifikat Origin); selain itu http biasa (DNS only).
+            echo "PAKAI_HTTPS=\"$([ "$(nilai ha_https)" = ya ] && echo ya || echo tidak)\""
         } | simpan_conf
         bash "$SKRIP/ha-utama.sh" pasang
         echo

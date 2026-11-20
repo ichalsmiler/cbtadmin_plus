@@ -131,6 +131,14 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                 <input class="form-control" type="number" min="1" max="90" id="ha_backup_hari" name="ha_backup_hari" value="<?= esc($nilai['ha_backup_hari'], 'attr') ?>"></div>
             <div class="col-6 col-md-3"><label class="form-label" for="ha_backup_jam">Jam backup 15 menitan</label>
                 <input class="form-control" id="ha_backup_jam" name="ha_backup_jam" value="<?= esc($nilai['ha_backup_jam'], 'attr') ?>" placeholder="6-17"></div>
+            <div class="col-12">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="ha_https" name="ha_https" value="1" <?= $nilai['ha_https'] === 'ya' ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="ha_https">Pakai HTTPS lewat Cloudflare (Proxied / awan oranye)</label>
+                </div>
+                <div class="form-text">Biarkan mati bila DNS di Cloudflare diatur <strong>DNS only</strong> (awan abu-abu): alamat memakai http biasa.
+                    Bila dinyalakan, kedua server wajib punya sertifikat Cloudflare Origin di <code>/etc/ssl/cbt/</code>.</div>
+            </div>
         </div>
     </div>
     <div class="card-footer d-flex flex-wrap gap-2">

@@ -22,6 +22,7 @@ class ServerCadangan
         'ha_secret'          => 'HA_SECRET',
         'ha_backup_hari'     => 'BACKUP_KEEP_DAYS',
         'ha_backup_jam'      => 'BACKUP_JAM_UJIAN',
+        'ha_https'           => 'PAKAI_HTTPS',   // ya = Cloudflare Proxied + sertifikat Origin; tidak = http (DNS only)
     ];
 
     public static function tersedia(): bool
@@ -67,6 +68,7 @@ class ServerCadangan
         }
         $v['ha_backup_hari'] = $v['ha_backup_hari'] !== '' ? $v['ha_backup_hari'] : '7';
         $v['ha_backup_jam']  = $v['ha_backup_jam'] !== '' ? $v['ha_backup_jam'] : '6-17';
+        $v['ha_https']       = $v['ha_https'] === 'ya' ? 'ya' : 'tidak';
 
         return $v;
     }

@@ -31,3 +31,7 @@ HA_SECRET=""
 # Backup (disimpan di server cadangan, /var/backups/cbt)
 BACKUP_KEEP_DAYS=7        # simpan berapa hari
 BACKUP_JAM_UJIAN="6-17"   # jam backup database tiap 15 menit (format jam cron)
+
+# HTTPS lewat Cloudflare Proxied (awan oranye) + sertifikat Origin: ya | tidak (http biasa, DNS only).
+# Kosong: IP -> http, domain -> https.
+PAKAI_HTTPS="tidak"

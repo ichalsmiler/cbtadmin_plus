@@ -57,7 +57,9 @@ $aksi = $argv[1] ?? '';
 if ($aksi === 'status') {
     $conf  = bacaConf();
     $peran = is_file(ROLE_FILE) ? trim((string) file_get_contents(ROLE_FILE)) : '';
-    $skema = static fn (string $h): string => $h === '' ? '' : (preg_match('/^[0-9.]+$/', $h) ? 'http://' : 'https://') . $h;
+    // PAKAI_HTTPS di ha.conf menang; tanpa itu: IP → http, domain → https (sama seperti ha-*.sh).
+    $https = $conf['PAKAI_HTTPS'] ?? '';
+    $skema = static fn (string $h): string => $h === '' ? '' : (($https !== '' ? $https === 'ya' : ! preg_match('/^[0-9.]+$/', $h)) ? 'https://' : 'http://') . $h;
 
     // Kontak ke server lain: lewat WireGuard (handshake terakhir) atau ping IP pasangan.
     $peerIp  = $peran === 'cadangan' ? '10.77.0.1' : '10.77.0.2';

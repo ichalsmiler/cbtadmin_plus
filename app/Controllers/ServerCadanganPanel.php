@@ -58,6 +58,8 @@ class ServerCadanganPanel extends PanelController
         if (! preg_match('/^[0-9]{1,2}(-[0-9]{1,2})?$/', $in['ha_backup_jam'])) {
             $in['ha_backup_jam'] = '6-17';
         }
+        // Centang "Pakai HTTPS" = Cloudflare Proxied + sertifikat Origin; tanpa centang = http biasa (DNS only).
+        $in['ha_https'] = $this->request->getPost('ha_https') === '1' ? 'ya' : 'tidak';
         foreach ($in as $k => $v) {
             Settings::set($k, $v);
         }
