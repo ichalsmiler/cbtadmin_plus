@@ -12,7 +12,37 @@ Tutorial ini untuk memasang **Moodle + CBT Admin Plus** di dua server, tanpa per
 - Ganti tulisan `IP_SERVER` dengan alamat IP server Anda, mis. `172.16.32.157`.
 - Setiap langkah ada keterangan **di mana** perintah diketik dan **hasil yang benar**.
 - **Konsol server** = layar hitam server (Proxmox: pilih server → **Console**; VPS: konsol web dari penyedia).
-- **Git Bash PC admin** = buka folder `F:\apps\cbtadmin_plus`, klik kanan → **Open Git Bash here**.
+- **Git Bash PC admin** = buka folder proyek `cbtadmin_plus` (dari langkah 0), klik kanan → **Open Git Bash here**.
+
+---
+
+## Langkah 0 — Siapkan PC admin (sekali per komputer)
+
+PC admin = komputer Windows yang dipakai untuk memasang dan memperbarui server. Lewati langkah ini bila PC sudah
+punya folder `cbtadmin_plus` (mis. `F:\apps\cbtadmin_plus`).
+
+1. **Pasang Git for Windows** dari **git-scm.com/download/win** (klik Next sampai selesai). Git Bash ikut terpasang.
+2. **Pastikan akun GitHub Anda sudah diberi akses** ke repositori `ichalsmiler/cbtadmin_plus` (repositori ini privat;
+   minta pemilik menambahkan akun Anda di *Settings → Collaborators*).
+3. **Ambil proyek dari GitHub.** Buka folder tempat menyimpan proyek (mis. drive `F:`), klik kanan → **Open Git Bash
+   here**, lalu:
+
+```bash
+git clone https://github.com/ichalsmiler/cbtadmin_plus.git
+```
+
+Bila muncul jendela login GitHub, pilih **Sign in with your browser** dan masuk dengan akun yang diberi akses.
+Hasil benar: muncul folder baru `cbtadmin_plus`.
+
+4. **Buat kunci SSH PC ini** (cukup sekali; lewati bila sudah ada). Di Git Bash:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_moodle
+```
+
+Tekan **Enter** terus sampai selesai (tanpa mengisi apa pun).
+
+5. **Mengambil pembaruan proyek** di kemudian hari: buka Git Bash di folder `cbtadmin_plus`, lalu `git pull`.
 
 ---
 
@@ -53,7 +83,7 @@ hostname -I
 
 ### A3. Hubungkan PC admin ke server
 
-**Di Git Bash PC admin.** Kunci SSH sudah ada di PC ini; kirim ke server (ganti `IP_SERVER`):
+**Di Git Bash PC admin.** Kirim kunci SSH PC (dari langkah 0) ke server (ganti `IP_SERVER`):
 
 ```bash
 ssh-copy-id -i ~/.ssh/id_ed25519_moodle.pub smiler@IP_SERVER
@@ -62,8 +92,6 @@ ssh-copy-id -i ~/.ssh/id_ed25519_moodle.pub smiler@IP_SERVER
 Ditanya *"Are you sure…"* → ketik `yes`. Ditanya password → ketik password `smiler` dari langkah A2.
 Setelah ini PC tidak perlu password lagi.
 
-> PC baru yang belum punya kunci? Buat dulu: `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_moodle` (tekan Enter
-> sampai selesai), lalu ulangi perintah di atas.
 
 ### A4. Beri nama singkat untuk server
 
