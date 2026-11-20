@@ -202,8 +202,19 @@ foreach ($DB->get_records('course_categories', ['parent' => 0], 'id', 'id, name'
     }
 }
 if (! $adaNonaktif) {
-    core_course_category::create(['name' => 'SESI NONAKTIF', 'parent' => 0]);
-    $catatan('kategori SESI NONAKTIF dibuat');
+    // Moodle baru selalu punya satu kategori bawaan kosong (id 1, "Category 1"). Kategori itu dijadikan SESI NONAKTIF
+    // supaya tidak tersisa kategori ekstra; hari ujian (H1, H2, …) yang dibuat kemudian mendapat id berikutnya.
+    $atas = $DB->get_records('course_categories', ['parent' => 0], 'id', 'id, name, coursecount');
+    $bawaan = count($atas) === 1 ? reset($atas) : null;
+    if ($bawaan && (int) $bawaan->coursecount === 0
+        && ! $DB->record_exists('course_categories', ['parent' => $bawaan->id])
+        && ! $DB->record_exists('course', ['category' => $bawaan->id])) {
+        core_course_category::get($bawaan->id, MUST_EXIST, true)->update(['name' => 'SESI NONAKTIF']);
+        $catatan('kategori bawaan (id ' . $bawaan->id . ') diganti nama jadi SESI NONAKTIF');
+    } else {
+        core_course_category::create(['name' => 'SESI NONAKTIF', 'parent' => 0]);
+        $catatan('kategori SESI NONAKTIF dibuat');
+    }
     $ubah++;
 }
 $setel('format', 'singleactivity', 'moodlecourse');      // course baru: Single activity
