@@ -135,10 +135,11 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
             <div class="col-12">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="ha_https" name="ha_https" value="1" <?= $nilai['ha_https'] === 'ya' ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="ha_https">Pakai HTTPS lewat Cloudflare (Proxied / awan oranye)</label>
+                    <label class="form-check-label" for="ha_https">Pakai HTTPS lewat Cloudflare (Tunnel atau Proxied / awan oranye)</label>
                 </div>
-                <div class="form-text">Biarkan mati bila DNS di Cloudflare diatur <strong>DNS only</strong> (awan abu-abu): alamat memakai http biasa.
-                    Bila dinyalakan, kedua server wajib punya sertifikat Cloudflare Origin di <code>/etc/ssl/cbt/</code>.</div>
+                <div class="form-text">Nyalakan bila alamat dibuka lewat <strong>https</strong> (Cloudflare Tunnel atau Proxied): alamat Moodle tetap https
+                    setelah <code>cbt-ha</code> dijalankan. Sertifikat Cloudflare Origin di <code>/etc/ssl/cbt/</code> opsional (untuk mode Full (strict)).
+                    Matikan hanya bila DNS diatur <strong>DNS only</strong> (awan abu-abu) dan alamat memakai http biasa.</div>
             </div>
         </div>
     </div>

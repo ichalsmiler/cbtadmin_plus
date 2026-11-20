@@ -174,18 +174,17 @@ setup_web() {
         set_wwwroot "$url"
         return
     fi
-    log "Nginx: HTTPS (Cloudflare Origin) dan IP asli; alamat $url"
-    [ -s "$SSL_DIR/origin.pem" ] && [ -s "$SSL_DIR/origin.key" ] || die "Sertifikat Cloudflare Origin belum ada.
-  Salin file yang SAMA dengan server utama ke:
-    $SSL_DIR/origin.pem   (Origin Certificate)
-    $SSL_DIR/origin.key   (Private Key)"
-    chmod 600 "$SSL_DIR/origin.key"
-
+    log "Nginx: HTTPS lewat Cloudflare dan IP asli; alamat $url"
     local site=/etc/nginx/sites-available/moodle
-    if ! grep -q "listen 443" "$site"; then
-        # Baris IPv6 hanya bila server mendukungnya (sebagian VPS tanpa IPv6).
-        local l6=""; [ -e /proc/net/if_inet6 ] && l6="\\n    listen [::]:443 ssl default_server;"
-        sed -i "0,/listen 80 default_server;/s||listen 80 default_server;\\n    listen 443 ssl default_server;$l6\\n    ssl_certificate $SSL_DIR/origin.pem;\\n    ssl_certificate_key $SSL_DIR/origin.key;|" "$site"
+    if [ -s "$SSL_DIR/origin.pem" ] && [ -s "$SSL_DIR/origin.key" ]; then
+        chmod 600 "$SSL_DIR/origin.key"
+        if ! grep -q "listen 443" "$site"; then
+            # Baris IPv6 hanya bila server mendukungnya (sebagian VPS tanpa IPv6).
+            local l6=""; [ -e /proc/net/if_inet6 ] && l6="\n    listen [::]:443 ssl default_server;"
+            sed -i "0,/listen 80 default_server;/s||listen 80 default_server;\n    listen 443 ssl default_server;$l6\n    ssl_certificate $SSL_DIR/origin.pem;\n    ssl_certificate_key $SSL_DIR/origin.key;|" "$site"
+        fi
+    else
+        log "Sertifikat Cloudflare Origin tidak ada: https ditangani Cloudflare (Tunnel / Proxied), server tetap http"
     fi
 
     local tmp; tmp="$(mktemp)"
@@ -210,10 +209,19 @@ setup_web() {
 # Alamat Moodle dan CBT Admin di server ini.
 set_wwwroot() {
     local url="$1" pat
-    # Moodle di belakang Cloudflare Tunnel/Proxied (sslproxy dipasang cbt-alamat): alamat tetap https.
-    grep -qE "^[$]CFG->sslproxy *= *true" "$CONFIG" && url="https://${url#http*://}"
+    local host="${url#http*://}"
+    # https lewat Cloudflare (Pakai HTTPS, atau sslproxy yang dipasang cbt-alamat): alamat https, Moodle diberi
+    # tahu SSL ditangani proxy, dan halaman yang dibuka lewat http dialihkan ke https (cookie Moodle khusus https).
+    if [[ ! "$host" =~ ^[0-9.]+$ ]] && { [ "$PAKAI_HTTPS" = ya ] || grep -qE "^[$]CFG->sslproxy *= *true" "$CONFIG"; }; then
+        url="https://$host"
+        grep -qE "^[$]CFG->sslproxy" "$CONFIG" || sed -i "s|^require_once(__DIR__ . '/lib/setup.php');|\$CFG->sslproxy = true;   // https ditangani Cloudflare (dipasang ha-cadangan.sh)\n&|" "$CONFIG"
+        echo 'if ($http_x_forwarded_proto = "http") { return 301 https://$host$request_uri; }  # cbt-alamat' > /etc/nginx/snippets/cbt-https.conf
+        local site=/etc/nginx/sites-available/moodle
+        grep -q "snippets/cbt-https.conf" "$site" || sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-https.conf;#" "$site"
+        nginx -t >/dev/null 2>&1 && systemctl reload nginx || warn "Pengalihan http ke https gagal dipasang (Nginx tidak valid)."
+    fi
     pat='^([$]CFG->wwwroot[[:space:]]*=).*'
-    sed -i -E "s#$pat#\\1 '$url';#" "$CONFIG"
+    sed -i -E "s#$pat#\1 '$url';#" "$CONFIG"
     php -l "$CONFIG" >/dev/null || die "config.php rusak setelah alamat diganti."
     sed -i -E "s#^app\.baseURL[[:space:]]*=.*#app.baseURL = '$url/cbtadmin/'#; s#^moodle\.url[[:space:]]*=.*#moodle.url = '$url'#" "$CBT_DIR/.env"
 }
