@@ -208,22 +208,16 @@ setup_web() {
 
 # Alamat Moodle dan CBT Admin di server ini.
 set_wwwroot() {
-    local url="$1" pat
-    local host="${url#http*://}"
-    # https lewat Cloudflare (Pakai HTTPS, atau sslproxy yang dipasang cbt-alamat): alamat https, Moodle diberi
-    # tahu SSL ditangani proxy, dan halaman yang dibuka lewat http dialihkan ke https (cookie Moodle khusus https).
-    if [[ ! "$host" =~ ^[0-9.]+$ ]] && { [ "$PAKAI_HTTPS" = ya ] || grep -qE "^[$]CFG->sslproxy *= *true" "$CONFIG"; }; then
-        url="https://$host"
-        grep -qE "^[$]CFG->sslproxy" "$CONFIG" || sed -i "s|^require_once(__DIR__ . '/lib/setup.php');|\$CFG->sslproxy = true;   // https ditangani Cloudflare (dipasang ha-cadangan.sh)\n&|" "$CONFIG"
-        echo 'if ($http_x_forwarded_proto = "http") { return 301 https://$host$request_uri; }  # cbt-alamat' > /etc/nginx/snippets/cbt-https.conf
-        local site=/etc/nginx/sites-available/moodle
-        grep -q "snippets/cbt-https.conf" "$site" || sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-https.conf;#" "$site"
-        nginx -t >/dev/null 2>&1 && systemctl reload nginx || warn "Pengalihan http ke https gagal dipasang (Nginx tidak valid)."
+    # Alamat Moodle tetap IP server ini; domain (Cloudflare Tunnel / Proxied) hanya didaftarkan lewat cbt-alamat,
+    # jadi Moodle mengikuti alamat yang dibuka: http://IP di sekolah, https://domain dari luar.
+    local d daftar=()
+    for d in "$DOMAIN_UTAMA" "$DOMAIN_CADANGAN"; do [[ "$d" =~ ^[0-9.]+$ ]] || daftar+=("$d"); done
+    [ ${#daftar[@]} -gt 0 ] || return 0
+    if [ -x /usr/local/sbin/cbt-alamat ]; then
+        /usr/local/sbin/cbt-alamat "${daftar[@]}" >/dev/null || warn "Domain gagal didaftarkan; jalankan: cbt-alamat ${daftar[*]}"
+    else
+        warn "cbt-alamat belum terpasang (jalankan cbt-perbarui), domain ${daftar[*]} belum didaftarkan."
     fi
-    pat='^([$]CFG->wwwroot[[:space:]]*=).*'
-    sed -i -E "s#$pat#\1 '$url';#" "$CONFIG"
-    php -l "$CONFIG" >/dev/null || die "config.php rusak setelah alamat diganti."
-    sed -i -E "s#^app\.baseURL[[:space:]]*=.*#app.baseURL = '$url/cbtadmin/'#; s#^moodle\.url[[:space:]]*=.*#moodle.url = '$url'#" "$CBT_DIR/.env"
 }
 
 slave_field() { mariadb -e "SHOW SLAVE STATUS\G" | awk -F': ' -v k="$1" '$1 ~ "^ *"k"$" {print $2}'; }

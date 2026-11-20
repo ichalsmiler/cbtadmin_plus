@@ -1,77 +1,136 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  cbt-alamat — ganti alamat Moodle + CBT Admin di server ini (mis. dari IP ke domain).
+#  cbt-alamat — atur alamat Moodle + CBT Admin di server ini.
 #  Dipasang oleh pasang-cbt.sh ke /usr/local/sbin/cbt-alamat.
 #
-#    cbt-alamat                         tampilkan alamat sekarang
-#    cbt-alamat ujian.sekolah.sch.id    ganti ke domain (http:// ditambahkan otomatis)
-#    cbt-alamat https://ujian.sekolah.sch.id
-#    cbt-alamat 172.16.32.159
+#  Alamat utama Moodle tetap IP lokal (http). Domain (mis. lewat Cloudflare Tunnel / Proxied) hanya DIDAFTARKAN:
+#  Moodle lalu mengikuti alamat yang sedang dibuka — http://IP di jaringan sekolah, https://domain dari luar —
+#  tanpa mengalihkan satu ke yang lain. https ditangani Cloudflare; server tetap http.
+#
+#    cbt-alamat                          tampilkan alamat sekarang
+#    cbt-alamat ujian.sekolah.sch.id     daftarkan domain (boleh lebih dari satu, dipisah spasi)
+#    cbt-alamat hapus ujian.sekolah.sch.id
+#    cbt-alamat 172.16.32.159            ganti IP utama (alamat Moodle)
 # =============================================================================
 set -euo pipefail
 
 CONFIG=/var/www/moodle/config.php
 ENV=/var/www/cbtadmin/.env
+MULAI='// CBT ALAMAT MULAI'
+SELESAI='// CBT ALAMAT SELESAI'
 
 gagal() { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
 [ "$(id -u)" -eq 0 ] || gagal "Jalankan sebagai root (login root di konsol, atau ketik: sudo -i)."
 [ -f "$CONFIG" ] || gagal "Moodle belum terpasang ($CONFIG tidak ada)."
 
-LAMA="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" "$CONFIG" | head -1)"
-if [ $# -eq 0 ]; then
-    echo "Alamat sekarang: ${LAMA:-(tidak terbaca)}"
-    echo "Ganti dengan    : cbt-alamat <domain atau IP>"
-    exit 0
-fi
+wwwroot() { sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" "$CONFIG" | head -1; }
+domain_terdaftar() { sed -n "s/^\$cbtdomain = \[\(.*\)\];.*/\1/p" "$CONFIG" | tr -d "' " | tr ',' '\n' | grep . || true; }
+bersihkan() { local a; a="$(echo "$1" | tr -d ' ' | tr 'A-Z' 'a-z')"; a="${a#http://}"; a="${a#https://}"; echo "${a%%/*}"; }
+adalah_ip() { [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$ ]]; }
 
-# Sama seperti penginstal: http:// ditambahkan bila belum ada, garis miring di akhir dibuang.
-BARU="$(echo "$1" | tr -d ' ')"
-BARU="${BARU%/}"
-case "$BARU" in http://*|https://*) ;; *) BARU="http://$BARU" ;; esac
-[[ "$BARU" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]] \
-    || gagal "Alamat \"$BARU\" tidak valid. Contoh: cbt-alamat ujian.sekolah.sch.id"
-# Alamat https di belakang Cloudflare: cookie Moodle dibuat khusus https, jadi halaman yang dibuka lewat http
-# (X-Forwarded-Proto: http) membuat login selalu gagal. Nginx mengalihkannya ke https; akses langsung ke IP
-# lokal (tanpa header itu) tidak terpengaruh.
+tampil() {
+    echo "Alamat utama (IP)  : $(wwwroot)"
+    local d; d="$(domain_terdaftar)"
+    if [ -n "$d" ]; then
+        echo "Domain terdaftar   :"; echo "$d" | sed 's|^|  https://|'
+    else
+        echo "Domain terdaftar   : (belum ada)"
+    fi
+    echo "Daftarkan domain   : cbt-alamat <domain>"
+}
+
+# Tulis blok alamat dinamis ke config.php (sebelum lib/setup.php). Domain di daftar dan alamat IP dilayani apa
+# adanya: wwwroot disusun dari host + skema permintaan (X-Forwarded-Proto dari Cloudflare). Cache lokal (CSS tema
+# berisi alamat absolut) dipisah per alamat supaya halaman https tidak memuat berkas lewat http.
+tulis_blok() {
+    local daftar="" d
+    for d in "$@"; do daftar="$daftar${daftar:+, }'$d'"; done
+    local tmp; tmp="$(mktemp)"
+    awk -v m="$MULAI" -v s="$SELESAI" 'index($0,m)==1{skip=1} !skip{print} index($0,s)==1{skip=0}' "$CONFIG" \
+        | sed '/^\$CFG->sslproxy/d' > "$tmp"
+    if [ -n "$daftar" ]; then
+        local blok; blok="$(cat <<EOF
+$MULAI (dikelola cbt-alamat; jangan diubah manual)
+\$cbtdomain = [$daftar];
+\$cbthost = strtolower((string) (\$_SERVER['HTTP_HOST'] ?? ''));
+if (\$cbthost !== '' && (in_array(preg_replace('/:\\\\d+\$/', '', \$cbthost), \$cbtdomain, true)
+        || preg_match('/^\\\\d{1,3}(\\\\.\\\\d{1,3}){3}(:\\\\d+)?\$/', \$cbthost))) {
+    \$cbthttps = strtolower((string) (\$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    \$cbtasal = \$CFG->wwwroot;
+    \$CFG->wwwroot = (\$cbthttps ? 'https://' : 'http://') . \$cbthost;
+    if (\$cbthttps) {
+        \$CFG->sslproxy = true;
+    }
+    if (\$CFG->wwwroot !== \$cbtasal) {
+        \$CFG->localcachedir = \$CFG->dataroot . '/localcache-' . preg_replace('/[^a-z0-9]+/', '_', \$CFG->wwwroot);
+    }
+}
+unset(\$cbtdomain, \$cbthost, \$cbthttps, \$cbtasal);
+$SELESAI
+EOF
+)"
+        local tmp2; tmp2="$(mktemp)"
+        BLOK="$blok" awk '/^require_once\(__DIR__ \. .\/lib\/setup\.php.\);/ && !done {print ENVIRON["BLOK"]; done=1} {print}' "$tmp" > "$tmp2"
+        mv "$tmp2" "$tmp"
+    fi
+    cat "$tmp" > "$CONFIG"; rm -f "$tmp"
+}
+
+# Halaman domain yang dibuka lewat http (X-Forwarded-Proto: http) dialihkan ke https: cookie Moodle di https
+# khusus https. Akses langsung ke IP lokal (tanpa header itu) tidak terpengaruh.
 pasang_https_redirect() {
-    SNIP=/etc/nginx/snippets/cbt-https.conf
-    SITE=/etc/nginx/sites-available/moodle
+    local snip=/etc/nginx/snippets/cbt-https.conf site=/etc/nginx/sites-available/moodle
     mkdir -p /etc/nginx/snippets
-    case "$BARU" in
-        https://*) echo 'if ($http_x_forwarded_proto = "http") { return 301 https://$host$request_uri; }  # cbt-alamat' > "$SNIP" ;;
-        *)         echo '# cbt-alamat: alamat http, tanpa pengalihan ke https' > "$SNIP" ;;
-    esac
-    if [ -f "$SITE" ] && ! grep -q "snippets/cbt-https.conf" "$SITE"; then
-        sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-https.conf;#" "$SITE"
+    echo 'if ($http_x_forwarded_proto = "http") { return 301 https://$host$request_uri; }  # cbt-alamat' > "$snip"
+    if [ -f "$site" ] && ! grep -q "snippets/cbt-https.conf" "$site"; then
+        sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-https.conf;#" "$site"
     fi
     nginx -t >/dev/null 2>&1 && systemctl reload nginx || echo "[PERINGATAN] Konfigurasi Nginx tidak valid; pengalihan https dilewati."
 }
 
-[ "$BARU" = "$LAMA" ] && { pasang_https_redirect; echo "Alamat sudah $BARU, tidak ada yang diubah (pengalihan https dipastikan)."; exit 0; }
+set_wwwroot() {
+    sed -i "s|^\(\$CFG->wwwroot *= *\).*|\1'$1';|" "$CONFIG"
+    if [ -f "$ENV" ]; then
+        sed -i "s|^app.baseURL = .*|app.baseURL = '$1/cbtadmin/'|; s|^moodle.url = .*|moodle.url = '$1'|" "$ENV"
+    fi
+}
 
+selesai() {
+    php -l "$CONFIG" >/dev/null || { cp -a "$CONFIG.bak-alamat" "$CONFIG"; gagal "config.php rusak, dikembalikan ke semula."; }
+    (cd /tmp && runuser -u www-data -- php /var/www/moodle/admin/cli/purge_caches.php)
+    systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null || true
+    echo "============================================================"
+    tampil
+    echo "============================================================"
+}
+
+[ $# -eq 0 ] && { tampil; exit 0; }
 cp -a "$CONFIG" "$CONFIG.bak-alamat"
-sed -i "s|^\(\$CFG->wwwroot *= *\).*|\1'$BARU';|" "$CONFIG"
-# https lewat Cloudflare (Tunnel / Proxied): server tetap http, Moodle diberi tahu bahwa SSL ditangani proxy.
-sed -i '/^\$CFG->sslproxy/d' "$CONFIG"
-case "$BARU" in
-    https://*) sed -i "s|^require_once(__DIR__ . '/lib/setup.php');|\$CFG->sslproxy = true;   // https ditangani Cloudflare (dipasang cbt-alamat)\n&|" "$CONFIG" ;;
-esac
-php -l "$CONFIG" >/dev/null || { cp -a "$CONFIG.bak-alamat" "$CONFIG"; gagal "config.php rusak, dikembalikan ke semula."; }
+[ -f "$ENV" ] && cp -a "$ENV" "$ENV.bak-alamat"
 
-pasang_https_redirect
-if [ -f "$ENV" ]; then
-    cp -a "$ENV" "$ENV.bak-alamat"
-    sed -i "s|^app.baseURL = .*|app.baseURL = '$BARU/cbtadmin/'|; s|^moodle.url = .*|moodle.url = '$BARU'|" "$ENV"
+mapfile -t DOMAIN < <(domain_terdaftar)
+if [ "$1" = hapus ]; then
+    shift
+    for a in "$@"; do a="$(bersihkan "$a")"; mapfile -t DOMAIN < <(printf '%s\n' "${DOMAIN[@]}" | grep -vxF "$a" | grep . || true); done
+    tulis_blok "${DOMAIN[@]}"
+    selesai; exit 0
 fi
-(cd /tmp && runuser -u www-data -- php /var/www/moodle/admin/cli/purge_caches.php)
-systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null || true
 
-echo "============================================================"
-echo "  Alamat diganti"
-echo "    dari : ${LAMA:-?}"
-echo "    ke   : $BARU"
-echo
-echo "  Moodle (siswa) : $BARU"
-echo "  CBT Admin      : $BARU/cbtadmin/"
-echo "  Pastikan domain/IP itu memang mengarah ke server ini (DNS di Cloudflare)."
-echo "============================================================"
+IP_BARU=""
+for a in "$@"; do
+    a="$(bersihkan "$a")"
+    [[ "$a" =~ ^[a-z0-9.-]+(:[0-9]+)?$ ]] || gagal "Alamat \"$a\" tidak valid. Contoh: cbt-alamat ujian.sekolah.sch.id"
+    if adalah_ip "$a"; then IP_BARU="$a"; else printf '%s\n' "${DOMAIN[@]}" | grep -qxF "$a" || DOMAIN+=("$a"); fi
+done
+
+# Alamat utama Moodle selalu IP: bila tertulis domain (versi lama), domain itu didaftarkan dan alamat kembali ke IP.
+LAMA_HOST="$(bersihkan "$(wwwroot)")"
+if [ -z "$IP_BARU" ] && ! adalah_ip "$LAMA_HOST"; then
+    printf '%s\n' "${DOMAIN[@]}" | grep -qxF "$LAMA_HOST" || DOMAIN+=("$LAMA_HOST")
+    IP_BARU="$(hostname -I | awk '{print $1}')"
+fi
+[ -n "$IP_BARU" ] && set_wwwroot "http://$IP_BARU"
+mapfile -t DOMAIN < <(printf '%s\n' "${DOMAIN[@]}" | grep . || true)
+tulis_blok "${DOMAIN[@]}"
+[ ${#DOMAIN[@]} -gt 0 ] && pasang_https_redirect
+selesai

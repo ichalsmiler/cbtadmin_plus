@@ -26,9 +26,11 @@ class Registrar
 
         // Nilai .env dibaca CodeIgniter SETELAH registrar, jadi app.baseURL di .env akan menimpa nilai di bawah.
         // Untuk permintaan ini saja, nilai lingkungan itu diganti dengan alamat yang sedang dibuka.
-        foreach (['app.baseURL', 'Config\App.baseURL'] as $k) {
-            $_ENV[$k] = $_SERVER[$k] = $base;
-            putenv($k . '=' . $base);
+        // moodle.url ikut: Moodle di server yang sama dan juga mengikuti alamat yang dibuka (blok cbt-alamat).
+        $nilai = ['app.baseURL' => $base, 'Config\App.baseURL' => $base, 'moodle.url' => ($https ? 'https' : 'http') . '://' . $host];
+        foreach ($nilai as $k => $v) {
+            $_ENV[$k] = $_SERVER[$k] = $v;
+            putenv($k . '=' . $v);
         }
 
         return [

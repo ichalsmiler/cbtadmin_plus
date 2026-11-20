@@ -6,11 +6,11 @@
 #    apt-get update && apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/ichalsmiler/cbtadmin_plus/main/pasang-cbt.sh | bash
 #
 #  Perbarui kemudian hari:   cbt-perbarui
-#  Ganti alamat (IP -> domain): cbt-alamat ujian.sekolah.sch.id
+#  Daftarkan domain Cloudflare: cbt-alamat ujian.sekolah.sch.id (alamat IP tetap jalan)
 #
 #  Yang dikerjakan: ambil kode terbaru dari GitHub ke /opt/cbtadmin_plus, pasang Moodle (bila belum ada),
 #  setelan ujian Moodle + plugin CBT, lalu panel CBT Admin. Aman dijalankan berulang.
-#  Pilihan tanpa tanya:  WWWROOT=http://alamat ZONA_WAKTU=WIB (sebelum "bash").
+#  Pilihan tanpa tanya:  DOMAIN_CBT=ujian.sekolah.sch.id ZONA_WAKTU=WIB (sebelum "bash").
 # =============================================================================
 set -euo pipefail
 
@@ -46,18 +46,18 @@ if [ ! -f /var/www/moodle/config.php ]; then
     hijau "2/4 Memasang Moodle (pertama kali, ±15 menit)"
     # VPS (mis. IDCloudHost) hanya "melihat" IP privatnya; IP publik ditanyakan ke luar supaya bisa ditunjukkan.
     PUBLIK="$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
-    if [ -z "${WWWROOT:-}" ]; then
+    if [ -z "${WWWROOT:-}" ] && [ -z "${DOMAIN_CBT:-}" ]; then
         echo
-        echo "  Alamat yang dibuka siswa: boleh DOMAIN (paling baik bila sudah diarahkan di Cloudflare)"
-        echo "  atau IP. Tanpa http:// juga boleh. Bisa diganti nanti dengan: cbt-alamat <alamat>"
-        echo "    Contoh domain : ujian.sekolah.sch.id  /  cadangan.sekolah.sch.id"
+        echo "  Alamat Moodle = IP server ini (siswa di sekolah membuka http://IP)."
+        echo "  Domain Cloudflare (Tunnel / Proxied) cukup didaftarkan: Moodle mengikuti alamat yang dibuka,"
+        echo "  https://domain dari luar dan http://IP di sekolah. Kosongkan bila belum ada (nanti: cbt-alamat <domain>)."
         echo "    IP server ini : $IP (lokal)"
         if [ -n "$PUBLIK" ] && [ "$PUBLIK" != "$IP" ]; then
             echo "    IP publik     : $PUBLIK"
-            echo "    Server di sekolah (siswa di lab) -> IP lokal; VPS / server internet -> domain atau IP publik."
         fi
+        DOMAIN_CBT="$(tanya "Domain Cloudflare (kosongkan bila belum ada)" "")"
     fi
-    WWWROOT="${WWWROOT:-$(tanya "Alamat yang dibuka siswa (domain atau IP)" "http://$IP")}"
+    WWWROOT="${WWWROOT:-http://$IP}"
     ZONA_WAKTU="${ZONA_WAKTU:-$(tanya "Zona waktu: WITA, WIB, atau WIT" "WITA")}"
     WWWROOT="$WWWROOT" ZONA_WAKTU="$ZONA_WAKTU" bash "$SRC/deploy/install-moodle.sh"
 else
@@ -74,6 +74,13 @@ bash "$SRC/deploy/install.sh" "$SRC"
 install -m 755 "$SRC/pasang-cbt.sh" /usr/local/sbin/cbt-perbarui
 install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
 install -m 755 "$SRC/deploy/cbt-alamat" /usr/local/sbin/cbt-alamat
+# Alamat Moodle selalu IP; domain hanya didaftarkan (Moodle mengikuti alamat yang dibuka). Alamat lama berupa
+# domain (versi sebelumnya) dikembalikan ke IP dan domainnya didaftarkan.
+LAMA="$(sed -n "s/^\$CFG->wwwroot *= *'https*:\/\/\([^/']*\).*/\1/p" /var/www/moodle/config.php | head -1)"
+[[ "$LAMA" =~ ^[0-9.:]*$ ]] && LAMA=""
+if [ -n "${DOMAIN_CBT:-}$LAMA" ]; then
+    /usr/local/sbin/cbt-alamat ${DOMAIN_CBT:-} $LAMA >/dev/null || echo "[PERINGATAN] Domain gagal didaftarkan; jalankan: cbt-alamat <domain>"
+fi
 
 ALAMAT="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" /var/www/moodle/config.php | head -1)"
 # Ringkasan akhir: dibaca dari berkas kredensial yang ditulis install-moodle.sh dan install.sh.
@@ -116,6 +123,6 @@ echo "       $CBT"
 echo "       $MDL"
 echo "   - Ganti password kedua admin setelah login pertama."
 echo "   - Perbarui ke versi terbaru : cbt-perbarui"
-echo "   - Ganti alamat (mis. ke domain) : cbt-alamat <domain>"
+echo "   - Daftarkan domain Cloudflare : cbt-alamat <domain>"
 echo "   - Server cadangan           : CBT Admin -> Admin Tools -> Server Cadangan"
 echo "$GARIS"
