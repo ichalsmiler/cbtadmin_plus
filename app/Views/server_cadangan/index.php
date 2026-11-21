@@ -321,7 +321,20 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
         pindah:     ['Berhasil: server ini sekarang melayani ujian sebagai server utama.', 'Gagal memindahkan ujian ke server ini'],
         kembalikan: ['Berhasil: ujian dikembalikan ke server ini.', 'Gagal mengembalikan ujian ke server ini']
     };
-    var tampilHasil = function (h) {
+    // Langkah yang dijalankan skrip = baris "==> …" di catatan (mis. pindah: 1/3 replikasi, 2/3 database, 3/3 Moodle).
+    var daftarLangkah = function (log) {
+        var ul = document.createElement('ul');
+        ul.className = 'small mb-0 mt-2 ps-3';
+        (log || '').split('\n').forEach(function (b) {
+            var m = b.match(/^==>\s*(.+)$/);
+            if (!m) { return; }
+            var li = document.createElement('li');
+            li.textContent = m[1].trim();
+            ul.appendChild(li);
+        });
+        return ul.children.length ? ul : null;
+    };
+    var tampilHasil = function (h, log) {
         var j = JUDUL[h.aksi] || ['Proses selesai dengan berhasil.', 'Proses gagal'];
         kotakHasil.classList.remove('d-none');
         alertHasil.className = 'alert mb-0 ' + (h.ok ? 'alert-success' : 'alert-danger');
@@ -332,15 +345,24 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
         teks.textContent = h.ok ? j[0] : j[1] + '.';
         alertHasil.append(ikon, teks);
         // Berhasil: kartu dilipat, ringkasannya di baris lipatan. Gagal: tetap terbuka supaya alasannya terbaca.
+        // Pindah / kembalikan (peristiwa penting saat ujian) tetap terbuka walau berhasil, beserta langkah-langkahnya.
+        var penting = h.aksi === 'pindah' || h.aksi === 'kembalikan';
         var ringkas = document.getElementById('prosesRingkas');
         ringkas.textContent = h.ok ? 'Proses server cadangan terakhir: berhasil (klik untuk melihat catatan)' : 'Proses server cadangan';
         ringkas.className = 'small ' + (h.ok ? 'text-success' : 'text-muted');
-        kartu.open = !h.ok;
+        kartu.open = !h.ok || penting;
         if (!h.ok) {
             var rinci = document.createElement('div');
             rinci.className = 'small mt-1';
             rinci.textContent = (h.pesan || 'Lihat catatan di bawah.') + (h.kode ? ' (kode ' + h.kode + ')' : '');
             alertHasil.appendChild(rinci);
+        }
+        var langkah = daftarLangkah(log);
+        if (langkah) {
+            var jl = document.createElement('div');
+            jl.className = 'small mt-2 fw-semibold';
+            jl.textContent = h.ok ? 'Yang dilakukan:' : 'Langkah yang sempat dijalankan:';
+            alertHasil.append(jl, langkah);
         }
     };
     var sesiPutus = function () {
@@ -369,7 +391,7 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
                 if (d.log) { kartu.classList.remove('d-none'); pre.textContent = d.log; pre.scrollTop = pre.scrollHeight; }
                 spin.classList.toggle('d-none', !d.berjalan);
                 if (d.berjalan) { kartu.open = true; setTimeout(ambil, 3000); return; }
-                if (d.hasil) { kartu.classList.remove('d-none'); tampilHasil(d.hasil); }
+                if (d.hasil) { kartu.classList.remove('d-none'); tampilHasil(d.hasil, d.log); }
             })
             .catch(function () {
                 // Server sibuk (database diganti / layanan dimulai ulang): coba lagi, tapi jangan menggantung tanpa kabar.
