@@ -77,7 +77,7 @@ class Guard implements FilterInterface
             if ($session->get('admin_role') !== 'admin') {
                 $session->destroy();
 
-                return $this->deny($request, 'Server cadangan belum aktif. Pakai panel di alamat server utama.');
+                return $this->deny($request, 'Server ini sedang siaga (tidak melayani ujian). Pakai panel di alamat server yang aktif.');
             }
             if (! in_array(explode('/', $path)[0], ['server_cadangan', 'logout'], true)) {
                 if ($request->isAJAX()) {

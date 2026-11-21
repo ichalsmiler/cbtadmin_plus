@@ -33,7 +33,9 @@ class ServerCadangan
     {
         static $hasil = null;
 
-        return $hasil ??= is_readable('/etc/cbt-ha-peran') && trim((string) @file_get_contents('/etc/cbt-ha-peran')) === 'cadangan';
+        // cadangan = belum dipindah; nonaktif = server utama lama setelah cadangan aktif (cbt-ha-jaga). Keduanya
+        // database hanya-baca, panel hanya untuk admin di menu Server Cadangan.
+        return $hasil ??= is_readable('/etc/cbt-ha-peran') && in_array(trim((string) @file_get_contents('/etc/cbt-ha-peran')), ['cadangan', 'nonaktif'], true);
     }
 
     public static function tersedia(): bool

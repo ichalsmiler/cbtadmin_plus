@@ -132,6 +132,23 @@ EOF
 
 # Mode situs: "aktif" melayani ujian; "cadangan" menampilkan halaman "server cadangan, belum aktif"
 # (database cadangan hanya-baca, jadi login di sana pasti gagal).
+# Peran server ini dibaca server pasangan lewat http://<IP server ini>/cbt-ha-peran (hanya dari IP pasangan).
+# Server utama memakainya untuk berhenti melayani siswa bila cadangan sudah aktif (cbt-ha-jaga).
+pasang_peran_web() {
+    local snip=/etc/nginx/snippets/cbt-ha-peran.conf site=/etc/nginx/sites-available/moodle
+    mkdir -p /etc/nginx/snippets
+    cat > "$snip" <<EOP
+# CBT HA: peran server ini untuk server pasangan (dibuat oleh skrip ha)
+location = /cbt-ha-peran { allow $PEER_WG_IP; deny all; default_type text/plain; alias $ROLE_FILE; }
+EOP
+    if ! grep -q "snippets/cbt-ha-peran.conf" "$site"; then
+        sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-ha-peran.conf;#" "$site"
+    fi
+    nginx -t >/dev/null 2>&1 || { nginx -t; die "Konfigurasi Nginx tidak valid."; }
+    systemctl reload nginx
+}
+
+
 set_site_mode() {
     local mode="$1" snip=/etc/nginx/snippets/cbt-ha-mode.conf
     mkdir -p /var/www/cbt-ha /etc/nginx/snippets
@@ -345,6 +362,10 @@ pasang() {
     for f in moodle cbtadmin; do
         if [ -f "/etc/cron.d/$f" ]; then mv "/etc/cron.d/$f" "/etc/cron.d/$f.cadangan-off"; fi
     done
+    # Server utama membaca peran ini: setelah PINDAH ("utama") server utama lama berhenti melayani siswa.
+    pasang_peran_web
+    # Bila server ini dulunya utama, pengamannya (cbt-ha-jaga) tidak dipakai lagi.
+    rm -f /etc/cron.d/cbt-ha-utama /usr/local/sbin/cbt-ha-jaga
     # Bila server ini dulunya utama, matikan sumber rsync-nya.
     if [ -f /etc/rsyncd.conf ] && grep -q "CBT HA" /etc/rsyncd.conf; then
         systemctl disable --now rsync >/dev/null 2>&1 || true
@@ -503,8 +524,9 @@ pindah() {
     [ "$(cat "$ROLE_FILE" 2>/dev/null)" = cadangan ] || die "Server ini bukan cadangan."
     echo "Server ini ($URL_CADANGAN) akan dijadikan SERVER UTAMA."
     if ping -c1 -W2 "$PEER_WG_IP" >/dev/null 2>&1; then
-        warn "Server utama MASIH terhubung. Matikan server utama (atau hapus DNS $DOMAIN_UTAMA di Cloudflare)
-  supaya siswa tidak lagi mengerjakan di sana; kalau dua server sama-sama menerima jawaban, datanya bercabang."
+        warn "Server utama MASIH terhubung. Setelah pindah, server utama otomatis berhenti melayani siswa dalam
+  1 menit (cbt-ha-jaga). Tetap umumkan alamat baru ke siswa; bila server utama dipasang dengan skrip lama,
+  matikan server utama (atau hapus DNS $DOMAIN_UTAMA di Cloudflare) supaya jawaban tidak bercabang."
     fi
     confirm "PINDAH"
 

@@ -127,6 +127,23 @@ EOF
 
 # Mode situs: "aktif" melayani ujian; "cadangan" menampilkan halaman "server cadangan, belum aktif"
 # (database cadangan hanya-baca, jadi login di sana pasti gagal).
+# Peran server ini dibaca server pasangan lewat http://<IP server ini>/cbt-ha-peran (hanya dari IP pasangan).
+# Server utama memakainya untuk berhenti melayani siswa bila cadangan sudah aktif (cbt-ha-jaga).
+pasang_peran_web() {
+    local snip=/etc/nginx/snippets/cbt-ha-peran.conf site=/etc/nginx/sites-available/moodle
+    mkdir -p /etc/nginx/snippets
+    cat > "$snip" <<EOP
+# CBT HA: peran server ini untuk server pasangan (dibuat oleh skrip ha)
+location = /cbt-ha-peran { allow $PEER_WG_IP; deny all; default_type text/plain; alias $ROLE_FILE; }
+EOP
+    if ! grep -q "snippets/cbt-ha-peran.conf" "$site"; then
+        sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-ha-peran.conf;#" "$site"
+    fi
+    nginx -t >/dev/null 2>&1 || { nginx -t; die "Konfigurasi Nginx tidak valid."; }
+    systemctl reload nginx
+}
+
+
 set_site_mode() {
     local mode="$1" snip=/etc/nginx/snippets/cbt-ha-mode.conf
     mkdir -p /var/www/cbt-ha /etc/nginx/snippets
@@ -213,6 +230,66 @@ set_wwwroot() {
 mdl_cfg() { runuser -u www-data -- php "$MOODLE_DIR/admin/cli/cfg.php" "$@"; }
 
 # ----------------------------------------------------------------- pasang
+# Pengaman server utama: tiap menit (dan saat server menyala) tanya peran server cadangan. Bila cadangan sudah
+# aktif (setelah PINDAH), server ini berhenti melayani siswa supaya jawaban tidak tercecer di dua server:
+# peran "nonaktif", database hanya-baca, cron mati, halaman siswa menunjuk alamat cadangan, panel tetap terbuka.
+tulis_jaga() {
+    cat > /usr/local/sbin/cbt-ha-jaga <<EOJ
+#!/usr/bin/env bash
+# Pengaman server UTAMA (dibuat oleh ha-utama.sh). Pakai: cbt-ha-jaga [tunggu]
+set -uo pipefail
+[ "\$(cat $ROLE_FILE 2>/dev/null)" = utama ] || exit 0
+coba=1; [ "\${1:-}" = tunggu ] && coba=12          # saat menyala: tunggu terowongan, sampai ±2 menit
+jawab=""
+for i in \$(seq 1 \$coba); do
+    jawab="\$(curl -fsS --max-time 5 http://$PEER_WG_IP/cbt-ha-peran 2>/dev/null | tr -d '[:space:]')" && break
+    [ "\$i" -lt "\$coba" ] && sleep 10
+done
+[ "\$jawab" = utama ] || exit 0
+
+echo nonaktif > $ROLE_FILE
+mariadb -e "SET GLOBAL read_only = 1;" 2>/dev/null
+sed -i 's/^read_only = 0/read_only = 1/' $DB_CNF 2>/dev/null
+for f in moodle cbtadmin; do
+    [ -f /etc/cron.d/\$f ] && mv /etc/cron.d/\$f /etc/cron.d/\$f.cadangan-off
+done
+mkdir -p /var/www/cbt-ha
+cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOH'
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ujian dipindah</title>
+<style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
+main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
+</head><body><main><h1>Ujian dipindah ke server cadangan</h1>
+<p>Server ini sedang tidak dipakai. Lanjutkan ujian di:</p>
+<p><a href="$URL_CADANGAN/">$URL_CADANGAN</a></p></main></body></html>
+EOH
+cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
+# CBT HA: server utama nonaktif, cadangan sedang dipakai (dibuat oleh cbt-ha-jaga)
+error_page 503 /cbt-cadangan.html;
+location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
+set \$cbt_siaga 1;
+if (\$uri = /cbt-cadangan.html) { set \$cbt_siaga 0; }
+if (\$uri ~ ^/cbtadmin(/|\$)) { set \$cbt_siaga 0; }
+if (\$cbt_siaga) { return 503; }
+EON
+nginx -t >/dev/null 2>&1 && systemctl reload nginx
+php_v="\$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+systemctl reload "php\$php_v-fpm" 2>/dev/null
+pesan="server cadangan $URL_CADANGAN sudah aktif: server ini dinonaktifkan (siswa diarahkan ke cadangan)"
+logger -t cbt-ha "\$pesan"
+echo "\$(date '+%Y-%m-%d %H:%M:%S') \$pesan" >> /var/log/cbt-ha-jaga.log
+EOJ
+    chmod 700 /usr/local/sbin/cbt-ha-jaga
+    cat > /etc/cron.d/cbt-ha-utama <<EOC
+# CBT HA - pengaman server utama (dibuat oleh ha-utama.sh)
+* * * * * root /usr/local/sbin/cbt-ha-jaga >/dev/null 2>&1
+@reboot root /usr/local/sbin/cbt-ha-jaga tunggu >/dev/null 2>&1
+EOC
+    chmod 644 /etc/cron.d/cbt-ha-utama
+}
+
+
 pasang() {
     check_prereq
     load_conf
@@ -288,6 +365,9 @@ EOF
     for f in moodle cbtadmin; do
         if [ -f "/etc/cron.d/$f.cadangan-off" ]; then mv "/etc/cron.d/$f.cadangan-off" "/etc/cron.d/$f"; fi
     done
+    pasang_peran_web
+    log "Pengaman: server ini berhenti melayani siswa bila cadangan sudah aktif (cbt-ha-jaga tiap menit)"
+    tulis_jaga
 
     log "Moodle: autosave jawaban quiz tiap 60 detik"
     mdl_cfg --component=quiz --name=autosaveperiod --set=60
@@ -307,6 +387,10 @@ EOF
 status() {
     load_conf
     echo "Peran server ini : $(cat "$ROLE_FILE" 2>/dev/null || echo 'belum diatur')"
+    if [ "$(cat "$ROLE_FILE" 2>/dev/null)" = nonaktif ]; then
+        warn "Server ini NONAKTIF: server cadangan ($URL_CADANGAN) sudah dipakai ujian, data terbaru ada di sana.
+  Siswa yang membuka server ini diarahkan ke alamat cadangan. Riwayat: /var/log/cbt-ha-jaga.log"
+    fi
     echo
     echo "--- Jalur ke server lain"
     local hs=""

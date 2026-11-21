@@ -134,9 +134,9 @@ chown -R www-data:www-data "$APP_DIR/writable"
 mkdir -p "$APP_DIR/webroot"
 ln -sfn ../public "$APP_DIR/webroot/cbtadmin"
 CRON_FILE=/etc/cron.d/cbtadmin
-if [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ]; then
-    # Server cadangan HA: database hanya-baca dan berisi salinan server utama (migrasi ikut tersalin);
-    # cron tetap dimatikan sampai server ini dipindah menjadi utama.
+if [[ "$(cat /etc/cbt-ha-peran 2>/dev/null)" =~ ^(cadangan|nonaktif)$ ]]; then
+    # Server cadangan HA (atau utama lama yang dinonaktifkan cbt-ha-jaga): database hanya-baca;
+    # migrasi dilewati dan cron tetap dimatikan.
     CRON_FILE=/etc/cron.d/cbtadmin.cadangan-off
     rm -f /etc/cron.d/cbtadmin
 else

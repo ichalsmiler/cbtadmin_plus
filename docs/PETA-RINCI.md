@@ -135,3 +135,16 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   Info Sekolah, akun/pengaturan panel/backup, impor/tambah/ubah/hapus/reset peserta, ubah/hapus/Generate Kode ruang.
 - Data: seperti admin (semua ruang) lewat `Guard::lihatSemua()` di BlokirSiswa, Dashboard, Kehadiran.
 - POST yang ditolak kembali ke halaman asal (referer satu situs) dengan pesan "hanya untuk administrator".
+
+## HA: pengaman server utama yang hidup lagi (cbt-ha-jaga, 21 Nov 2026)
+- Kedua server menyajikan perannya di `http://<IP server>/cbt-ha-peran` (snippet nginx `cbt-ha-peran.conf`, hanya dari IP
+  pasangan; `pasang_peran_web` di ha-utama.sh dan ha-cadangan.sh).
+- ha-utama.sh pasang memasang `/usr/local/sbin/cbt-ha-jaga` + `/etc/cron.d/cbt-ha-utama` (tiap menit, `@reboot` dengan
+  `tunggu` ±2 menit). Bila peran sini `utama` dan pasangan menjawab `utama` (cadangan sudah PINDAH) → peran `nonaktif`,
+  MariaDB read_only=1 (juga di 90-cbt-ha.cnf), cron moodle/cbtadmin → `.cadangan-off`, halaman siswa "Ujian dipindah ke
+  server cadangan: <URL_CADANGAN>", /cbtadmin/ tetap terbuka; log `/var/log/cbt-ha-jaga.log` + syslog `cbt-ha`.
+- Pasangan tak terjangkau → tidak berubah (tetap perlu matikan/alihkan DNS bila internet sekolah putus).
+- `nonaktif` dikenali: `ServerCadangan::siaga()` (panel admin-only menu Server Cadangan), install.sh (lewati migrasi,
+  cron mati), view Server Cadangan (lencana kuning), `cbt-ha status` (peringatan). ha-cadangan.sh pasang menghapus jaga.
+- Berlaku setelah `cbt-perbarui` lalu `cbt-ha utama` dijalankan ulang di server utama (jaga dipasang saat pasang HA).
+- Bagian 2 (tombol "Kembalikan ke server sekolah": salin data VPS → sekolah lalu tukar peran) BELUM dibuat.
