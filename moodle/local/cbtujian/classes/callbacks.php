@@ -389,7 +389,10 @@ class callbacks {
         // (urutan dan gaya di boost.scss).
         if ($PAGE->pagetype === 'mod-quiz-view') {
             // Kartu percobaan bawaan disembunyikan sejak awal (diganti tabel oleh JS di bawah), supaya tidak berkedip.
-            $hook->add_html(\html_writer::tag('style', '#page-mod-quiz-view [role=main] > h3 + ul.list-unstyled{display:none}'));
+            // Form token (preflight) dicetak di halaman lalu dipindah JS Moodle ke jendela modal; selama masih di
+            // [role=main] disembunyikan, supaya isian "Masukkan token" tidak terlihat sekejap saat halaman dibuka.
+            $hook->add_html(\html_writer::tag('style', '#page-mod-quiz-view [role=main] > h3 + ul.list-unstyled{display:none}'
+                . '#page-mod-quiz-view [role=main] #mod_quiz_preflight_form{display:none}'));
             $j = fn(string $s) => json_encode($s, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $status = $j(get_string('attemptstate', 'quiz'));
             $review = $j(get_string('review', 'quiz'));
