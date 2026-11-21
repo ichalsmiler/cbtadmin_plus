@@ -399,8 +399,10 @@ status() {
     else
         hs="$(wg show "$WG_IF" latest-handshakes 2>/dev/null | awk '{print $2}')"
     fi
-    if [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+    if [ -n "$hs" ] && [ "$hs" -gt 0 ] && [ $(( $(date +%s) - hs )) -le 180 ]; then
         echo "Terhubung ke cadangan, kontak terakhir $(( $(date +%s) - hs )) detik lalu"
+    elif [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+        echo "PUTUS dari cadangan: kontak terakhir $(( ($(date +%s) - hs) / 60 )) menit lalu ($PEER_WG_IP)"
     else
         echo "BELUM terhubung ke cadangan ($PEER_WG_IP)"
     fi

@@ -481,8 +481,10 @@ status() {
     else
         hs="$(wg show "$WG_IF" latest-handshakes 2>/dev/null | awk '{print $2}')"
     fi
-    if [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+    if [ -n "$hs" ] && [ "$hs" -gt 0 ] && [ $(( $(date +%s) - hs )) -le 180 ]; then
         echo "Terhubung ke utama, kontak terakhir $(( $(date +%s) - hs )) detik lalu"
+    elif [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
+        echo "PUTUS dari utama: kontak terakhir $(( ($(date +%s) - hs) / 60 )) menit lalu ($PEER_WG_IP)"
     else
         echo "TIDAK terhubung ke utama ($PEER_WG_IP)"
     fi

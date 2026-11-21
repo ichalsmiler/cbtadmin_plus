@@ -14,6 +14,8 @@ $detik  = static function ($d): string {
 };
 $ukuran = static fn ($b): string => $b >= 1073741824 ? round($b / 1073741824, 1) . ' GB' : round($b / 1048576, 1) . ' MB';
 $repl   = $s['replikasi'] ?? null;
+// WireGuard memperbarui kontak (handshake) ±2 menit sekali selama tersambung; lebih dari 3 menit = putus.
+$kontakHidup = isset($s['kontak_detik']) && $s['kontak_detik'] !== null && (int) $s['kontak_detik'] <= 180;
 $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 ?>
 <?php if ($error !== ''): ?>
@@ -46,9 +48,10 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                         <tr><th class="fw-normal text-muted" style="width:42%">Alamat utama</th><td><?= esc($s['url_utama'] ?: '–') ?> <span class="text-muted small">(<?= esc($s['utama_ip']) ?>)</span></td></tr>
                         <tr><th class="fw-normal text-muted">Alamat cadangan</th><td><?= esc($s['url_cadangan'] ?: '–') ?> <span class="text-muted small">(<?= esc($s['cadangan_ip']) ?>)</span></td></tr>
                         <tr><th class="fw-normal text-muted">Hubungan ke server <?= $peran === 'cadangan' ? 'utama' : 'cadangan' ?></th>
-                            <td><?= $s['kontak_detik'] !== null
+                            <td><?= $kontakHidup
                                     ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Terhubung</span> <span class="text-muted small">(' . $detik($s['kontak_detik']) . ')</span>'
-                                    : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Tidak terhubung</span>' ?></td></tr>
+                                    : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Tidak terhubung</span>'
+                                      . ($s['kontak_detik'] !== null ? ' <span class="text-muted small">(kontak terakhir ' . $detik($s['kontak_detik']) . ')</span>' : '') ?></td></tr>
                         <?php if ($peran === 'cadangan'): ?>
                             <tr><th class="fw-normal text-muted">Salinan database</th>
                                 <td><?php if (! $repl): ?><span class="text-danger">Tidak aktif</span>
@@ -79,7 +82,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                         <li>Data terakhir yang sudah tersalin dipakai; jawaban siswa tetap tersimpan.</li>
                         <li>Setelah selesai, umumkan alamat ujian baru ke siswa: <strong><?= esc($s['url_cadangan'] ?: '–') ?></strong>. Siswa login lagi lalu melanjutkan.</li>
                     </ol>
-                    <?php if ($s['kontak_detik'] !== null): ?>
+                    <?php if ($kontakHidup): ?>
                         <div class="alert alert-warning small py-2">Server utama <strong>masih terhubung</strong>. Matikan dulu server utama sebelum memindahkan.</div>
                     <?php endif ?>
                     <label class="form-label" for="konfirmasiPindah">Ketik <code>PINDAH</code> untuk mengonfirmasi</label>
