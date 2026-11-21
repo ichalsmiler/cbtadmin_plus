@@ -144,11 +144,15 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
     </div>
 </div>
 
-<div class="card mt-4 <?= ! empty($s['pindah_berjalan']) ? '' : 'd-none' ?>" id="proses">
-    <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses server cadangan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
-    <div class="card-body pb-0 d-none" id="prosesHasil"><div class="alert mb-0" role="status" aria-live="polite"></div></div>
-    <pre class="card-body small mb-0" id="prosesLog" style="max-height:24rem;overflow:auto;white-space:pre-wrap"></pre>
-</div>
+<?php // Proses berhasil: kartu dilipat (seperti "Sambungkan ulang"), cukup satu baris ringkas; gagal / berjalan: terbuka. ?>
+<details class="mt-4 <?= ! empty($s['pindah_berjalan']) ? '' : 'd-none' ?>" id="proses" open>
+    <summary class="small text-muted" id="prosesRingkas">Proses server cadangan</summary>
+    <div class="card mt-2">
+        <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses server cadangan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
+        <div class="card-body pb-0 d-none" id="prosesHasil"><div class="alert mb-0" role="status" aria-live="polite"></div></div>
+        <pre class="card-body small mb-0" id="prosesLog" style="max-height:24rem;overflow:auto;white-space:pre-wrap"></pre>
+    </div>
+</details>
 
 <form class="card mt-4" id="pengaturan" method="post" action="<?= site_url('server_cadangan/simpan') ?>" autocomplete="off">
     <?= csrf_field() ?>
@@ -327,6 +331,11 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
         var teks = document.createElement('strong');
         teks.textContent = h.ok ? j[0] : j[1] + '.';
         alertHasil.append(ikon, teks);
+        // Berhasil: kartu dilipat, ringkasannya di baris lipatan. Gagal: tetap terbuka supaya alasannya terbaca.
+        var ringkas = document.getElementById('prosesRingkas');
+        ringkas.textContent = h.ok ? 'Proses server cadangan terakhir: berhasil (klik untuk melihat catatan)' : 'Proses server cadangan';
+        ringkas.className = 'small ' + (h.ok ? 'text-success' : 'text-muted');
+        kartu.open = !h.ok;
         if (!h.ok) {
             var rinci = document.createElement('div');
             rinci.className = 'small mt-1';
@@ -337,6 +346,7 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
     var sesiPutus = function () {
         // Jadikan cadangan mengganti database panel dengan salinan server utama, jadi sesi login di server ini berakhir.
         kartu.classList.remove('d-none');
+        kartu.open = true;
         kotakHasil.classList.remove('d-none');
         spin.classList.add('d-none');
         alertHasil.className = 'alert alert-warning mb-0';
@@ -358,7 +368,7 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
                 gagalBeruntun = 0;
                 if (d.log) { kartu.classList.remove('d-none'); pre.textContent = d.log; pre.scrollTop = pre.scrollHeight; }
                 spin.classList.toggle('d-none', !d.berjalan);
-                if (d.berjalan) { setTimeout(ambil, 3000); return; }
+                if (d.berjalan) { kartu.open = true; setTimeout(ambil, 3000); return; }
                 if (d.hasil) { kartu.classList.remove('d-none'); tampilHasil(d.hasil); }
             })
             .catch(function () {
