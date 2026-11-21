@@ -109,7 +109,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                     <tr>
                         <td class="text-nowrap"><code><?= esc($a['username']) ?></code><?= (int) $a['id'] === $meId ? ' <span class="badge text-bg-light">Anda</span>' : '' ?></td>
                         <td><?= esc($a['nama']) ?></td>
-                        <td><?= $a['role'] === 'admin' ? 'Administrator' : 'Pengawas' ?></td>
+                        <td><?= esc(\App\Filters\Guard::namaPeran((string) $a['role'])) ?></td>
                         <td><?= $a['aktif'] ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td>
                         <td class="text-nowrap"><?= $a['last_login'] ? esc(date('d/m/Y H:i', strtotime($a['last_login']))) : '–' ?></td>
                         <td class="text-end text-nowrap">
@@ -125,16 +125,17 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                 </tbody>
             </table>
         </div>
-        <?= $item('lainTools', 'akun', 'people', 'Akun panel', (string) ob_get_clean()) ?>
+        <?php $isiAkun = (string) ob_get_clean(); $hanyaLog = $adminRole === 'operator'; // Proktor: hanya Log aktivitas ?>
+        <?= $hanyaLog ? '' : $item('lainTools', 'akun', 'people', 'Akun panel', $isiAkun) ?>
 
-        <?= $item('lainTools', 'panel', 'sliders', 'Pengaturan panel',
+        <?= $hanyaLog ? '' : $item('lainTools', 'panel', 'sliders', 'Pengaturan panel',
             '<form method="post" action="' . site_url('tools') . '">' . $csrf . '<input type="hidden" name="bagian" value="panel"><div class="row g-3">'
             . $input('refresh_interval', 'Interval refresh Status Peserta (detik)', $v('refresh_interval', '30'), '30', 'col-md-4', 'number')
             . $input('active_minutes', 'User dianggap aktif dalam (menit)', $v('active_minutes', '5'), '5', 'col-md-4', 'number')
             . $input('webmin_url', 'URL Webmin', $v('webmin_url'), '', 'col-md-4')
             . '</div><button class="btn btn-success btn-sm mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
 
-        <?= $item('lainTools', 'utilitas', 'database', 'Backup dan sesi',
+        <?= $hanyaLog ? '' : $item('lainTools', 'utilitas', 'database', 'Backup dan sesi',
             '<div class="d-flex flex-wrap gap-4"><div style="max-width:420px"><a class="btn btn-outline-primary btn-sm" href="' . site_url('tools/backup') . '"><i class="bi bi-database-down me-1"></i>Backup database panel</a>'
             . '<p class="small text-muted mt-2 mb-0">Mengunduh berkas .sql berisi peserta, ruang, sesi, pengaturan, akun, dan log panel. Berkas ini memuat password peserta, jadi simpan di tempat aman. Data Moodle tidak termasuk.</p></div>'
             . '<div style="max-width:420px"><button class="btn btn-outline-primary btn-sm" type="button" data-post="' . site_url('tools/bersihkan_sesi') . '" data-confirm-text="Hapus sesi panel dan sesi Moodle yang sudah kedaluwarsa? Pengguna yang masih aktif tidak terpengaruh."><i class="bi bi-trash3 me-1"></i>Bersihkan sesi kedaluwarsa</button>'
@@ -297,7 +298,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                 <div class="col-sm-6"><label class="form-label">Username</label><input class="form-control" name="username" maxlength="60" pattern="[A-Za-z0-9._\-]{3,60}" required></div>
                 <div class="col-sm-6"><label class="form-label">Nama</label><input class="form-control" name="nama" maxlength="120" required></div>
                 <div class="col-sm-6"><label class="form-label">Role</label>
-                    <select class="form-select" name="role"><option value="admin">Administrator</option><option value="proktor">Pengawas</option></select>
+                    <select class="form-select" name="role"><option value="admin">Administrator</option><option value="operator">Proktor</option><option value="proktor">Pengawas</option></select>
                 </div>
                 <div class="col-sm-6"><label class="form-label">Status</label>
                     <select class="form-select" name="aktif"><option value="1">Aktif</option><option value="0">Nonaktif</option></select>

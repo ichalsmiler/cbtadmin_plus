@@ -78,7 +78,7 @@ class Ruang extends PanelController
     {
         $session = session();
         $adminId = (int) $session->get('tukar_dari');
-        $admin   = $adminId ? db_connect()->table('admins')->where('id', $adminId)->where('role', 'admin')->get()->getRowArray() : null;
+        $admin   = $adminId ? db_connect()->table('admins')->where('id', $adminId)->whereIn('role', ['admin', 'operator'])->get()->getRowArray() : null;
         if (! $admin) {
             return redirect()->to(site_url('/'));
         }

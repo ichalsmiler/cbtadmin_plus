@@ -16,8 +16,8 @@ $menu = [
     ['Keluar', 'box-arrow-right', 'logout'],
 ];
 // Pengawas: Daftar Peserta = siswa di ruangnya (baca saja).
-if ($adminRole !== 'admin') {
-    $menu[1] = ['Daftar Peserta', 'person', 'peserta_ruang'];
+if ($adminRole === 'proktor') {
+    $menu[1] =['Daftar Peserta', 'person', 'peserta_ruang'];
 }
 // Lock login aktif (Tools): peserta yang masih tercatat login perlu di-reset pengawas.
 if (\App\Libraries\Settings::get('lock_login', '0') === '1') {
@@ -40,7 +40,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
     <link rel="stylesheet" href="<?= $asset('vendor/dataTables.bootstrap5.min.css') ?>">
     <link rel="stylesheet" href="<?= $asset('css/panel.css') ?>?v=<?= esc($version) ?>">
 </head>
-<body>
+<body class="peran-<?= esc($adminRole, 'attr') ?>">
 <header class="topbar">
     <button class="btn btn-link btn-menu d-lg-none p-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="Buka menu">
         <i class="bi bi-list fs-3"></i>
@@ -61,7 +61,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
             </button>
         </form>
     <?php endif ?>
-    <span class="role d-none d-md-inline <?= session()->get('tukar_dari') ? '' : 'ms-auto' ?>"><?= $adminRole === 'admin' ? 'Administrator' : 'Pengawas' ?> · <strong><?= esc($adminNama) ?></strong></span>
+    <span class="role d-none d-md-inline <?= session()->get('tukar_dari') ? '' : 'ms-auto' ?>"><?= esc(\App\Filters\Guard::namaPeran($adminRole)) ?> ·<strong><?= esc($adminNama) ?></strong></span>
     <button class="btn-tema <?= session()->get('tukar_dari') ? '' : 'ms-auto ms-md-0' ?>" type="button" data-tema-toggle aria-label="Ganti ke mode gelap" title="Ganti mode terang/gelap">
         <i class="bi bi-moon-stars"></i>
     </button>
@@ -73,7 +73,19 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
             <?php
             // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Laporan Kehadiran
             // (rekapnya di Dokumen -> Absensi Ruang). Pengawas: hanya menu yang boleh dibukanya.
-            if ($adminRole === 'admin' ? in_array($item[2], ['token', 'kehadiran'], true) : ($item[2] === null || ! \App\Filters\Guard::allowed($adminRole, $item[2]))) {
+            // Proktor (operator): menu/submenu yang diizinkan Guard; Token cukup lewat Status Ujian → Token.
+            if ($adminRole === 'operator') {
+                if (isset($item[3])) {
+                    $item[3] = array_values(array_filter($item[3], static fn ($sub) => \App\Filters\Guard::allowed($adminRole, $sub[1])));
+                    // Tools → Panel untuk proktor hanya berisi Log aktivitas.
+                    $item[3] = array_map(static fn ($sub) => $sub[1] === 'tools/lainnya' ? ['Log Aktivitas', 'tools/lainnya'] : $sub, $item[3]);
+                    if ($item[3] === []) {
+                        continue;
+                    }
+                } elseif ($item[2] === 'token' || ! \App\Filters\Guard::allowed($adminRole, $item[2])) {
+                    continue;
+                }
+            } elseif ($adminRole === 'admin' ? in_array($item[2], ['token', 'kehadiran'], true) : ($item[2] === null || ! \App\Filters\Guard::allowed($adminRole, $item[2]))) {
                 continue;
             }
             ?>

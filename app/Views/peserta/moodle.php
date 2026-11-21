@@ -26,7 +26,7 @@
     <div class="card-body d-flex flex-wrap gap-2 align-items-center">
         <span class="text-muted small"><?= count($rows) ?><?= count($rows) !== $semua ? ' dari ' . (int) $semua : '' ?> user Moodle (tanpa admin dan guest). Siswa dalam jumlah banyak dikirim lewat Konvert User → User → Moodle.</span>
         <div class="ms-auto d-flex flex-wrap gap-2">
-            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#tambahModal"><i class="bi bi-person-plus me-1"></i>Tambah user</button>
+            <button class="btn btn-primary btn-sm" data-hanya-admin type="button" data-bs-toggle="modal" data-bs-target="#tambahModal"><i class="bi bi-person-plus me-1"></i>Tambah user</button>
         </div>
     </div>
 </div>
@@ -45,7 +45,7 @@
                     <td><?= esc($u['cohort'] ?? '-') ?></td>
                     <td data-order="<?= (int) $u['lastaccess'] ?>"><?= $u['lastaccess'] ? date('d/m/Y H:i', (int) $u['lastaccess']) : 'Belum pernah' ?></td>
                     <td><?= isset($linked[$u['username']]) ? '<span class="badge text-bg-success">Ada</span>' : '<span class="badge text-bg-secondary">Belum</span>' ?></td>
-                    <td class="text-end">
+                    <td class="text-end" data-hanya-admin>
                         <button class="btn btn-outline-secondary btn-sm text-nowrap" type="button" data-fill-modal="#resetModal"
                                 data-fill="<?= esc(json_encode(['userid' => $u['id'], 'username' => $u['username'], 'password' => '']), 'attr') ?>">
                             <i class="bi bi-key me-1"></i>Reset password

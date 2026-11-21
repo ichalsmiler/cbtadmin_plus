@@ -14,7 +14,7 @@ class BlokirSiswa extends PanelController
 {
     public function index(): string
     {
-        $isAdmin = session()->get('admin_role') === 'admin';
+        $isAdmin = \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'));
         $ruangId = $this->myRuang();
         if ($ruangId === null && $isAdmin) {
             $get     = (string) $this->request->getGet('ruang');
@@ -93,7 +93,7 @@ class BlokirSiswa extends PanelController
 
         // Pengawas: siswa ruangnya yang ikut sesi aktif.
         return $this->myRuang() === null
-            ? session()->get('admin_role') === 'admin'
+            ? \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'))
             : in_array($p['username'] ?? '', $this->siswaSesi() ?? [], true);
     }
 

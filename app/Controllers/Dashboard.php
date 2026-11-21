@@ -58,7 +58,7 @@ class Dashboard extends PanelController
 
     private function isAdmin(): bool
     {
-        return session()->get('admin_role') === 'admin';
+        return \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'));
     }
 
     private function collect(): array

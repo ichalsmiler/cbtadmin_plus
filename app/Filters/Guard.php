@@ -92,8 +92,13 @@ class Guard implements FilterInterface
             if ($request->isAJAX()) {
                 return service('response')->setStatusCode(403)->setJSON(['error' => 'Hanya untuk administrator.']);
             }
+            // GET ke halaman terlarang → dashboard; POST (form) kembali ke halaman asal bila masih boleh dibuka.
+            $asal = (string) $request->getServer('HTTP_REFERER');
 
-            return redirect()->to(site_url('/'))->with('error', 'Menu itu hanya untuk administrator.');
+            $balik = strtoupper($request->getMethod()) === 'POST' && str_starts_with($asal, site_url('/')) ? $asal : site_url('/');
+
+            return redirect()->to($balik)
+                ->with('error', 'Menu atau tindakan itu hanya untuk administrator.');
         }
 
         return null;
@@ -103,12 +108,48 @@ class Guard implements FilterInterface
     // tools/gambar/logo: logo sekolah di bilah atas (gambar tanda tangan tetap khusus admin).
     private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout'];
 
+    /**
+     * Proktor ujian (role `operator`): menjalankan ujian hari-H di semua ruang, tanpa menu persiapan/berbahaya.
+     * Akhiran '*' = alamat itu beserta turunannya; tanpa '*' = alamat itu saja (mis. halaman daftar tanpa simpan/hapus).
+     */
+    private const OPERATOR_PATHS = [
+        '', 'logout', 'dashboard/stats', 'tools/gambar/logo',
+        'status_tes', 'status_tes/kategori', 'status_tes/sesi', 'status_tes/release', 'status_tes/token', 'status_tes/token_setting', 'token_ujian', 'hapus_attempt*',
+        'status_peserta*', 'reset_login*', 'blokir_siswa*', 'kehadiran*',
+        'daftar_peserta/cbtadmin', 'daftar_peserta/moodle',
+        'dokumen*', 'hasil_ujian*',
+        'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',
+        'tools/lainnya', 'tools/log_export', 'tools/jejak', // Tools → Panel: hanya kartu Log aktivitas (view tools/index)
+    ];
+
+    /** Nama peran untuk ditampilkan. */
+    public static function namaPeran(string $role): string
+    {
+        return ['admin' => 'Administrator', 'operator' => 'Proktor'][$role] ?? 'Pengawas';
+    }
+
+    /** Melihat semua ruang (administrator dan proktor), bukan hanya ruang sendiri seperti pengawas. */
+    public static function lihatSemua(string $role): bool
+    {
+        return $role === 'admin' || $role === 'operator';
+    }
+
     public static function allowed(string $role, string $path): bool
     {
         if ($role === 'admin') {
             return true;
         }
         $path = trim($path, '/');
+        if ($role === 'operator') {
+            foreach (self::OPERATOR_PATHS as $allowed) {
+                $awal = rtrim($allowed, '*');
+                if ($path === $awal || ($allowed !== $awal && str_starts_with($path, $awal . '/'))) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
         foreach (self::PROKTOR_PATHS as $allowed) {
             if ($path === $allowed || ($allowed !== '' && str_starts_with($path, $allowed . '/'))) {
                 return true;

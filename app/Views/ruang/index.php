@@ -9,7 +9,7 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
         <span class="fw-semibold"><i class="bi bi-door-open me-1"></i>Daftar Ruang</span>
         <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-primary btn-sm" type="button" data-ruang='{"id":"","nama":"","kapasitas":"","pengawas":"","sesi_id":""}'>
+            <button class="btn btn-outline-primary btn-sm" data-hanya-admin type="button" data-ruang='{"id":"","nama":"","kapasitas":"","pengawas":"","sesi_id":""}'>
                 <i class="bi bi-plus-lg me-1"></i>Tambah Ruang
             </button>
             <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('daftar_ruang/cetak') ?>?cetak=1" target="_blank">
@@ -62,7 +62,7 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
                                     <i class="bi bi-arrow-repeat fs-5"></i>
                                 </button>
                             </td>
-                            <td class="text-center text-nowrap">
+                            <td class="text-center text-nowrap" data-hanya-admin>
                                 <button class="btn btn-sm btn-link" type="button" title="Generate Kode: kode login dan password baru"
                                         data-post="<?= site_url('daftar_ruang/kode/' . $r['id']) ?>"
                                         data-confirm-text="Generate kode login baru untuk Ruang <?= esc($r['nama'], 'attr') ?>? Kode login dan password lama tidak berlaku lagi.">
@@ -88,7 +88,7 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
                     </tbody>
                 </table>
             </div>
-            <button class="btn btn-success mt-3" type="submit" form="lokasiForm"><i class="bi bi-save me-1"></i>Simpan</button>
+            <button class="btn btn-success mt-3" data-hanya-admin type="submit" form="lokasiForm"><i class="bi bi-save me-1"></i>Simpan</button>
             <p class="small text-muted mt-3 mb-0">
                 <strong>Kode Login</strong> dan password dipakai pengawas untuk login ke CBT Admin di
                 <code><?= esc(site_url('login')) ?></code>; bagikan lewat <strong>Cetak ID Login</strong>.

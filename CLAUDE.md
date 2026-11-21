@@ -8,12 +8,15 @@ Meniru AIOCBT CBTAdmin. Semua teks UI berbahasa Indonesia. Repo `ichalsmiler/cbt
 Baca bagian yang relevan saja (Grep judul menu/nama fitur di sana), bukan seluruh berkas.
 
 ## Server dan alur kerja
-- Server kerja: `cbtplus` = 172.16.32.157 (alias SSH, user smiler, sudo tanpa sandi, kunci `id_ed25519_moodle`;
-  Debian 13, 2 core, 2 GB, MariaDB 11.8, Redis, WITA). Kredensial `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
-- Server lama .154/.155: abaikan. Lainnya (detail di PETA-RINCI): `cbt159` (HA utama, Cloudflare), `vps` (cadangan), `konver-soal` .150.
+- Server kerja TIDAK tetap: semua server masih percobaan dan bisa berganti. Pakai server terakhir yang dipakai
+  (alias di `~/.ssh/config`: `cbt162` root@172.16.32.162, `cbtplus` smiler@.157, `cbt159` root@.159; kunci `id_ed25519_moodle`).
+  Bila SSH gagal/timeout: JANGAN mencari-cari server lain, cukup minta pengguna memasukkan IP server utama yang baru,
+  lalu coba user root/smiler dan tambahkan alias. Kunci publik untuk dipasang: `~/.ssh/id_ed25519_moodle.pub`.
+- Server standar (pasang-cbt.sh): Debian 13, MariaDB, Redis, WITA. Kredensial `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
+- Server lama .154/.155: abaikan. Lainnya (detail di PETA-RINCI): `vps` (cadangan), `konver-soal` .150.
 - Panel `/var/www/cbtadmin` (URL `/cbtadmin/`), Moodle `/var/www/moodle` (web `public/`), data `/var/moodledata`.
-- PHP tidak ada di PC: lint `ssh cbtplus 'php -l /var/www/cbtadmin/<file>'`. Node.js hanya di PC.
-- Deploy panel `bash deploy/deploy.sh cbtplus`; setelan/plugin/CSS Moodle `bash deploy/setelan-moodle.sh cbtplus`;
+- PHP tidak ada di PC: lint `ssh <alias> 'php -l /var/www/cbtadmin/<file>'`. Node.js hanya di PC.
+- Deploy panel `bash deploy/deploy.sh <alias>`; setelan/plugin/CSS Moodle `bash deploy/setelan-moodle.sh <alias>`;
   Konvert `bash deploy/build-konvert.sh` → `app/Konvert/konvert.html` (di-commit); tes Konvert `npm test` di `konvert/`.
 - Commit: `git -c user.name=ichalsmiler -c user.email=ichalsmiler@users.noreply.github.com commit`.
   Naikkan `PanelController::VERSION` bila CSS/JS berubah.
@@ -23,7 +26,7 @@ Baca bagian yang relevan saja (Grep judul menu/nama fitur di sana), bukan seluru
 - Admin IT sekolah; jawab dan tulis UI dalam bahasa Indonesia, ringkas. Hemat token.
 - Setiap menambah fitur: perbarui `docs/PETA-RINCI.md` (rincian) dan CLAUDE.md hanya bila struktur/aturan inti berubah.
 - Commit hanya bila diminta; push hanya setelah ditanya dan disetujui. Cek poin = tag `cekpoin-N` berurutan, bila diminta.
-- Deploy hanya ke `cbtplus`. Jangan ubah keadaan server lain (HA, peran, data) tanpa disuruh jelas.
+- Deploy hanya ke server kerja saat ini (yang terakhir diberikan pengguna). Jangan ubah keadaan server lain (HA, peran, data) tanpa disuruh jelas.
 - Jangan mengetik password di halaman login; bila sesi browser habis, minta pengguna login.
 - Jangan uji dengan tindakan yang menghapus data asli (reset peserta, hapus attempt); pakai data sementara / kueri baca.
 - Jangan ubah repo lain di `F:\apps` kecuali diminta.
@@ -34,6 +37,7 @@ Baca bagian yang relevan saja (Grep judul menu/nama fitur di sana), bukan seluru
 - `Controllers/PanelController.php` — basis: `render()`, `myRuang()`, `ruangList()`, `VERSION`; saring pengawas ke
   siswa ruangnya di sesi aktif (`siswaSesi()`, `saringSesi()`, `moodleIdsSesi()`).
 - `Filters/Guard.php` — login, CSRF, timeout, role; `PROKTOR_PATHS` = menu pengawas (role `proktor`).
+  Role `operator` = **Proktor** (tampil "Proktor", dibuat di Tools → Panel → Akun): `OPERATOR_PATHS` (akhiran `*` = turunan), melihat semua ruang (`Guard::lihatSemua`), tombol admin di view diberi `data-hanya-admin` (disembunyikan CSS `.peran-operator`). Role `proktor` di DB = PENGAWAS ruang.
 - `Views/layout/main.php` — array `$menu` sidebar. `Config/Routes.php` — semua rute. `Config/Registrar.php` — baseURL per permintaan.
 - JS `public/assets/js/panel.js` (data-post, data-fill-modal, datatable, data-pdf, filter Tingkatan→Kelas→Ruang),
   CSS `public/assets/css/panel.css` (token terang/gelap; arah desain `DESIGN.md`).

@@ -109,7 +109,8 @@ class StatusPeserta extends PanelController
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal) || ! strtotime($tanggal)) {
             $tanggal = date('Y-m-d');
         }
-        if ($this->myRuang() === null) {
+        // Administrator memakai log lengkap di Tools → Panel; proktor (tanpa menu itu) memakai halaman ini untuk semua ruang.
+        if ($this->myRuang() === null && session()->get('admin_role') === 'admin') {
             return redirect()->to(site_url('tools/lainnya') . '?' . http_build_query(['log_tab' => 'login', 'log_tgl' => $tanggal]) . '#log');
         }
         $ruangId = $this->myRuang() !== null ? (string) $this->myRuang() : (string) $this->request->getGet('ruang');

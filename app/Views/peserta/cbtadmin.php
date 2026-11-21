@@ -26,7 +26,7 @@
                 </select>
             </div>
         </form>
-        <div class="ms-auto d-flex flex-wrap gap-2">
+        <div class="ms-auto d-flex flex-wrap gap-2" data-hanya-admin>
             <button class="btn btn-primary btn-sm" type="button" data-fill-modal="#pesertaModal"
                     data-fill='{"id":"","nomor_peserta":"","nama":"","kelas":"","username":"","password":"","ruang_id":"","sesi_id":""}'>
                 <i class="bi bi-plus-lg me-1"></i>Tambah
@@ -41,7 +41,7 @@
     <form method="post" action="<?= site_url('daftar_peserta/cbtadmin/massal') ?>" id="bulkForm" data-bulk>
         <?= csrf_field() ?>
         <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-            <button class="btn btn-outline-danger btn-sm ms-auto" type="submit" name="aksi" value="hapus"
+            <button class="btn btn-outline-danger btn-sm ms-auto" data-hanya-admin type="submit" name="aksi" value="hapus"
                     data-confirm-button="Hapus semua peserta yang dicentang dari Data CBTAdmin? Akun Moodle mereka tidak ikut terhapus.">
                 <i class="bi bi-trash me-1"></i>Hapus yang dicentang
             </button>
@@ -67,7 +67,7 @@
                         <td><?= esc($p['ruang_nama'] ?? '-') ?></td>
                         <td><?= esc($p['sesi_nama'] ?? '-') ?></td>
                         <td><?= $p['moodle_userid'] ? '<span class="badge text-bg-success">Ada</span>' : '<span class="badge text-bg-secondary">Belum</span>' ?></td>
-                        <td class="text-end text-nowrap">
+                        <td class="text-end text-nowrap" data-hanya-admin>
                             <button class="btn btn-outline-secondary btn-sm" type="button" title="Ubah" data-fill-modal="#pesertaModal"
                                     data-fill="<?= esc(json_encode([
                                         'id' => $p['id'], 'nomor_peserta' => $p['nomor_peserta'], 'nama' => $p['nama'], 'kelas' => $p['kelas'],

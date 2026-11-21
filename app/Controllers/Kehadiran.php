@@ -18,7 +18,7 @@ class Kehadiran extends PanelController
 
     public function index()
     {
-        $isAdmin = session()->get('admin_role') === 'admin';
+        $isAdmin = \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'));
         $ruangId = $this->myRuang() ?? (int) $this->request->getGet('ruang');
         $tanggal = $isAdmin ? $this->tanggal() : date('Y-m-d');
 
@@ -58,7 +58,7 @@ class Kehadiran extends PanelController
 
     public function simpan()
     {
-        $isAdmin = session()->get('admin_role') === 'admin';
+        $isAdmin = \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'));
         $ruangId = $this->myRuang() ?? ($isAdmin ? (int) $this->request->getPost('ruang_id') : 0);
         $tanggal = $isAdmin ? $this->tanggal((string) $this->request->getPost('tanggal')) : date('Y-m-d');
         $tingkat = in_array($this->request->getPost('tingkat'), Tingkat::LIST, true) ? (string) $this->request->getPost('tingkat') : '';
