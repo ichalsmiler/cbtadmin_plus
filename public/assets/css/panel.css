@@ -1,53 +1,55 @@
 /*
  * CBT Admin: tampilan panel (lihat DESIGN.md).
- * Arah 16 Nov 2026 (saran ui-ux-pro-max, disetujui pengguna): slate gelap bawaan + aksen hijau status,
- * Fira Sans/Fira Code lokal, kaca hanya di bilah atas dan kartu token (batas antislop R-10).
+ * Arah 21 Nov 2026 (permintaan pengguna): palet Dens-UI, Mars Green #008C8D + satu aksen oranye #FF8A00,
+ * netral kehijauan, sudut lebih bulat, bayangan panel lembut. Font Figtree/JetBrains Mono disimpan lokal.
+ * Kaca hanya di bilah atas dan kartu token (batas antislop R-10).
  * Dial: ENERGY 2 / RHYTHM 2 / MOTION 1 (hanya transisi hover/focus, tanpa animasi berulang).
  */
 
-/* ------------------------------------------------------------------ Font lokal (SIL OFL 1.1, lihat assets/fonts) */
-@font-face { font-family: "Fira Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/FiraSans-400.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/FiraSans-500.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/FiraSans-600.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/FiraSans-700.woff2") format("woff2"); }
-@font-face { font-family: "Fira Code"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/FiraCode-latin-var.woff2") format("woff2"); }
+/* ------------------------------------------------------------------ Font lokal (SIL OFL 1.1, lihat assets/fonts): Figtree + JetBrains Mono seperti Dens-UI */
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; src: url("../fonts/Figtree-latin-var.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 100 800; font-display: swap; src: url("../fonts/JetBrainsMono-latin-var.woff2") format("woff2"); }
 
 /* ------------------------------------------------------------------ Token bersama + warna gelap (gelap lewat tombol; tanpa atribut tema, blok terang di bawah yang berlaku)
    Semua pasangan teks dicek dengan contrast-check.py (antislop-human): minimal 5,2:1. */
 :root,
 [data-bs-theme="dark"] {
-    --navy: #f8fafc;          /* warna judul (nama lama dipertahankan agar aturan di bawah tetap berlaku) */
-    --brand: #4ade80;         /* aksen hijau sebagai teks/ikon: 9,0:1 di atas kartu */
-    --brand-fill: #22c55e;    /* aksen hijau sebagai latar tombol, teks di atasnya --on-brand */
-    --brand-fill-hover: #16a34a;
-    --on-brand: #0f172a;      /* 7,8:1 di atas hijau */
-    --brand-soft: #1f3a2e;    /* latar menu aktif */
-    --gold: #22c55e;          /* garis aksen kartu token */
-    --gold-soft: #3b3112;     /* latar status "perlu perhatian" */
-    --page-bg: #0f172a;
-    --surface: #1b2336;
-    --surface-2: #272f42;
-    --line: #334155;
-    --line-strong: #475569;   /* tepi input dan tombol */
-    --ink: #f8fafc;
-    --muted: #94a3b8;         /* 6,1:1 di atas kartu, 7,0:1 di atas latar */
-    --topbar-bg: rgba(30, 41, 59, .78);
-    --topbar-ink: #f8fafc;
-    --topbar-muted: #cbd5e1;
-    --ok: #22c55e;
-    --run: #38bdf8;           /* sedang berjalan (mengerjakan) */
-    --warn: #fbbf24;
-    --warn-fill: #fbbf24;
-    --idle: #94a3b8;
-    --glass: rgba(27, 35, 54, .72);
-    --glass-line: rgba(255, 255, 255, .12);
+    --navy: #ecf2f0;          /* warna judul (nama lama dipertahankan agar aturan di bawah tetap berlaku) */
+    --brand: #19a3a4;         /* Mars Green sebagai teks/ikon: 5,8:1 di atas kartu */
+    --brand-fill: #19a3a4;    /* latar tombol, teks di atasnya --on-brand */
+    --brand-fill-hover: #148d8e;
+    --brand-fill-active: #107778;
+    --brand-rgb: 25, 163, 164;
+    --on-brand: #031414;      /* 6,1:1 di atas hijau */
+    --brand-soft: #10292a;    /* latar menu aktif */
+    --gold: #ff9a1f;          /* oranye: satu-satunya aksen (garis kartu token, login) */
+    --gold-soft: #3a2706;     /* latar status "perlu perhatian" */
+    --page-bg: #0c0b0b;
+    --surface: #161918;
+    --surface-2: #1e2322;
+    --line: #262c2b;
+    --line-strong: #3a4241;   /* tepi input dan tombol */
+    --ink: #ecf2f0;
+    --muted: #9aa8a5;         /* 7,2:1 di atas kartu */
+    --topbar-bg: rgba(18, 21, 20, .82);
+    --topbar-ink: #ecf2f0;
+    --topbar-muted: #b9c5c2;
+    --ok: #5fd3b4;
+    --run: #6c8ff0;           /* sedang berjalan (mengerjakan) */
+    --warn: #ff9a1f;
+    --warn-fill: #ff9a1f;
+    --crit: #f74835;
+    --idle: #9aa8a5;
+    --glass: rgba(22, 25, 24, .72);
+    --glass-line: rgba(255, 255, 255, .1);
     --sidebar-w: 248px;
     --topbar-h: 58px;
-    --radius: .6rem;
-    --radius-sm: .4rem;
-    --shadow-raise: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 14px rgba(0, 0, 0, .18);
-    --font-sans: "Fira Sans", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
-    --font-mono: "Fira Code", Consolas, "Courier New", monospace;
+    --radius: .875rem;
+    --radius-sm: .55rem;
+    --shadow-raise: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -16px rgba(0, 0, 0, .7);
+    --shadow-panel: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -16px rgba(0, 0, 0, .6);
+    --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
 
     --bs-body-bg: var(--page-bg);
     --bs-body-color: var(--ink);
@@ -55,14 +57,14 @@
     --bs-secondary-color: var(--muted);
     --bs-border-color: var(--line);
     --bs-link-color: var(--brand);
-    --bs-link-color-rgb: 74, 222, 128;
-    --bs-link-hover-color: #86efac;
-    --bs-link-hover-color-rgb: 134, 239, 172;
-    --bs-primary: #22c55e;
-    --bs-primary-rgb: 74, 222, 128;
+    --bs-link-color-rgb: 25, 163, 164;
+    --bs-link-hover-color: #4fc3c4;
+    --bs-link-hover-color-rgb: 79, 195, 196;
+    --bs-primary: #19a3a4;
+    --bs-primary-rgb: 25, 163, 164;
     --bs-tertiary-bg: var(--surface-2);
     --bs-secondary-bg: var(--surface-2);
-    --bs-focus-ring-color: rgba(74, 222, 128, .4);
+    --bs-focus-ring-color: rgba(25, 163, 164, .45);
     --bs-font-sans-serif: var(--font-sans);
     --bs-font-monospace: var(--font-mono);
 }
@@ -70,32 +72,36 @@
 /* ------------------------------------------------------------------ Token warna: terang (BAWAAN) */
 :root:not([data-bs-theme="dark"]),
 [data-bs-theme="light"] {
-    --navy: #0f172a;
-    --brand: #15803d;         /* 5,0:1 di atas putih */
-    --brand-fill: #22c55e;
-    --brand-fill-hover: #16a34a;
-    --on-brand: #0f172a;
-    --brand-soft: #eef9f1;
-    --gold: #22c55e;
-    --gold-soft: #fef3c7;
-    --page-bg: #f1f5f9;
+    --navy: #0f1716;
+    --brand: #00696a;         /* Mars Green gelap sebagai teks: 6,5:1 di atas putih, 5,5:1 di atas menu aktif */
+    --brand-fill: #00797a;    /* teks putih di atasnya 5,2:1 (#008C8D asli hanya 4,1:1) */
+    --brand-fill-hover: #006b6c;
+    --brand-fill-active: #005d5e;
+    --brand-rgb: 0, 121, 122;
+    --on-brand: #ffffff;
+    --brand-soft: #e3efeb;
+    --gold: #ff8a00;
+    --gold-soft: #fff0dc;
+    --page-bg: #edf0ef;
     --surface: #ffffff;
-    --surface-2: #f8fafc;
-    --line: #e2e8f0;
-    --line-strong: #cbd5e1;
-    --ink: #0f172a;
-    --muted: #475569;         /* 7,6:1 di atas putih */
-    --topbar-bg: rgba(30, 41, 59, .86);
-    --topbar-ink: #f8fafc;
-    --topbar-muted: #cbd5e1;
-    --ok: #15803d;
-    --run: #0369a1;
-    --warn: #b45309;
-    --warn-fill: #fbbf24;
-    --idle: #64748b;
+    --surface-2: #f5f7f6;
+    --line: #dbe2df;
+    --line-strong: #cfd8d5;
+    --ink: #0f1716;
+    --muted: #566361;         /* 6,3:1 di atas putih, 5,5:1 di atas latar */
+    --topbar-bg: rgba(15, 23, 22, .9);
+    --topbar-ink: #ecf2f0;
+    --topbar-muted: #b9c5c2;
+    --ok: #00696a;
+    --run: #0b3289;
+    --warn: #9a5b00;
+    --warn-fill: #ff8a00;
+    --crit: #a42423;
+    --idle: #5f6b68;
     --glass: rgba(255, 255, 255, .72);
-    --glass-line: rgba(15, 23, 42, .1);
-    --shadow-raise: 0 1px 2px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .05);
+    --glass-line: rgba(15, 23, 22, .08);
+    --shadow-raise: 0 2px 6px rgba(15, 23, 22, .06), 0 18px 40px -16px rgba(15, 23, 22, .24);
+    --shadow-panel: 0 1px 2px rgba(15, 23, 22, .04), 0 10px 28px -14px rgba(15, 23, 22, .14);
 
     --bs-body-bg: var(--page-bg);
     --bs-body-color: var(--ink);
@@ -103,17 +109,17 @@
     --bs-secondary-color: var(--muted);
     --bs-border-color: var(--line);
     --bs-link-color: var(--brand);
-    --bs-link-color-rgb: 21, 128, 61;
-    --bs-link-hover-color: #166534;
-    --bs-link-hover-color-rgb: 22, 101, 52;
-    --bs-primary: #15803d;
-    --bs-primary-rgb: 21, 128, 61;
-    --bs-focus-ring-color: rgba(21, 128, 61, .35);
+    --bs-link-color-rgb: 0, 105, 106;
+    --bs-link-hover-color: #004f50;
+    --bs-link-hover-color-rgb: 0, 79, 80;
+    --bs-primary: #00797a;
+    --bs-primary-rgb: 0, 121, 122;
+    --bs-focus-ring-color: rgba(0, 140, 141, .35);
 }
 
 body {
     background: var(--page-bg); color: var(--ink); font-size: .95rem;
-    font-family: var(--font-sans);
+    font-family: var(--font-sans); -webkit-font-smoothing: antialiased;
 }
 
 /* Tombol utama: latar hijau, teks gelap (teks putih di atas hijau ini hanya 2,3:1). */
@@ -121,16 +127,16 @@ body {
     --bs-btn-color: var(--on-brand); --bs-btn-hover-color: var(--on-brand); --bs-btn-active-color: var(--on-brand); --bs-btn-disabled-color: var(--on-brand);
     --bs-btn-bg: var(--brand-fill); --bs-btn-border-color: var(--brand-fill);
     --bs-btn-hover-bg: var(--brand-fill-hover); --bs-btn-hover-border-color: var(--brand-fill-hover);
-    --bs-btn-active-bg: #15803d; --bs-btn-active-border-color: #15803d;
+    --bs-btn-active-bg: var(--brand-fill-active); --bs-btn-active-border-color: var(--brand-fill-active);
     --bs-btn-disabled-bg: var(--brand-fill); --bs-btn-disabled-border-color: var(--brand-fill);
-    --bs-btn-focus-shadow-rgb: 34, 197, 94;
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
     font-weight: 600;
 }
 .btn-outline-primary {
     --bs-btn-color: var(--brand); --bs-btn-border-color: var(--brand);
     --bs-btn-hover-bg: var(--brand-fill); --bs-btn-hover-border-color: var(--brand-fill); --bs-btn-hover-color: var(--on-brand);
     --bs-btn-active-bg: var(--brand-fill-hover); --bs-btn-active-border-color: var(--brand-fill-hover); --bs-btn-active-color: var(--on-brand);
-    --bs-btn-focus-shadow-rgb: 34, 197, 94;
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
 }
 .btn-outline-secondary { --bs-btn-color: var(--ink); --bs-btn-border-color: var(--line-strong); --bs-btn-hover-bg: var(--surface-2); --bs-btn-hover-color: var(--ink); --bs-btn-hover-border-color: var(--line-strong); }
 .form-control, .form-select { border-color: var(--line-strong); }
@@ -164,7 +170,7 @@ code { color: #f472b6; }
     transition: background-color .15s;
 }
 .topbar .btn-tema:hover { background: rgba(255, 255, 255, .1); }
-.topbar .btn-tema:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }
+.topbar .btn-tema:focus-visible { outline: 2px solid var(--brand-fill); outline-offset: 2px; }
 .topbar .btn-menu { color: var(--topbar-ink); width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 
 /* ------------------------------------------------------------------ Sidebar */
@@ -201,7 +207,7 @@ code { color: #f472b6; }
 .page-title { font-size: 1.6rem; font-weight: 700; color: var(--navy); margin-bottom: 1.4rem; letter-spacing: -.01em; }
 [data-bs-theme="dark"] .page-title { color: var(--ink); }
 
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-panel); }
 .card-header {
     background: var(--surface); border-bottom: 1px solid var(--line);
     padding: .8rem 1.1rem; border-radius: var(--radius) var(--radius) 0 0 !important;
@@ -263,8 +269,8 @@ code { color: #f472b6; }
 .progress { height: 1.1rem; background: var(--surface-2); }
 .progress-bar { background: var(--brand); font-size: .7rem; transition: width .4s; }
 .progress-bar { color: var(--on-brand); background: var(--brand-fill); }
-.progress-bar.warn { background: var(--warn-fill); color: #1d2433; }
-.progress-bar.crit { background: #c2362f; }
+.progress-bar.warn { background: var(--warn-fill); color: #1f1100; }
+.progress-bar.crit { background: var(--crit); color: #fff; }
 
 /* ------------------------------------------------------------------ Login */
 .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--page-bg); padding: 1rem; border-top: 4px solid var(--gold); }
@@ -317,7 +323,7 @@ form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0;
     *, *::before, *::after { transition: none !important; }
 }
 
-/* Tab pil (Status Peserta, dll.) dan lencana info memakai biru logo, bukan biru bawaan Bootstrap. */
+/* Tab pil (Status Peserta, dll.) dan lencana info memakai Mars Green, bukan biru bawaan Bootstrap. */
 .nav-pills { --bs-nav-pills-link-active-bg: var(--brand-fill); --bs-nav-pills-link-active-color: var(--on-brand); }
 .nav-pills .nav-link { color: var(--brand); }
 .nav-pills .nav-link.active { color: var(--on-brand); font-weight: 600; }
@@ -331,18 +337,18 @@ form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), var(--shadow-raise);
 }
 
-/* Fira Code hanya untuk angka dan token (kode yang dibaca/diketik pengawas): huruf 0/O dan 1/l mudah dibedakan. */
+/* JetBrains Mono hanya untuk angka dan token (kode yang dibaca/diketik pengawas): huruf 0/O dan 1/l mudah dibedakan. */
 .token-display, .token-box, .token-ringkas, #tokenValue, .stat-value, .pantau-jumlah { font-family: var(--font-mono); }
 .stat-value { font-weight: 600; }
 
-/* Tombol/lencana hijau Bootstrap (Release, Aktifkan, Simpan) disamakan dengan aksen hijau panel. */
+/* Tombol/lencana hijau Bootstrap (Release, Aktifkan, Simpan) disamakan dengan Mars Green panel. */
 .btn-success {
     --bs-btn-color: var(--on-brand); --bs-btn-hover-color: var(--on-brand); --bs-btn-active-color: var(--on-brand); --bs-btn-disabled-color: var(--on-brand);
     --bs-btn-bg: var(--brand-fill); --bs-btn-border-color: var(--brand-fill);
     --bs-btn-hover-bg: var(--brand-fill-hover); --bs-btn-hover-border-color: var(--brand-fill-hover);
-    --bs-btn-active-bg: #15803d; --bs-btn-active-border-color: #15803d;
+    --bs-btn-active-bg: var(--brand-fill-active); --bs-btn-active-border-color: var(--brand-fill-active);
     --bs-btn-disabled-bg: var(--brand-fill); --bs-btn-disabled-border-color: var(--brand-fill);
-    --bs-btn-focus-shadow-rgb: 34, 197, 94;
+    --bs-btn-focus-shadow-rgb: var(--brand-rgb);
     font-weight: 600;
 }
 .text-bg-success { background-color: var(--brand-fill) !important; color: var(--on-brand) !important; }
@@ -365,3 +371,7 @@ form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0;
 /* Edge menambah tombol mata sendiri di kolom password; panel sudah punya tombol lihat password. */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear { display: none; }
+
+/* Seleksi teks dan kursor ketik memakai Mars Green (seperti Dens-UI). */
+::selection { background: color-mix(in srgb, var(--brand-fill) 26%, transparent); color: var(--ink); }
+input, textarea { caret-color: var(--brand-fill); }

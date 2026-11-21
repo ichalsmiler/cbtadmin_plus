@@ -1,32 +1,29 @@
-/* Arah desain: mengikuti tema CBT Admin Plus (DESIGN.md di akar repo): slate + aksen hijau, Fira Sans.
+/* Arah desain: mengikuti tema CBT Admin Plus (DESIGN.md di akar repo): palet Dens-UI (Mars Green), Figtree.
    Semua warna lewat token di bawah; pasangan teks dicek dengan contrast-check.py (>= 4,5:1). */
-@font-face { font-family: "Fira Sans"; font-weight: 400; font-display: swap; src: url("../assets/fonts/FiraSans-400.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-weight: 500; font-display: swap; src: url("../assets/fonts/FiraSans-500.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-weight: 600; font-display: swap; src: url("../assets/fonts/FiraSans-600.woff2") format("woff2"); }
-@font-face { font-family: "Fira Sans"; font-weight: 700; font-display: swap; src: url("../assets/fonts/FiraSans-700.woff2") format("woff2"); }
+@font-face { font-family: "Figtree"; font-weight: 300 900; font-display: swap; src: url("../assets/fonts/Figtree-latin-var.woff2") format("woff2"); }
 
 :root {
   color-scheme: light;
-  --latar: #f1f5f9;
+  --latar: #edf0ef;
   --kertas: #ffffff;
-  --tinta: #0f172a;
-  --redup: #475569;
-  --garis: #e2e8f0;
+  --tinta: #0f1716;
+  --redup: #566361;
+  --garis: #dbe2df;
   /* Garis tepi isian & tombol: kontras minimal 3:1 terhadap kertas. */
-  --garis-kuat: #64748b;
-  --utama: #15803d;          /* hijau sebagai teks/garis: 5,0:1 di atas putih */
-  --utama-gelap: #166534;
-  --di-utama: #0f172a;       /* teks di atas tombol hijau */
-  --isi-utama: #22c55e;      /* latar tombol utama, sama dengan tombol panel */
-  --isi-utama-hover: #16a34a;
-  --merah: #b91c1c;
-  --merah-latar: #fef2f2;
-  --kuning: #b45309;
-  --kuning-latar: #fef3c7;
-  --abu-latar: #f1f5f9;
-  --sudut: 0.4rem;
-  --huruf-judul: "Fira Sans", "Segoe UI", system-ui, sans-serif;
-  font-family: "Fira Sans", "Segoe UI", system-ui, sans-serif;
+  --garis-kuat: #7a8784;
+  --utama: #00696a;          /* Mars Green sebagai teks/garis: 6,5:1 di atas putih */
+  --utama-gelap: #004f50;
+  --di-utama: #ffffff;       /* teks di atas tombol Mars Green (5,2:1) */
+  --isi-utama: #00797a;      /* latar tombol utama, sama dengan tombol panel */
+  --isi-utama-hover: #006b6c;
+  --merah: #a42423;
+  --merah-latar: #fdeceb;
+  --kuning: #9a5b00;
+  --kuning-latar: #fff0dc;
+  --abu-latar: #f5f7f6;
+  --sudut: 0.55rem;
+  --huruf-judul: "Figtree", "Segoe UI", system-ui, sans-serif;
+  font-family: "Figtree", "Segoe UI", system-ui, sans-serif;
   color: var(--tinta);
   background: var(--latar);
   line-height: 1.5;
@@ -34,22 +31,22 @@
 
 :root[data-tema="gelap"] {
   color-scheme: dark;
-  --latar: #0f172a;
-  --kertas: #1b2336;
-  --tinta: #f8fafc;
-  --redup: #94a3b8;
-  --garis: #334155;
-  --garis-kuat: #64748b;
-  --utama: #4ade80;
-  --utama-gelap: #86efac;
-  --di-utama: #0f172a;
-  --isi-utama: #22c55e;
-  --isi-utama-hover: #16a34a;
-  --merah: #fca5a5;
-  --merah-latar: #3f1d1d;
-  --kuning: #fbbf24;
-  --kuning-latar: #3b3112;
-  --abu-latar: #272f42;
+  --latar: #0c0b0b;
+  --kertas: #161918;
+  --tinta: #ecf2f0;
+  --redup: #9aa8a5;
+  --garis: #262c2b;
+  --garis-kuat: #66726f;
+  --utama: #19a3a4;
+  --utama-gelap: #4fc3c4;
+  --di-utama: #031414;
+  --isi-utama: #19a3a4;
+  --isi-utama-hover: #148d8e;
+  --merah: #f9a094;
+  --merah-latar: #3a1512;
+  --kuning: #ff9a1f;
+  --kuning-latar: #3a2706;
+  --abu-latar: #1e2322;
 }
 
 * { box-sizing: border-box; }
