@@ -92,9 +92,13 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   Ubah di sana lalu jalankan `setelan-moodle.sh`; jangan ubah manual lewat Site administration.
 - boost.scss: footer Moodle (tombol ? dan isi footer: Anda belum masuk, retensi data, tema standar, Ditenagai oleh Moodle)
   disembunyikan; Daftar Ujian kosong bertuliskan "Belum ada ujian yang aktif, hubungi pengawas/proktor" (lang moodle.php
-  `nocourses`, juga mengganti "Tidak ada kursus" di tempat lain); kotak login di tengah layar (min-height 100dvh-140px), di HP diberi jarak 16px kiri-kanan.
+  `nocourses`, juga mengganti "Tidak ada kursus" di tempat lain); kotak login di tengah layar (min-height 100dvh-140px), di HP diberi jarak 16px kiri-kanan. Dialog token
+  "Mulai mengerjakan" (YUI `.mod_quiz_preflight_popup`, bawaan 600px) dipaskan ke lebar layar di bawah 768px. Di HP (< 768px) Sisa waktu
+  (`#quiz-timer-wrapper` di bilah info soal) jadi bilah tipis `position: fixed` di bawah bar atas (top 60px, tinggi 36px).
 - Plugin `moodle/local/`: `cbtblokir` (pesan "User Anda terblokir"), `cbtnama` (nama depan di samping ikon profil),
-  `cbtujian` (Anti Submit / Lock login / Resume timer / Anti Newtab; setelan plugin `local_cbtujian` dikirim dari
+  `cbtujian` (Anti Submit / Lock login / Resume timer / Anti Newtab; Anti Submit: summary.php dialihkan balik
+  sebelum waktunya, dan tombol "Selesaikan ujian" di halaman soal terakhir `disabled` + keterangan `.cbt-antisubmit`
+  lalu aktif sendiri lewat setTimeout (`detik_sebelum_boleh_submit()`); di panel tombol Nonaktifkan (`nonaktif=1` → 0); setelan plugin `local_cbtujian` dikirim dari
   Tools via aksi `cbtujian_config`, Lock login mematikan `limitconcurrentlogins`; juga kotak cari di
   `admin/user.php` → `?cbtcari=&cbtkolom=fullname|username|email` mengisi filter "contains" laporan via
   `user_filter_manager` lalu redirect).

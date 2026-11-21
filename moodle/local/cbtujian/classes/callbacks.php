@@ -214,6 +214,32 @@ class callbacks {
         );
     }
 
+    /**
+     * Detik sampai siswa boleh menyelesaikan attempt (?attempt= di URL) menurut Anti Submit;
+     * 0 bila sudah boleh, Anti Submit mati, quiz tanpa batas waktu, atau bukan attempt miliknya yang berjalan.
+     */
+    private static function detik_sebelum_boleh_submit(): int {
+        global $CFG, $USER;
+
+        $menit = (int) get_config('local_cbtujian', 'antisubmit');
+        $id    = optional_param('attempt', 0, PARAM_INT);
+        if ($menit <= 0 || !$id || !isloggedin()) {
+            return 0;
+        }
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        try {
+            $attempt = \mod_quiz\quiz_attempt::create($id);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+        if ((int) $attempt->get_userid() !== (int) $USER->id || $attempt->get_state() !== \mod_quiz\quiz_attempt::IN_PROGRESS) {
+            return 0;
+        }
+        $due = (int) $attempt->get_due_date();
+
+        return $due ? max(0, $due - $menit * 60 - time()) : 0;
+    }
+
     /** Anti Submit: halaman ringkasan (tombol "Submit all and finish") baru bisa dibuka menjelang waktu habis. */
     private static function anti_submit(): void {
         global $CFG, $USER;
@@ -310,6 +336,25 @@ class callbacks {
                 . "if(tm){(inf||d).appendChild(tm);}"
                 . "f.parentNode.insertBefore(d,f.nextSibling);});"
             ));
+        }
+
+        // Anti Submit: tombol "Selesaikan ujian" (halaman soal terakhir) tidak bisa diklik sampai waktunya,
+        // lalu aktif sendiri. Penjaga sebenarnya tetap anti_submit() di summary.php.
+        if ($PAGE->pagetype === 'mod-quiz-attempt') {
+            $sisa = self::detik_sebelum_boleh_submit();
+            if ($sisa > 0) {
+                $j     = fn(string $s) => json_encode($s, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                $menit = (int) get_config('local_cbtujian', 'antisubmit');
+                $label = $j(get_string('endtest', 'quiz'));
+                $info  = $j(get_string('tombolselesaiaktif', 'local_cbtujian', $menit));
+                $hook->add_html(\html_writer::script(
+                    "document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('mod_quiz-next-nav');"
+                    . "if(!b||b.value!=={$label})return;b.disabled=true;b.title={$info};"
+                    . "var p=document.createElement('div');p.className='cbt-antisubmit small text-muted mt-2';p.textContent={$info};"
+                    . "b.parentNode.appendChild(p);"
+                    . "setTimeout(function(){b.disabled=false;b.removeAttribute('title');p.remove();}," . ($sisa * 1000) . ");});"
+                ));
+            }
         }
 
         // Halaman awal ujian: bila kesempatan mengerjakan sudah habis (semua percobaan selesai), kotak tombol di bawah

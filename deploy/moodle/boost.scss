@@ -48,6 +48,14 @@
     .pagelayout-login .login-container { width: 100%; }
 }
 
+/* CBT: dialog token (Mulai mengerjakan) berlebar 600px dari Moodle; di HP dipaskan ke lebar layar */
+@media (max-width: 767.98px) {
+    .moodle-dialogue-base .moodle-dialogue.moodle-dialogue-fullscreen {
+        width: 100% !important; max-width: 100vw; left: 0 !important; right: 0;
+    }
+    .moodle-dialogue-fullscreen .moodle-dialogue-wrap { width: 100% !important; }
+}
+
 /* CBT: laci blok kanan disembunyikan untuk siswa di semua halaman (kelas cbt-siswa dari local_cbtujian)
    dan untuk siapa pun saat mengerjakan ujian (navigasi nomor soal ada di bawah soal) */
 body.cbt-siswa #theme_boost-drawers-blocks,
@@ -107,11 +115,24 @@ body.cbt-siswa #page.drawers.show-drawer-right,
 #page-mod-quiz-attempt .que .info #quiz-timer { margin: 0 !important; padding: 0 !important; border: 0; background: none; font-size: .92rem; }
 #page-mod-quiz-attempt .que .info #quiz-time-left { font-weight: 700; display: inline !important; }
 #page-mod-quiz-attempt .que .info #toggle-timer { display: none; }
+/* Di HP: Sisa waktu jadi bilah tipis menempel di bawah bar atas (tetap terlihat saat soal digulir),
+   sehingga baris nomor soal muat satu baris */
+@media (max-width: 767.98px) {
+    #page-mod-quiz-attempt #page { padding-top: 36px; }
+    #page-mod-quiz-attempt #topofscroll { margin-top: 0; padding-top: 12px; }
+    #page-mod-quiz-attempt .que .info #quiz-timer-wrapper { position: fixed; top: 60px; left: 0; right: 0; z-index: 1020;
+        height: 36px; margin: 0 !important; justify-content: center; background: #fff; border-bottom: 1px solid #dfdfdf;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .06); }
+    #page-mod-quiz-attempt .que .info #quiz-timer { font-size: .95rem; }
+}
 #page-mod-quiz-attempt .que { flex-direction: column; }
 #page-mod-quiz-attempt .que .info { flex: 0 0 auto; width: 100%; }
 #page-mod-quiz-attempt .que .content { margin-left: 0 !important; width: 100%; }
 #page-mod-quiz-attempt .que .formulation { background: #fff; color: #001a1e; border: 1px solid #dfdfdf; border-radius: 0; padding: 12px 20px; }
 #page-mod-quiz-attempt .submitbtns .btn { border-radius: 0; }
+/* Anti Submit: keterangan di bawah tombol Selesaikan ujian yang belum aktif (local_cbtujian) */
+#page-mod-quiz-attempt .submitbtns { flex-wrap: wrap; }
+#page-mod-quiz-attempt .submitbtns .cbt-antisubmit { flex: 0 0 100%; text-align: right; }
 #page-mod-quiz-attempt .submitbtns .mod_quiz-prev-nav { background: #ced4da; border-color: #ced4da; color: #212529; }
 
 /* CBT: di laptop (>= 992px) halaman soal selebar layar, dua kolom seperti LMS sekolah: soal di kiri,

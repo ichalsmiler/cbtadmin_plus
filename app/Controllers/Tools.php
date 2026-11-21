@@ -285,7 +285,9 @@ class Tools extends PanelController
     public function ujian()
     {
         if ($this->request->getPost('bagian') === 'antisubmit') {
-            $menit = max(0, min(1000, (int) $this->request->getPost('anti_submit')));
+            $menit = $this->request->getPost('nonaktif')
+                ? 0
+                : max(0, min(1000, (int) $this->request->getPost('anti_submit')));
             Settings::set('anti_submit', (string) $menit);
             $back = self::halaman('antisubmit');
         } else {

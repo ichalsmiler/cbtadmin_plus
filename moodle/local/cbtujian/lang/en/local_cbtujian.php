@@ -5,6 +5,7 @@ $string['antinewtab'] = 'Anda keluar otomatis karena membuka tab atau aplikasi l
 $string['belumbisasubmit'] = 'Ujian belum bisa diselesaikan. Tombol selesai baru aktif {$a->menit} menit sebelum waktu habis (sekitar {$a->lagi} menit lagi). Silakan periksa kembali jawaban Anda.';
 $string['masihlogin'] = 'Akun Anda masih login di perangkat lain. Minta pengawas me-reset login Anda, lalu login kembali.';
 $string['pluginname'] = 'CBT aturan ujian';
+$string['tombolselesaiaktif'] = 'Tombol Selesaikan ujian aktif {$a} menit sebelum waktu habis.';
 $string['privacy:metadata'] = 'Plugin ini tidak menyimpan data pribadi; perpanjangan waktu (Resume timer) memakai override quiz bawaan Moodle.';
 $string['cari'] = 'Cari';
 $string['cari_email'] = 'Email';

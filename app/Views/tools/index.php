@@ -32,7 +32,9 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<input type="hidden" name="bagian" value="antisubmit">'
             . '<span class="small">Peserta bisa submit</span><input class="form-control form-control-sm" style="width:6rem" type="number" min="0" max="1000" name="anti_submit" value="' . $antiSubmit . '" aria-label="Menit anti submit">'
             . '<span class="small">menit sebelum waktu ujian selesai.</span>'
-            . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>'
+            . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button>'
+            . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<button class="btn btn-outline-danger btn-sm" type="submit" name="nonaktif" value="1"><i class="bi bi-x-circle me-1"></i>Nonaktifkan</button>' : '')
+            . '</form>'
             . '<p class="small mt-2 mb-0">Status: ' . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<span class="badge text-bg-success">aktif, ' . $antiSubmit . ' menit</span>' : '<span class="badge text-bg-secondary">nonaktif</span>') . '</p>') ?>
         <?= $item('moodleTools', 'lockres', 'shield-lock', 'Lock login / Resume timer / Anti Newtab',
             '<form method="post" action="' . site_url('tools/ujian') . '">' . $csrf . '<input type="hidden" name="bagian" value="aturan">'
