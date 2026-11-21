@@ -80,6 +80,9 @@ LAMA="$(sed -n "s/^\$CFG->wwwroot *= *'https*:\/\/\([^/']*\).*/\1/p" /var/www/mo
 [[ "$LAMA" =~ ^[0-9.:]*$ ]] && LAMA=""
 if [ -n "${DOMAIN_CBT:-}$LAMA" ]; then
     /usr/local/sbin/cbt-alamat ${DOMAIN_CBT:-} $LAMA >/dev/null || echo "[PERINGATAN] Domain gagal didaftarkan; jalankan: cbt-alamat <domain>"
+else
+    # Tanpa domain pun blok alamat dipasang: IP publik VPS (di balik NAT) atau IP LAN mana pun langsung bisa dibuka.
+    /usr/local/sbin/cbt-alamat pasang >/dev/null || echo "[PERINGATAN] Blok alamat gagal dipasang; jalankan: cbt-alamat pasang"
 fi
 
 ALAMAT="$(sed -n "s/^\$CFG->wwwroot *= *'\(.*\)';.*/\1/p" /var/www/moodle/config.php | head -1)"

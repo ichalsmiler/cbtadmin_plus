@@ -11,6 +11,7 @@
 #    cbt-alamat ujian.sekolah.sch.id     daftarkan domain (boleh lebih dari satu, dipisah spasi)
 #    cbt-alamat hapus ujian.sekolah.sch.id
 #    cbt-alamat 172.16.32.159            ganti IP utama (alamat Moodle)
+#    cbt-alamat pasang                   pasang ulang blok alamat (IP mana pun + domain terdaftar dilayani)
 # =============================================================================
 set -euo pipefail
 
@@ -48,7 +49,9 @@ tulis_blok() {
     local tmp; tmp="$(mktemp)"
     awk -v m="$MULAI" -v s="$SELESAI" 'index($0,m)==1{skip=1} !skip{print} index($0,s)==1{skip=0}' "$CONFIG" \
         | sed '/^\$CFG->sslproxy/d' > "$tmp"
-    if [ -n "$daftar" ]; then
+    # Blok selalu dipasang, walau daftar domain kosong: IP mana pun yang dibuka (LAN, IP publik VPS di balik NAT,
+    # IP baru setelah install ulang) dilayani langsung, tidak dialihkan ke IP yang tercatat saat instalasi.
+    if true; then
         local blok; blok="$(cat <<EOF
 $MULAI (dikelola cbt-alamat; jangan diubah manual)
 \$cbtdomain = [$daftar];
@@ -109,6 +112,11 @@ cp -a "$CONFIG" "$CONFIG.bak-alamat"
 [ -f "$ENV" ] && cp -a "$ENV" "$ENV.bak-alamat"
 
 mapfile -t DOMAIN < <(domain_terdaftar)
+# Dipanggil pasang-cbt.sh / cbt-perbarui: tulis ulang blok alamat tanpa mengubah IP utama atau domain.
+if [ "$1" = pasang ]; then
+    tulis_blok "${DOMAIN[@]}"
+    selesai; exit 0
+fi
 if [ "$1" = hapus ]; then
     shift
     for a in "$@"; do a="$(bersihkan "$a")"; mapfile -t DOMAIN < <(printf '%s\n' "${DOMAIN[@]}" | grep -vxF "$a" | grep . || true); done
