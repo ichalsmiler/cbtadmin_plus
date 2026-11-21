@@ -389,7 +389,7 @@ EOF
     echo "============================================================"
     echo "  SERVER UTAMA SIAP"
     echo "  Alamat ujian : $URL_UTAMA"
-    echo "  Berikutnya   : jalankan  bash ha-cadangan.sh pasang  di $CADANGAN_IP"
+    echo "  Berikutnya   : jadikan $CADANGAN_IP server cadangan (tempel KODE di panelnya)"
     [ "$PAKAI_WIREGUARD" = ya ] && echo "  Pastikan port UDP $WG_PORT terbuka di firewall kedua server."
     echo "============================================================"
 }

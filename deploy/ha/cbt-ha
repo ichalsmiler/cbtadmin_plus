@@ -55,8 +55,8 @@ case "${1:-}" in
         } | simpan_conf
         bash "$SKRIP/ha-utama.sh" pasang
         echo
-        echo "Berikutnya: buka CBT Admin server utama → Admin Tools → Server Cadangan, salin perintah"
-        echo "\"cbt-ha cadangan …\" lalu jalankan di konsol VPS cadangan."
+        echo "Berikutnya: salin KODE di CBT Admin server utama → Admin Tools → Server Cadangan, lalu di panel VPS"
+        echo "(Server Cadangan → Server cadangan) tempel KODE itu. Tanpa panel: cbt-ha cadangan KODE di konsol VPS."
         ;;
     cadangan)
         kode="${2:-}"

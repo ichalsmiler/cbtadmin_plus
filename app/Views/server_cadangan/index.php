@@ -146,6 +146,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 
 <div class="card mt-4 <?= ! empty($s['pindah_berjalan']) ? '' : 'd-none' ?>" id="proses">
     <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses server cadangan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
+    <div class="card-body pb-0 d-none" id="prosesHasil"><div class="alert mb-0" role="status" aria-live="polite"></div></div>
     <pre class="card-body small mb-0" id="prosesLog" style="max-height:24rem;overflow:auto;white-space:pre-wrap"></pre>
 </div>
 
@@ -305,20 +306,70 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
             else { document.execCommand('copy'); selesai(); }
         });
     });
-    // Catatan proses pindah: diperbarui tiap 3 detik selama berjalan.
+    // Catatan proses (pindah / kembalikan / mode sinkron / jadikan cadangan): diperbarui tiap 3 detik selama berjalan,
+    // lalu ditutup dengan pemberitahuan BERHASIL atau GAGAL (dari kode keluar skrip + pemeriksaan sambungan).
     var kartu = document.getElementById('proses'), pre = document.getElementById('prosesLog'), spin = document.getElementById('prosesSpin');
+    var kotakHasil = document.getElementById('prosesHasil'), alertHasil = kotakHasil.querySelector('.alert');
+    var JUDUL = {
+        cadangan:   ['Berhasil: server ini sudah menjadi server cadangan dan terhubung ke server utama (salinan database berjalan).',
+                     'Gagal menjadikan server cadangan'],
+        utama:      ['Berhasil: mode sinkron aktif. Lanjutkan: salin KODE lalu tempel di panel server cadangan.', 'Gagal mengaktifkan mode sinkron'],
+        pindah:     ['Berhasil: server ini sekarang melayani ujian sebagai server utama.', 'Gagal memindahkan ujian ke server ini'],
+        kembalikan: ['Berhasil: ujian dikembalikan ke server ini.', 'Gagal mengembalikan ujian ke server ini']
+    };
+    var tampilHasil = function (h) {
+        var j = JUDUL[h.aksi] || ['Proses selesai dengan berhasil.', 'Proses gagal'];
+        kotakHasil.classList.remove('d-none');
+        alertHasil.className = 'alert mb-0 ' + (h.ok ? 'alert-success' : 'alert-danger');
+        alertHasil.innerHTML = '';
+        var ikon = document.createElement('i');
+        ikon.className = 'bi me-1 ' + (h.ok ? 'bi-check-circle-fill' : 'bi-x-octagon-fill');
+        var teks = document.createElement('strong');
+        teks.textContent = h.ok ? j[0] : j[1] + '.';
+        alertHasil.append(ikon, teks);
+        if (!h.ok) {
+            var rinci = document.createElement('div');
+            rinci.className = 'small mt-1';
+            rinci.textContent = (h.pesan || 'Lihat catatan di bawah.') + (h.kode ? ' (kode ' + h.kode + ')' : '');
+            alertHasil.appendChild(rinci);
+        }
+    };
+    var sesiPutus = function () {
+        // Jadikan cadangan mengganti database panel dengan salinan server utama, jadi sesi login di server ini berakhir.
+        kartu.classList.remove('d-none');
+        kotakHasil.classList.remove('d-none');
+        spin.classList.add('d-none');
+        alertHasil.className = 'alert alert-warning mb-0';
+        alertHasil.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i><strong>Sesi panel berakhir</strong>'
+            + '<div class="small mt-1">Biasanya karena database server ini sedang diganti salinan server utama. Tunggu 1–2 menit, lalu '
+            + '<a href="<?= site_url('login') ?>">login lagi</a> memakai akun admin <strong>server utama</strong> untuk melihat hasilnya.</div>';
+    };
+    var gagalBeruntun = 0;
     var ambil = function () {
-        fetch('<?= site_url('server_cadangan/log') ?>', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-            .then(function (r) { return r.ok ? r.json() : null; })
+        fetch('<?= site_url('server_cadangan/log') ?>', { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) {
+                var json = (r.headers.get('content-type') || '').indexOf('json') !== -1;
+                if (r.status === 401 || r.redirected || !json) { return { putus: true }; }
+                return r.ok ? r.json() : null;
+            })
             .then(function (d) {
-                if (!d || !d.ok) { return; }
+                if (d && d.putus) { sesiPutus(); return; }
+                if (!d || !d.ok) { throw new Error('jawaban tidak terbaca'); }
+                gagalBeruntun = 0;
                 if (d.log) { kartu.classList.remove('d-none'); pre.textContent = d.log; pre.scrollTop = pre.scrollHeight; }
                 spin.classList.toggle('d-none', !d.berjalan);
-                if (d.berjalan) { setTimeout(ambil, 3000); }
+                if (d.berjalan) { setTimeout(ambil, 3000); return; }
+                if (d.hasil) { kartu.classList.remove('d-none'); tampilHasil(d.hasil); }
             })
-            .catch(function () { setTimeout(ambil, 5000); });
+            .catch(function () {
+                // Server sibuk (database diganti / layanan dimulai ulang): coba lagi, tapi jangan menggantung tanpa kabar.
+                gagalBeruntun++;
+                if (gagalBeruntun >= 20) { sesiPutus(); return; }
+                setTimeout(ambil, 5000);
+            });
     };
-    if (location.hash === '#proses' || <?= ! empty($s['pindah_berjalan']) ? 'true' : 'false' ?>) { ambil(); }
+<?php $hasilBaru = ! empty($s['hasil']['waktu']) && time() - (int) $s['hasil']['waktu'] < 3600; ?>
+    if (location.hash === '#proses' || <?= ! empty($s['pindah_berjalan']) || $hasilBaru ? 'true' : 'false' ?>) { ambil(); }
 })();
 </script>
 <?= $this->endSection() ?>

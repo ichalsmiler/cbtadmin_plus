@@ -20,6 +20,8 @@ const SKRIP     = '/usr/local/share/cbt-ha/ha-cadangan.sh';
 const SKRIP_UTAMA = '/usr/local/share/cbt-ha/ha-utama.sh';
 const LOG_FILE  = '/var/log/cbt-ha-pindah.log';
 const PID_FILE  = '/run/cbt-ha-pindah.pid';
+const HASIL_FILE = '/var/lib/cbt-ha-panel.hasil';   // kode keluar proses latar terakhir
+const AKSI_FILE  = '/var/lib/cbt-ha-panel.aksi';    // jenis proses latar terakhir (pindah|kembalikan|utama|cadangan)
 const BACKUP    = '/var/backups/cbt/db';
 const CBT_HA    = '/usr/local/sbin/cbt-ha';
 
@@ -70,13 +72,69 @@ function ujianBerjalan(): ?int
     return ctype_digit($n) ? (int) $n : null;
 }
 
-/** Proses latar belakang (setsid, tetap jalan walau halaman ditutup); catatan ke LOG_FILE. */
-function mulaiLatar(string $judul, string $cmd): never
+/**
+ * Proses latar belakang (setsid, tetap jalan walau halaman ditutup); catatan ke LOG_FILE. Saat selesai, kode keluar
+ * ditulis ke HASIL_FILE (bersama jenis aksi di AKSI_FILE) supaya panel bisa menampilkan berhasil/gagal.
+ */
+function mulaiLatar(string $aksi, string $judul, string $cmd): never
 {
+    @unlink(HASIL_FILE);
+    file_put_contents(AKSI_FILE, $aksi);
     file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . '] ' . $judul . "\n");
-    $pid = jalan('YES=1 setsid nohup ' . $cmd . ' >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
+    $dalam = $cmd . '; echo $? > ' . escapeshellarg(HASIL_FILE);
+    $pid   = jalan('YES=1 setsid nohup bash -c ' . escapeshellarg($dalam) . ' >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
     file_put_contents(PID_FILE, $pid);
     keluar(['ok' => true, 'pid' => (int) $pid]);
+}
+
+/**
+ * Hasil proses terakhir: null selama berjalan / belum pernah. ok = kode keluar 0 (untuk cadangan juga replikasi
+ * berjalan), pesan = baris [GAGAL]/[PERINGATAN] terakhir di catatan bila gagal.
+ */
+function hasilTerakhir(): ?array
+{
+    if (berjalan() || ! is_file(LOG_FILE)) {
+        return null;
+    }
+    $log = preg_replace('/\e\[[0-9;]*m/', '', (string) @file_get_contents(LOG_FILE));
+    if (is_file(HASIL_FILE)) {
+        $kode = (int) trim((string) file_get_contents(HASIL_FILE));
+        $aksi = trim((string) @file_get_contents(AKSI_FILE));
+    } else {
+        // Proses dari versi lama (tanpa berkas hasil): disimpulkan dari catatannya.
+        $awal = strtok($log, "\n") ?: '';
+        $aksi = str_contains($awal, 'mode sinkron') ? 'utama' : (str_contains($awal, 'server cadangan') ? 'cadangan'
+            : (str_contains($awal, 'kembalikan') ? 'kembalikan' : (str_contains($awal, 'pindah') ? 'pindah' : '')));
+        if (str_contains($log, '[GAGAL]')) {
+            $kode = 1;
+        } elseif (preg_match('/\bSIAP\b|SELESAI|BERHASIL/', $log)) {
+            $kode = 0;
+        } else {
+            return null;
+        }
+    }
+    $pesan = '';
+    if ($kode !== 0 && preg_match_all('/^\[GAGAL\]\s*(.+(?:\n(?!\[|==>).+)*)/m', $log, $m)) {
+        $pesan = trim(end($m[1]));
+    } elseif ($kode !== 0) {
+        $baris = array_values(array_filter(array_map('trim', explode("\n", $log))));
+        $pesan = (string) end($baris);
+    }
+    $ok = $kode === 0;
+    if ($ok && $aksi === 'cadangan') {
+        // Terpasang belum tentu terhubung: pastikan salinan database dari server utama berjalan sekarang.
+        $sl = jalan('mariadb -e "SHOW SLAVE STATUS\G"');
+        $io = preg_match('/^\s*Slave_IO_Running:\s*(\S+)/m', $sl, $a) ? $a[1] : '';
+        $sq = preg_match('/^\s*Slave_SQL_Running:\s*(\S+)/m', $sl, $b) ? $b[1] : '';
+        if ($io !== 'Yes' || $sq !== 'Yes') {
+            $ok    = false;
+            $err   = preg_match('/^\s*Last_IO_Error:\s*(.+)$/m', $sl, $c) ? trim($c[1]) : '';
+            $pesan = 'Terpasang, tetapi salinan database dari server utama tidak berjalan (IO: ' . ($io ?: '-') . ', SQL: ' . ($sq ?: '-') . ')'
+                . ($err !== '' ? ': ' . $err : '.');
+        }
+    }
+
+    return ['aksi' => $aksi, 'kode' => $kode, 'ok' => $ok, 'pesan' => mb_substr($pesan, 0, 600), 'waktu' => (int) filemtime(is_file(HASIL_FILE) ? HASIL_FILE : LOG_FILE)];
 }
 
 $aksi = $argv[1] ?? '';
@@ -156,6 +214,7 @@ if ($aksi === 'status') {
         'backup'          => $backup,
         'disk_kosong'     => is_dir(dirname(BACKUP)) ? (int) disk_free_space(dirname(BACKUP)) : null,
         'pindah_berjalan' => berjalan(),
+        'hasil'           => hasilTerakhir(),
     ]);
 }
 
@@ -176,10 +235,7 @@ if ($aksi === 'pindah') {
         keluar(['ok' => false, 'error' => 'Server utama masih terhubung, jadi pindah ditolak supaya jawaban siswa tidak bercabang. '
             . 'Matikan server utama atau putuskan jaringannya dulu, lalu ulangi.'], 1);
     }
-    file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . "] Mulai pindah dari panel CBT Admin\n");
-    $pid = jalan('YES=1 setsid nohup bash ' . escapeshellarg(SKRIP) . ' pindah >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
-    file_put_contents(PID_FILE, $pid);
-    keluar(['ok' => true, 'pid' => (int) $pid]);
+    mulaiLatar('pindah', 'Mulai pindah dari panel CBT Admin', 'bash ' . escapeshellarg(SKRIP) . ' pindah');
 }
 
 if ($aksi === 'kembalikan') {
@@ -203,10 +259,7 @@ if ($aksi === 'kembalikan') {
         keluar(['ok' => false, 'error' => 'Server cadangan tidak sedang dipakai ujian atau tidak terjangkau (peran: ' . ($peran ?: 'tidak terjangkau')
             . '). Pastikan server cadangan hidup dan sudah cbt-perbarui.'], 1);
     }
-    file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . "] Mulai kembalikan dari panel CBT Admin\n");
-    $pid = jalan('YES=1 setsid nohup bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
-    file_put_contents(PID_FILE, $pid);
-    keluar(['ok' => true, 'pid' => (int) $pid]);
+    mulaiLatar('kembalikan', 'Mulai kembalikan dari panel CBT Admin', 'bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan');
 }
 
 if ($aksi === 'utama') {
@@ -229,7 +282,7 @@ if ($aksi === 'utama') {
     if ($n > 0) {
         keluar(['ok' => false, 'error' => $n . ' siswa sedang mengerjakan ujian. Aktifkan mode sinkron setelah ujian selesai.'], 1);
     }
-    mulaiLatar('Mulai mode sinkron (cbt-ha utama) dari panel CBT Admin', escapeshellarg(CBT_HA) . ' utama');
+    mulaiLatar('utama', 'Mulai mode sinkron (cbt-ha utama) dari panel CBT Admin', escapeshellarg(CBT_HA) . ' utama');
 }
 
 if ($aksi === 'cadangan') {
@@ -269,13 +322,13 @@ if ($aksi === 'cadangan') {
     }
     file_put_contents(HA_DIR . '/ha.conf', '# Konfigurasi CBT HA (dari KODE panel server utama, ' . date('Y-m-d H:i') . ").\n" . implode("\n", $baris) . "\n");
     chmod(HA_DIR . '/ha.conf', 0600);
-    mulaiLatar('Mulai pasang server cadangan dari panel CBT Admin', 'flock -n /run/cbt-ha-pasang.lock bash ' . escapeshellarg(SKRIP) . ' pasang');
+    mulaiLatar('cadangan', 'Mulai pasang server cadangan dari panel CBT Admin', 'flock -n /run/cbt-ha-pasang.lock bash ' . escapeshellarg(SKRIP) . ' pasang');
 }
 
 if ($aksi === 'log') {
     $isi = is_file(LOG_FILE) ? (string) file_get_contents(LOG_FILE) : '';
     $isi = preg_replace('/\e\[[0-9;]*m/', '', $isi);  // buang kode warna terminal
-    keluar(['ok' => true, 'berjalan' => berjalan(), 'log' => mb_substr($isi, -20000)]);
+    keluar(['ok' => true, 'berjalan' => berjalan(), 'hasil' => hasilTerakhir(), 'log' => mb_substr($isi, -20000)]);
 }
 
 keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | utama | cadangan | log'], 1);
