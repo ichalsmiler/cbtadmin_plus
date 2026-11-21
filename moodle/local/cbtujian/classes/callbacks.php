@@ -365,6 +365,11 @@ class callbacks {
             $selesai = $DB->count_records_select('quiz_attempts', "quiz = ? AND userid = ? AND state IN ('finished', 'abandoned')",
                 [(int) $PAGE->cm->instance, (int) $USER->id]);
             if ($maks > 0 && $selesai >= $maks) {
+                // CSS langsung di awal halaman: info token/waktu dan tombol bawaan tidak sempat tampil sebelum JS
+                // (DOMContentLoaded) menggantinya; tanpa ini halaman "Masukkan token" terlihat sekejap.
+                $hook->add_html(\html_writer::tag('style',
+                    '#page-mod-quiz-view [role=main] > .quizinfo{display:none!important}'
+                    . '#page-mod-quiz-view [role=main] > .quizattempt > :not(.cbt-selesai){display:none!important}'));
                 $teks  = json_encode(get_string('sudahmengerjakan', 'local_cbtujian'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 $label = json_encode(get_string('mycourses'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 $url   = json_encode((new \moodle_url('/my/courses.php'))->out(false), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -383,6 +388,8 @@ class callbacks {
         // Halaman awal ujian seperti LMS sekolah: kartu "Percobaan 1" (Moodle 4.4+) diganti tabel "Status | Review"
         // (urutan dan gaya di boost.scss).
         if ($PAGE->pagetype === 'mod-quiz-view') {
+            // Kartu percobaan bawaan disembunyikan sejak awal (diganti tabel oleh JS di bawah), supaya tidak berkedip.
+            $hook->add_html(\html_writer::tag('style', '#page-mod-quiz-view [role=main] > h3 + ul.list-unstyled{display:none}'));
             $j = fn(string $s) => json_encode($s, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $status = $j(get_string('attemptstate', 'quiz'));
             $review = $j(get_string('review', 'quiz'));
