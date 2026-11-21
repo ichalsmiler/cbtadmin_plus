@@ -10,6 +10,11 @@ Arah tampilan panel, disalin dari jawaban pengguna (admin IT SMAN 2 Makassar).
 - 21 November 2026 (berlaku sekarang): pengguna meminta tampilan meniru Dens-UI (dendense.github.io/dens-ui):
   Mars Green + satu aksen oranye, netral kehijauan, sudut lebih bulat, bayangan lembut. Font Figtree (teks) + JetBrains Mono (angka/token), woff2 lokal.
 
+- 21 November 2026 (uji coba, tag `desain-2`..`desain-4`): skill unslop (@heydamir, CC BY 4.0) mode polish di atas Dens-UI:
+  jarak kelipatan 4px, tanpa kaca (bilah atas tinta padat), bayangan ringan (gelap tanpa bayangan), bobot huruf 500 (600 jarang),
+  judul tanpa huruf rapat, kotak ikon kartu statistik diganti **titik status** (ciri khas; juga di Pantauan Siswa),
+  garis atas hias dihapus, peringatan info/warning memakai palet panel. Desain sebelum uji coba = tag `desain-1`.
+
 ## Identitas
 - Panel operasional ujian sekolah; dipakai admin dan pengawas ruang selama ujian berlangsung (sering dibuka lama
   di ruang lab); tema gelap tersedia lewat tombol untuk mengurangi silau. Logo sekolah tetap tampil di bilah atas.
@@ -34,4 +39,4 @@ Arah tampilan panel, disalin dari jawaban pengguna (admin IT SMAN 2 Makassar).
   `public/assets/fonts` (lisensi SIL OFL 1.1) agar tidak bergantung CDN.
 
 ## Efek
-- Kaca (backdrop blur) hanya di bilah atas dan kartu token. Bayangan lembut `--shadow-panel` di kartu, `--shadow-raise` di kartu statistik; radius `.875rem`.
+- Tanpa kaca. Terang: bayangan tipis `0 1px 2px`; gelap: kedalaman dari tingkat permukaan + garis rambut. Radius kartu `.875rem`, kontrol `.5rem`.

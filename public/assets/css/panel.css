@@ -220,48 +220,47 @@ code { color: var(--brand); }
 .footer a { color: var(--muted); }
 
 /* ------------------------------------------------------------------ Kartu statistik
-   Angka adalah fokus; warna hanya untuk status nyata (netral, proses, sudah, perlu perhatian, belum). */
+   Angka adalah fokus. Ciri khas panel (unslop): titik status kecil di depan label, warnanya = arti status
+   (proses, sudah, perlu perhatian, belum); kartu netral tanpa titik. Dipakai sama di Pantauan Siswa. */
 .stat-card {
     position: relative; height: 100%; background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--radius); padding: 1rem 1.25rem; box-shadow: var(--shadow-raise);
-    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "label ikon" "nilai ikon" "nilai link";
-    column-gap: .75rem;
+    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "label link" "nilai nilai";
+    column-gap: .75rem; row-gap: .5rem; align-content: start;
 }
-.stat-label { grid-area: label; color: var(--muted); font-size: .85rem; font-weight: 600; }
+.stat-label { grid-area: label; display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .875rem; }
 .stat-value {
-    grid-area: nilai; font-size: 2.1rem; font-weight: 700; line-height: 1.15; margin-top: .2rem;
+    grid-area: nilai; font-size: 1.875rem; line-height: 1.1;
     color: var(--stat-ink, var(--navy)); font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
 [data-bs-theme="dark"] .stat-value { color: var(--stat-ink, var(--ink)); }
-.stat-ribbon {
-    grid-area: ikon; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center;
-    border-radius: var(--radius-sm); background: var(--stat-soft, var(--brand-soft)); color: var(--stat, var(--brand)); font-size: 1.15rem;
-}
 .stat-link {
-    grid-area: link; align-self: end; justify-self: end; font-size: .8rem; font-weight: 600; text-decoration: none;
-    color: var(--brand); padding: .25rem 0;
+    grid-area: link; align-self: center; justify-self: end; font-size: .8125rem; font-weight: 500; text-decoration: none;
+    color: var(--brand);
 }
 .stat-link:hover { text-decoration: underline; }
-/* Arti warna kartu (lihat dashboard/index.php). */
-.stat-netral { --stat: var(--muted); --stat-soft: var(--surface-2); }
-.stat-proses { --stat: var(--run); --stat-soft: color-mix(in srgb, var(--run) 16%, transparent); --stat-ink: var(--run); }
-.stat-ok { --stat: var(--ok); --stat-soft: color-mix(in srgb, var(--ok) 14%, transparent); --stat-ink: var(--ok); }
-.stat-awas { --stat: var(--warn); --stat-soft: var(--gold-soft); --stat-ink: var(--warn); }
-.stat-redup { --stat: var(--idle); --stat-soft: color-mix(in srgb, var(--idle) 14%, transparent); }
+:is(.stat-proses, .stat-ok, .stat-awas, .stat-redup) :is(.stat-label, .pantau-judul)::before {
+    content: ""; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--stat);
+}
+/* Arti warna (lihat dashboard/index.php). */
+.stat-netral { --stat: var(--muted); }
+.stat-proses { --stat: var(--run); --stat-ink: var(--run); }
+.stat-ok { --stat: var(--ok); --stat-ink: var(--ok); }
+.stat-awas { --stat: var(--warn-fill); --stat-ink: var(--warn); }
+.stat-redup { --stat: var(--idle); }
 
-/* Dashboard pengawas: Pantauan Siswa (kolom per kelompok; garis atas = warna kartunya). */
-.pantau-kolom { border-top: 3px solid var(--stat); padding-top: .75rem; height: 100%; }
-.pantau-judul { font-weight: 600; display: flex; align-items: center; gap: .45rem; }
-.pantau-jumlah { background: var(--stat-soft); color: var(--stat-ink, var(--stat)); font-variant-numeric: tabular-nums; }
-.pantau-daftar { padding-left: 1.4rem; margin: 0; max-height: 22rem; overflow-y: auto; font-size: .875rem; }
+/* Dashboard pengawas: Pantauan Siswa (kolom per kelompok; titik status di depan judul, jumlah sebagai teks mono). */
+.pantau-kolom { border-top: 1px solid var(--line); padding-top: .75rem; height: 100%; }
+.pantau-judul { font-weight: 500; display: flex; align-items: center; gap: .5rem; }
+.pantau-jumlah { margin-left: auto; font-family: var(--font-mono); font-size: .875rem; color: var(--stat-ink, var(--muted)); font-variant-numeric: tabular-nums; }
+.pantau-daftar { padding-left: 1.5rem; margin: 0; max-height: 22rem; overflow-y: auto; font-size: .875rem; }
 .pantau-daftar li { padding: .25rem 0; border-bottom: 1px solid var(--line); }
 .pantau-daftar li:last-child { border-bottom: 0; }
 .pantau-daftar li small { display: block; color: var(--muted); }
 
 .sysinfo dt { color: var(--muted); font-weight: 500; }
-.progress { height: 1.1rem; background: var(--surface-2); }
-.progress-bar { background: var(--brand); font-size: .7rem; transition: width .4s; }
-.progress-bar { color: var(--on-brand); background: var(--brand-fill); }
+.progress { height: 1rem; background: var(--surface-2); }
+.progress-bar { font-size: .75rem; color: var(--on-brand); background: var(--brand-fill); transition: none; } /* tanpa animasi lebar (unslop) */
 .progress-bar.warn { background: var(--warn-fill); color: #1f1100; }
 .progress-bar.crit { background: var(--crit); color: #fff; }
 

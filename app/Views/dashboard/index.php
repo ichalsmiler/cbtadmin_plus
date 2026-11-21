@@ -3,6 +3,7 @@
 <?= $this->section('content') ?>
 <?php
 // [kunci statistik, label, warna, ikon, tautan]; warna = arti status (panel.css): netral, proses, ok (sudah), awas (perlu perhatian), redup (belum).
+// Kartu menampilkan titik status (bukan ikon); ikon tetap dicatat untuk keperluan lain.
 $cards = $isAdmin ? [
     ['ruang', 'Total Ruang', 'netral', 'door-open', 'daftar_ruang'],
     ['users', 'Total User', 'netral', 'people', 'daftar_peserta/moodle'],
@@ -65,7 +66,6 @@ $bars = $isAdmin ? [
     <?php foreach ($cards as [$key, $label, $color, $icon, $link]): ?>
         <div class="col">
             <div class="stat-card stat-<?= $color ?>">
-                <div class="stat-ribbon"><i class="bi bi-<?= $icon ?>"></i></div>
                 <div class="stat-value" data-stat="<?= $key ?>"><?= $stats[$key] === null ? '–' : (is_int($stats[$key]) ? number_format($stats[$key], 0, ',', '.') : esc($stats[$key])) ?></div>
                 <div class="stat-label"><?= esc($label) ?></div>
                 <?php if ($link !== null): ?>
@@ -88,7 +88,7 @@ $bars = $isAdmin ? [
             <?php foreach ($pantauKolom as $k => [$judul, $warna, $ket]): ?>
                 <div class="col" id="pantau-<?= $k ?>">
                     <div class="pantau-kolom stat-<?= $warna ?>">
-                        <div class="pantau-judul"><?= esc($judul) ?> <span class="badge pantau-jumlah" data-pantau-jumlah="<?= $k ?>"><?= count($stats['pantau'][$k] ?? []) ?></span></div>
+                        <div class="pantau-judul"><?= esc($judul) ?> <span class="pantau-jumlah" data-pantau-jumlah="<?= $k ?>"><?= count($stats['pantau'][$k] ?? []) ?></span></div>
                         <div class="small text-muted mb-2"><?= esc($ket) ?></div>
                         <ol class="pantau-daftar" data-pantau="<?= $k ?>">
                             <?php foreach ($stats['pantau'][$k] ?? [] as $s): ?>
