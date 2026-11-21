@@ -271,8 +271,7 @@ cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOH'
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
 </head><body><main><h1>Ujian dipindah ke server cadangan</h1>
-<p>Server ini sedang tidak dipakai. Lanjutkan ujian di:</p>
-<p><a href="$URL_CADANGAN/">$URL_CADANGAN</a></p></main></body></html>
+<p>Server ini sedang tidak dipakai. Tanyakan alamat ujian kepada pengawas ruang.</p></main></body></html>
 EOH
 cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
 # CBT HA: server utama nonaktif, cadangan sedang dipakai (dibuat oleh cbt-ha-jaga)
@@ -402,6 +401,7 @@ EOF
 kembalikan() {
     load_conf
     [ "$(cat "$ROLE_FILE" 2>/dev/null)" = nonaktif ] || die "Kembalikan hanya untuk server utama yang sedang nonaktif."
+    [ -f /etc/cron.d/cbt-ha-cadangan ] && die "Server ini dipasang sebagai cadangan; Kembalikan dijalankan di server utama."
     local pasangan
     pasangan="$(curl -fsS --max-time 5 "http://$PEER_WG_IP/cbt-ha-peran" 2>/dev/null | tr -d '[:space:]')" || true
     [ "$pasangan" = utama ] || die "Server cadangan ($PEER_WG_IP) tidak sedang dipakai ujian (peran: ${pasangan:-tidak terjangkau}).

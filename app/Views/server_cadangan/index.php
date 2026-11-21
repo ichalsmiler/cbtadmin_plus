@@ -4,6 +4,9 @@
 <?php
 $s      = $status ?? [];
 $peran  = (string) ($s['peran'] ?? '');
+// Jenis = dipasang sebagai utama atau cadangan (tetap); peran = keadaan sekarang. Helper lama belum mengirim jenis.
+$jenis  = (string) ($s['jenis'] ?? ($peran === 'cadangan' ? 'cadangan' : 'utama'));
+$utamaNonaktif = $jenis === 'utama' && ($peran === 'nonaktif' || $peran === 'kembali');
 $detik  = static function ($d): string {
     if ($d === null) {
         return '–';
@@ -37,12 +40,20 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     <p class="text-muted small mb-0">Server ini belum disiapkan sebagai server utama maupun cadangan. Isi pengaturan di bawah, lalu ikuti langkah pemasangan.</p>
                 <?php else: ?>
                     <p class="mb-3">
-                        <?php if ($peran === 'utama'): ?>
+                        <?php if ($jenis === 'utama' && $peran === 'utama'): ?>
                             <span class="badge text-bg-success fs-6 fw-normal"><i class="bi bi-broadcast me-1"></i>Server UTAMA</span>
-                        <?php elseif ($peran === 'nonaktif' || $peran === 'kembali'): ?>
+                        <?php elseif ($utamaNonaktif): ?>
                             <span class="badge text-bg-warning fs-6 fw-normal"><i class="bi bi-pause-circle me-1"></i>Server UTAMA (nonaktif)</span>
-                            <span class="d-block small text-muted mt-2">Server cadangan sudah aktif dan dipakai ujian, jadi server ini berhenti melayani siswa
-                                (siswa diarahkan ke alamat cadangan). Data terbaru ada di server cadangan.</span>
+                            <span class="d-block small text-muted mt-2">Server cadangan sudah aktif dan dipakai ujian, jadi server ini berhenti melayani siswa.
+                                Data terbaru ada di server cadangan.</span>
+                        <?php elseif ($peran === 'utama'): ?>
+                            <span class="badge text-bg-danger fs-6 fw-normal"><i class="bi bi-lightning-charge me-1"></i>Server CADANGAN (sedang dipakai ujian)</span>
+                            <span class="d-block small text-muted mt-2">Server ini dipindah menjadi utama. Setelah server utama normal dan ujian selesai,
+                                buka panel server utama → Server Cadangan → <strong>Kembalikan</strong>.</span>
+                        <?php elseif ($peran === 'nonaktif'): ?>
+                            <span class="badge text-bg-warning fs-6 fw-normal"><i class="bi bi-arrow-repeat me-1"></i>Server CADANGAN (data dikembalikan)</span>
+                            <span class="d-block small text-muted mt-2">Server ini berhenti melayani siswa; data sedang dikembalikan ke server utama, lalu server ini
+                                otomatis dipasang ulang sebagai cadangan (beberapa menit).</span>
                         <?php else: ?>
                             <span class="badge text-bg-info fs-6 fw-normal"><i class="bi bi-shield-check me-1"></i>Server CADANGAN (siaga)</span>
                         <?php endif ?>
@@ -50,7 +61,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     <table class="table table-sm align-middle mb-0">
                         <tr><th class="fw-normal text-muted" style="width:42%">Alamat utama</th><td><?= esc($s['url_utama'] ?: '–') ?> <span class="text-muted small">(<?= esc($s['utama_ip']) ?>)</span></td></tr>
                         <tr><th class="fw-normal text-muted">Alamat cadangan</th><td><?= esc($s['url_cadangan'] ?: '–') ?> <span class="text-muted small">(<?= esc($s['cadangan_ip']) ?>)</span></td></tr>
-                        <tr><th class="fw-normal text-muted">Hubungan ke server <?= $peran === 'cadangan' ? 'utama' : 'cadangan' ?></th>
+                        <tr><th class="fw-normal text-muted">Hubungan ke server <?= $jenis === 'cadangan' ? 'utama' : 'cadangan' ?></th>
                             <td><?= $kontakHidup
                                     ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Terhubung</span> <span class="text-muted small">(' . $detik($s['kontak_detik']) . ')</span>'
                                     : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Tidak terhubung</span>'
@@ -95,7 +106,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     </div>
                 </div>
             </form>
-        <?php elseif ($peran === 'nonaktif' || $peran === 'kembali'): ?>
+        <?php elseif ($utamaNonaktif): ?>
             <form class="card h-100 border-success" method="post" action="<?= site_url('server_cadangan/kembalikan') ?>" data-no-dirty>
                 <?= csrf_field() ?>
                 <div class="card-header fw-semibold text-success"><i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ujian ke server ini</div>

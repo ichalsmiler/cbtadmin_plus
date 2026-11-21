@@ -59,12 +59,15 @@ $aksi = $argv[1] ?? '';
 if ($aksi === 'status') {
     $conf  = bacaConf();
     $peran = is_file(ROLE_FILE) ? trim((string) file_get_contents(ROLE_FILE)) : '';
+    // Jenis server = cara dipasang (cron cbt-ha-cadangan hanya ada di server yang dipasang sebagai cadangan), tetap
+    // walau perannya berubah (cadangan setelah PINDAH berperan utama, saat dikembalikan berperan nonaktif).
+    $jenis = is_file('/etc/cron.d/cbt-ha-cadangan') ? 'cadangan' : 'utama';
     // PAKAI_HTTPS di ha.conf menang; tanpa itu: IP → http, domain → https (sama seperti ha-*.sh).
     $https = $conf['PAKAI_HTTPS'] ?? '';
     $skema = static fn (string $h): string => $h === '' ? '' : (($https !== '' ? $https === 'ya' : ! preg_match('/^[0-9.]+$/', $h)) ? 'https://' : 'http://') . $h;
 
     // Kontak ke server lain: lewat WireGuard (handshake terakhir) atau ping IP pasangan.
-    $peerIp  = $peran === 'cadangan' ? '10.77.0.1' : '10.77.0.2';
+    $peerIp  = $jenis === 'cadangan' ? '10.77.0.1' : '10.77.0.2';
     $kontak  = null;
     $adaWg   = jalan('ip link show wg-cbt >/dev/null && echo ya') === 'ya';
     $hs      = (int) jalan("wg show wg-cbt latest-handshakes | awk '{print \$2}' | head -1");
@@ -73,7 +76,7 @@ if ($aksi === 'status') {
     } elseif (! $adaWg && $peran !== '') {
         // Tanpa WireGuard (kedua server di LAN): cukup ping. Dengan WireGuard, hanya handshake yang dihitung;
         // ping ke IP publik VPS bisa berhasil walau terowongan belum tersambung.
-        $peer = $peran === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? '');
+        $peer = $jenis === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? '');
         foreach (array_filter([$peerIp, $peer]) as $ip) {
             if (jalan('ping -c1 -W2 ' . escapeshellarg($ip) . ' >/dev/null && echo ok') === 'ok') {
                 $kontak = 0;
@@ -83,7 +86,7 @@ if ($aksi === 'status') {
     }
     // Terhubung SEKARANG: ping lewat terowongan (atau IP LAN pasangan). Handshake WireGuard hanya diperbarui ±2 menit
     // sekali, jadi umurnya tidak cukup cepat menandai server pasangan yang baru mati.
-    $sasaran   = $adaWg ? $peerIp : ($peran === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? ''));
+    $sasaran   = $adaWg ? $peerIp : ($jenis === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? ''));
     $terhubung = $sasaran !== '' && $peran !== ''
         && jalan('ping -c2 -i0.3 -W1 ' . escapeshellarg($sasaran) . ' >/dev/null && echo ok') === 'ok';
 
@@ -114,6 +117,7 @@ if ($aksi === 'status') {
         'ok'              => true,
         'terpasang'       => $conf !== [],
         'peran'           => $peran,
+        'jenis'           => $jenis,
         'domain_utama'    => $conf['DOMAIN_UTAMA'] ?? '',
         'domain_cadangan' => $conf['DOMAIN_CADANGAN'] ?? '',
         'url_utama'       => $skema($conf['DOMAIN_UTAMA'] ?? ''),
@@ -138,7 +142,7 @@ if ($aksi === 'pindah') {
         keluar(['ok' => false, 'error' => 'Skrip ' . SKRIP . ' tidak ada. Jalankan deploy ulang.'], 1);
     }
     if (berjalan()) {
-        keluar(['ok' => false, 'error' => 'Proses pindah sedang berjalan.'], 1);
+        keluar(['ok' => false, 'error' => 'Proses pindah/kembalikan sudah berjalan (tombol cukup diklik sekali). Muat ulang halaman ini untuk melihat catatannya.'], 1);
     }
     // Server utama masih menjawab (lewat WireGuard atau LAN) → tolak, supaya jawaban siswa tidak bercabang.
     $conf = bacaConf();
@@ -157,6 +161,9 @@ if ($aksi === 'kembalikan') {
     // Server utama nonaktif → ambil data terbaru dari server cadangan lalu aktif lagi (ha-utama.sh kembalikan).
     if (trim((string) @file_get_contents(ROLE_FILE)) !== 'nonaktif') {
         keluar(['ok' => false, 'error' => 'Kembalikan hanya untuk server utama yang sedang nonaktif.'], 1);
+    }
+    if (is_file('/etc/cron.d/cbt-ha-cadangan')) {
+        keluar(['ok' => false, 'error' => 'Server ini server cadangan: tombol Kembalikan dipakai di panel server utama.'], 1);
     }
     if (! is_file(SKRIP_UTAMA)) {
         keluar(['ok' => false, 'error' => 'Skrip ' . SKRIP_UTAMA . ' tidak ada. Jalankan cbt-perbarui.'], 1);

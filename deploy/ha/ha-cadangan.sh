@@ -339,8 +339,7 @@ halaman() {   # \$1 = tutup | buka
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
 </head><body><main><h1>Ujian kembali ke server utama</h1>
-<p>Server ini sedang tidak dipakai. Buka ujian di:</p>
-<p><a href="$URL_UTAMA/">$URL_UTAMA</a></p></main></body></html>
+<p>Server ini sedang tidak dipakai. Tanyakan alamat ujian kepada pengawas ruang.</p></main></body></html>
 EOH
         cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
 # CBT HA: server cadangan berhenti, data dikembalikan ke server utama (dibuat oleh cbt-ha-jaga)
@@ -546,6 +545,8 @@ relay_log = /var/log/mysql/relay-bin
 replicate_wild_do_table = moodle.%
 replicate_wild_do_table = cbtadmin.%
 read_only = 1
+# Sambungan ke server utama yang mati cepat dinyatakan putus (bawaan 60 detik memperlambat PINDAH).
+slave_net_timeout = 15
 bind_address = 127.0.0.1,$WG_IP
 EOF
     systemctl restart mariadb
@@ -711,7 +712,8 @@ pindah() {
     fi
 
     log "1/3 Terapkan sisa data replikasi"
-    mariadb -e "STOP SLAVE IO_THREAD;" 2>/dev/null || true
+    echo "Menghentikan sambungan replikasi (bila server utama mati, bisa sampai 15–60 detik)..."
+    mariadb -e "SET GLOBAL slave_net_timeout = 15; STOP SLAVE IO_THREAD;" 2>/dev/null || true
     local i state
     for i in $(seq 1 60); do
         state="$(slave_field Slave_SQL_Running_State)"
@@ -740,10 +742,9 @@ pindah() {
     echo "  Umumkan ke siswa alamat baru:  $URL_CADANGAN"
     echo "  Siswa login lagi lalu melanjutkan quiz; jawaban tersimpan."
     echo
-    echo "  JANGAN hidupkan server lama sebagai utama lagi. Untuk menjadikannya"
-    echo "  cadangan baru: di ha.conf KEDUA server tukar UTAMA_IP <-> CADANGAN_IP"
-    echo "  dan DOMAIN_UTAMA <-> DOMAIN_CADANGAN, lalu jalankan"
-    echo "  ha-utama.sh pasang  di server ini dan  ha-cadangan.sh pasang  di server lama."
+    echo "  Server utama yang dinyalakan lagi otomatis nonaktif (tidak menerima siswa)."
+    echo "  Setelah ujian selesai: di panel server utama → Server Cadangan → Kembalikan"
+    echo "  (data dari server ini disalin ke sana, server ini otomatis jadi cadangan lagi)."
     echo "============================================================"
 }
 
@@ -752,6 +753,11 @@ case "${1:-}" in
     status) status ;;
     pindah) pindah ;;
     # Pasang ulang pengaman (cbt-ha-jaga) + alamat /cbt-ha-* saja, tanpa menyentuh data (dipanggil cbt-perbarui).
-    jaga) load_conf; pasang_peran_web; tulis_jaga ;;
+    jaga)
+        load_conf; pasang_peran_web; tulis_jaga
+        # Server cadangan lama: sambungan replikasi cepat dinyatakan putus (PINDAH tidak tertahan ±60 detik).
+        grep -q "^slave_net_timeout" "$DB_CNF" 2>/dev/null || sed -i "/^read_only = /a slave_net_timeout = 15" "$DB_CNF" 2>/dev/null
+        mariadb -e "SET GLOBAL slave_net_timeout = 15;" 2>/dev/null || true
+        ;;
     *) echo "Pakai: bash $0 pasang | status | pindah | jaga   (tambahkan YES=1 di depan untuk tanpa konfirmasi)"; exit 1 ;;
 esac
