@@ -8,3 +8,5 @@ $string['welcometosite'] = '{$a->firstname} - {$a->lastname}';
 // Durasi "1 jam 30 menit" (bawaan paket id: "min").
 $string['min'] = 'menit';
 $string['mins'] = 'menit';
+// Daftar Ujian kosong (block_myoverview / core_course/no-courses)
+$string['nocourses'] = 'Belum ada ujian yang aktif, hubungi pengawas/proktor';

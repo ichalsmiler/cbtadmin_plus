@@ -73,6 +73,7 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('server_cadangan/simpan', 'ServerCadanganPanel::simpan');
     $routes->get('server_cadangan/unduh', 'ServerCadanganPanel::unduh');
     $routes->post('server_cadangan/pindah', 'ServerCadanganPanel::pindah');
+    $routes->post('server_cadangan/kembalikan', 'ServerCadanganPanel::kembalikan');
     $routes->get('server_cadangan/log', 'ServerCadanganPanel::log');
     $routes->post('sesi_tingkat/simpan', 'SesiTingkat::simpan');
     $routes->post('sesi_tingkat/json', 'SesiTingkat::json');

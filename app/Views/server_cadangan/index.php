@@ -36,7 +36,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     <p class="mb-3">
                         <?php if ($peran === 'utama'): ?>
                             <span class="badge text-bg-success fs-6 fw-normal"><i class="bi bi-broadcast me-1"></i>Server UTAMA</span>
-                        <?php elseif ($peran === 'nonaktif'): ?>
+                        <?php elseif ($peran === 'nonaktif' || $peran === 'kembali'): ?>
                             <span class="badge text-bg-warning fs-6 fw-normal"><i class="bi bi-pause-circle me-1"></i>Server UTAMA (nonaktif)</span>
                             <span class="d-block small text-muted mt-2">Server cadangan sudah aktif dan dipakai ujian, jadi server ini berhenti melayani siswa
                                 (siswa diarahkan ke alamat cadangan). Data terbaru ada di server cadangan.</span>
@@ -83,12 +83,33 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                         <li>Setelah selesai, umumkan alamat ujian baru ke siswa: <strong><?= esc($s['url_cadangan'] ?: '–') ?></strong>. Siswa login lagi lalu melanjutkan.</li>
                     </ol>
                     <?php if ($kontakHidup): ?>
-                        <div class="alert alert-warning small py-2">Server utama <strong>masih terhubung</strong>. Matikan dulu server utama sebelum memindahkan.</div>
+                        <div class="alert alert-warning small py-2">Server utama <strong>masih terhubung</strong>, jadi tombol Aktifkan dikunci supaya jawaban siswa tidak bercabang. Matikan server utama atau putuskan jaringannya dulu.</div>
                     <?php endif ?>
                     <label class="form-label" for="konfirmasiPindah">Ketik <code>PINDAH</code> untuk mengonfirmasi</label>
                     <div class="input-group">
                         <input class="form-control" id="konfirmasiPindah" name="konfirmasi" autocomplete="off" required>
-                        <button class="btn btn-danger" type="submit" <?= ! empty($s['pindah_berjalan']) ? 'disabled' : '' ?>><i class="bi bi-lightning-charge me-1"></i>Aktifkan</button>
+                        <button class="btn btn-danger" type="submit" <?= ! empty($s['pindah_berjalan']) || $kontakHidup ? 'disabled' : '' ?>><i class="bi bi-lightning-charge me-1"></i>Aktifkan</button>
+                    </div>
+                </div>
+            </form>
+        <?php elseif ($peran === 'nonaktif' || $peran === 'kembali'): ?>
+            <form class="card h-100 border-success" method="post" action="<?= site_url('server_cadangan/kembalikan') ?>" data-no-dirty>
+                <?= csrf_field() ?>
+                <div class="card-header fw-semibold text-success"><i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ujian ke server ini</div>
+                <div class="card-body">
+                    <p class="small mb-2">Pakai setelah server ini normal lagi, <strong>di luar jam ujian</strong>. Server cadangan menolak bila masih ada siswa mengerjakan atau sesi ujian masih aktif.</p>
+                    <ol class="small mb-3">
+                        <li>Server cadangan berhenti menerima ujian, lalu menyiapkan salinan data terbaru.</li>
+                        <li>Database dan berkas disalin ke server ini (data lama dibackup dulu), lalu server ini melayani ujian lagi di <strong><?= esc($s['url_utama'] ?: '–') ?></strong>.</li>
+                        <li>Server cadangan otomatis dipasang ulang sebagai cadangan (beberapa menit). Cek statusnya di halaman ini.</li>
+                    </ol>
+                    <?php if (! $kontakHidup): ?>
+                        <div class="alert alert-warning small py-2">Server cadangan <strong>tidak terhubung</strong>. Pastikan server cadangan hidup lalu muat ulang halaman ini.</div>
+                    <?php endif ?>
+                    <label class="form-label" for="konfirmasiKembali">Ketik <code>KEMBALIKAN</code> untuk mengonfirmasi</label>
+                    <div class="input-group">
+                        <input class="form-control" id="konfirmasiKembali" name="konfirmasi" autocomplete="off" required>
+                        <button class="btn btn-success" type="submit" <?= ! empty($s['pindah_berjalan']) || ! $kontakHidup ? 'disabled' : '' ?>><i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
                     </div>
                 </div>
             </form>
@@ -110,7 +131,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 </div>
 
 <div class="card mt-4 <?= ! empty($s['pindah_berjalan']) ? '' : 'd-none' ?>" id="proses">
-    <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses pindah <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
+    <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses pindah / kembalikan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
     <pre class="card-body small mb-0" id="prosesLog" style="max-height:24rem;overflow:auto;white-space:pre-wrap"></pre>
 </div>
 

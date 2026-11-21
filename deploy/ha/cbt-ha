@@ -8,6 +8,8 @@
 #    cbt-ha cadangan KODE    di VPS CADANGAN: KODE disalin dari menu Server Cadangan di panel utama
 #    cbt-ha status           keadaan sambungan dan replikasi
 #    cbt-ha pindah           di VPS CADANGAN saat server utama mati: aktifkan cadangan (ketik PINDAH)
+#    cbt-ha kembalikan       di server UTAMA yang nonaktif: ambil data dari cadangan, aktif lagi (ketik KEMBALIKAN)
+#    cbt-ha batal            di server CADANGAN: batalkan Kembalikan yang macet, cadangan melayani ujian lagi
 # =============================================================================
 set -euo pipefail
 
@@ -76,8 +78,17 @@ case "${1:-}" in
         [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = cadangan ] || gagal "Server ini bukan server cadangan."
         bash "$SKRIP/ha-cadangan.sh" pindah
         ;;
+    kembalikan)
+        # Server utama yang nonaktif (cadangan sudah dipakai ujian): ambil data terbaru dari cadangan lalu aktif lagi.
+        [ "$(cat /etc/cbt-ha-peran 2>/dev/null)" = nonaktif ] || gagal "Kembalikan hanya untuk server utama yang sedang nonaktif."
+        bash "$SKRIP/ha-utama.sh" kembalikan
+        ;;
+    batal)
+        # Di server cadangan yang sedang menyiapkan data untuk Kembalikan: batalkan, layani ujian lagi.
+        /usr/local/sbin/cbt-ha-jaga batal && echo "Selesai. Cek: cbt-ha status"
+        ;;
     *)
-        echo "Pakai: cbt-ha utama | cbt-ha cadangan KODE | cbt-ha status | cbt-ha pindah"
+        echo "Pakai: cbt-ha utama | cbt-ha cadangan KODE | cbt-ha status | cbt-ha pindah | cbt-ha kembalikan | cbt-ha batal"
         exit 1
         ;;
 esac

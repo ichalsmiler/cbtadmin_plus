@@ -98,6 +98,23 @@ class ServerCadanganPanel extends PanelController
         return redirect()->to($back . '#proses')->with('success', 'Proses pindah dimulai. Ikuti catatannya di bawah sampai selesai (biasanya 1–3 menit).');
     }
 
+    /** Server utama nonaktif → ambil data terbaru dari server cadangan lalu aktif lagi (ha-utama.sh kembalikan). */
+    public function kembalikan()
+    {
+        $back = site_url('server_cadangan');
+        if (trim((string) $this->request->getPost('konfirmasi')) !== 'KEMBALIKAN') {
+            return redirect()->to($back)->with('error', 'Ketik KEMBALIKAN (huruf kapital) untuk mengaktifkan lagi server ini.');
+        }
+        try {
+            ServerCadangan::jalankan('kembalikan');
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Tidak bisa mengembalikan: ' . $e->getMessage());
+        }
+        ActivityLog::add('server_cadangan', 'KEMBALIKAN: data diambil dari server cadangan, server utama aktif lagi');
+
+        return redirect()->to($back . '#proses')->with('success', 'Proses kembalikan dimulai. Ikuti catatannya di bawah sampai selesai (beberapa menit).');
+    }
+
     /** Catatan proses pindah (JSON, untuk diperbarui berkala di halaman). */
     public function log()
     {

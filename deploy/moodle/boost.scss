@@ -23,6 +23,9 @@
 /* CBT: tanpa tombol tanda tanya (?) di kanan bawah */
 #page-footer [data-region="footer-container-popover"] { display: none !important; }
 
+/* CBT: isi footer (Anda belum masuk, retensi data, tema standar, Ditenagai oleh Moodle) tidak tampil, termasuk di layar HP */
+#page-footer [data-region="footer-content-popover"] { display: none !important; }
+
 /* CBT: baris sapaan kosong tidak meninggalkan celah */
 #page-header .mb-2:has(> span.h2:empty) { display: none !important; }
 
@@ -33,6 +36,17 @@
 .login-form-forgotpassword,
 .login-container .login-divider,
 .login-container button[data-modal-title-str*="cookiesenabled"] { display: none !important; }
+
+/* CBT: kotak login di tengah layar (vertikal dan horizontal), juga di HP */
+.pagelayout-login .login-wrapper {
+    min-height: calc(100vh - 140px);
+    min-height: calc(100dvh - 140px);
+}
+.pagelayout-login .login-container { margin-bottom: 0; }
+@media (max-width: 575.98px) {
+    .pagelayout-login .login-wrapper { padding: 0 16px; }
+    .pagelayout-login .login-container { width: 100%; }
+}
 
 /* CBT: laci blok kanan disembunyikan untuk siswa di semua halaman (kelas cbt-siswa dari local_cbtujian)
    dan untuk siapa pun saat mengerjakan ujian (navigasi nomor soal ada di bawah soal) */

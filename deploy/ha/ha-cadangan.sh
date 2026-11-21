@@ -140,6 +140,8 @@ pasang_peran_web() {
     cat > "$snip" <<EOP
 # CBT HA: peran server ini untuk server pasangan (dibuat oleh skrip ha)
 location = /cbt-ha-peran { allow $PEER_WG_IP; deny all; default_type text/plain; alias $ROLE_FILE; }
+# Status proses "Kembalikan" (siap/tolak/proses), dibaca server pasangan.
+location = /cbt-ha-kembali { allow $PEER_WG_IP; deny all; default_type text/plain; alias /etc/cbt-ha-kembali; }
 EOP
     if ! grep -q "snippets/cbt-ha-peran.conf" "$site"; then
         sed -i "0,/server_name _;/s##server_name _;\n    include snippets/cbt-ha-peran.conf;#" "$site"
@@ -171,6 +173,7 @@ location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
 set $cbt_siaga 1;
 if ($uri = /cbt-cadangan.html) { set $cbt_siaga 0; }
 if ($uri ~ ^/cbtadmin(/|$)) { set $cbt_siaga 0; }
+if ($uri ~ ^/cbt-ha-) { set $cbt_siaga 0; }
 if ($cbt_siaga) { return 503; }
 EOF
     else
@@ -305,6 +308,161 @@ EOF
     chmod 644 /etc/cron.d/cbt-ha-cadangan
 }
 
+# Pengaman + "Kembalikan" di server cadangan (tiap menit). Saat server ini sedang dipakai ujian (setelah PINDAH) dan
+# server utama meminta kembali (peran pasangan "kembali"): tolak bila ujian berjalan; bila tidak, berhenti melayani
+# siswa, siapkan salinan database + berkas untuk diambil server utama. Setelah server utama aktif lagi, server ini
+# otomatis dipasang ulang sebagai cadangan (ha-cadangan.sh pasang). Bila server utama membatalkan, server ini aktif lagi.
+tulis_jaga() {
+    local prefix rsync_pass tmp
+    prefix="$(sed -n "s/^\$CFG->prefix *= *'\(.*\)';.*/\1/p" "$CONFIG" | head -1)"; prefix="${prefix:-mdl_}"
+    rsync_pass="$(derive_pass rsync)"
+    tmp="$(mktemp)"
+    cat > "$tmp" <<EOJ
+#!/usr/bin/env bash
+# Pengaman server CADANGAN (dibuat oleh ha-cadangan.sh). Pakai: cbt-ha-jaga [batal]
+set -uo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STATUS=/etc/cbt-ha-kembali; KIRIM=/var/lib/cbt-ha-kembali; LOG=/var/log/cbt-ha-kembali.log
+catat() { echo "\$(date '+%Y-%m-%d %H:%M:%S') \$*" >> \$LOG; logger -t cbt-ha "\$*"; }
+peran="\$(cat $ROLE_FILE 2>/dev/null)"
+pasangan="\$(curl -fsS --max-time 5 http://$PEER_WG_IP/cbt-ha-peran 2>/dev/null | tr -d '[:space:]')"
+
+halaman() {   # \$1 = tutup | buka
+    if [ "\$1" = buka ]; then
+        echo "# CBT HA: server aktif melayani ujian (dibuat oleh cbt-ha-jaga)" > /etc/nginx/snippets/cbt-ha-mode.conf
+    else
+        mkdir -p /var/www/cbt-ha
+        cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOH'
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ujian dipindah</title>
+<style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
+main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
+</head><body><main><h1>Ujian kembali ke server utama</h1>
+<p>Server ini sedang tidak dipakai. Buka ujian di:</p>
+<p><a href="$URL_UTAMA/">$URL_UTAMA</a></p></main></body></html>
+EOH
+        cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
+# CBT HA: server cadangan berhenti, data dikembalikan ke server utama (dibuat oleh cbt-ha-jaga)
+error_page 503 /cbt-cadangan.html;
+location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
+set \$cbt_siaga 1;
+if (\$uri = /cbt-cadangan.html) { set \$cbt_siaga 0; }
+if (\$uri ~ ^/cbtadmin(/|\$)) { set \$cbt_siaga 0; }
+if (\$uri ~ ^/cbt-ha-) { set \$cbt_siaga 0; }
+if (\$cbt_siaga) { return 503; }
+EON
+    fi
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx
+    systemctl reload "php\$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null
+}
+
+cron_ujian() {   # \$1 = mati | hidup
+    local f
+    for f in moodle cbtadmin; do
+        if [ "\$1" = mati ]; then [ -f /etc/cron.d/\$f ] && mv /etc/cron.d/\$f /etc/cron.d/\$f.cadangan-off
+        else [ -f /etc/cron.d/\$f.cadangan-off ] && mv /etc/cron.d/\$f.cadangan-off /etc/cron.d/\$f; fi
+    done
+}
+
+bekukan() {
+    local n sesi alasan=""
+    n="\$(mariadb -N -e "SELECT COUNT(*) FROM moodle.${prefix}quiz_attempts WHERE state = 'inprogress'" 2>/dev/null || echo 0)"
+    sesi="\$(mariadb -N -e "SELECT svalue FROM cbtadmin.settings WHERE skey = 'sesi_aktif'" 2>/dev/null | tr -d '[:space:]')"
+    [ "\${n:-0}" -gt 0 ] && alasan="\$n siswa sedang mengerjakan ujian di server cadangan"
+    [ -n "\$sesi" ] && alasan="\${alasan:+\$alasan; }sesi ujian masih aktif (nonaktifkan dulu di Setting Ujian)"
+    if [ -n "\$alasan" ]; then
+        echo "tolak \$alasan" > \$STATUS; chmod 644 \$STATUS
+        return
+    fi
+    catat "server utama meminta kembali: server cadangan berhenti melayani siswa, data disiapkan"
+    echo "proses \$(date +%s)" > \$STATUS; chmod 644 \$STATUS
+    mariadb -e "SET GLOBAL read_only = 1;"
+    sed -i 's/^read_only = 0/read_only = 1/' $DB_CNF
+    cron_ujian mati
+    echo nonaktif > $ROLE_FILE
+    halaman tutup
+    mkdir -p \$KIRIM; chmod 700 \$KIRIM; chown www-data:www-data \$KIRIM
+    if ! mariadb-dump --single-transaction --quick --routines --events --triggers --add-drop-database \
+            --databases moodle cbtadmin | gzip -1 > \$KIRIM/db.sql.gz.tmp; then
+        catat "gagal membuat salinan database; server cadangan aktif lagi"
+        cairkan; return
+    fi
+    mv \$KIRIM/db.sql.gz.tmp \$KIRIM/db.sql.gz; chown www-data:www-data \$KIRIM/db.sql.gz
+    cat > /etc/rsyncd.conf <<EOR
+# CBT HA - salinan data untuk dikembalikan ke server utama (dibuat oleh cbt-ha-jaga)
+address = $WG_IP
+uid = www-data
+gid = www-data
+use chroot = yes
+read only = yes
+hosts allow = $PEER_WG_IP
+hosts deny = *
+auth users = cbtsync
+secrets file = /etc/rsyncd.secrets
+max connections = 4
+
+[moodledata]
+path = $DATA_DIR
+exclude = cache/ localcache/ localcache-*/ sessions/ temp/ trashdir/ lock/
+
+[cbtupload]
+path = $CBT_DIR/writable/uploads
+
+[kembali]
+path = \$KIRIM
+EOR
+    echo "cbtsync:$rsync_pass" > /etc/rsyncd.secrets; chmod 600 /etc/rsyncd.secrets
+    systemctl enable rsync >/dev/null 2>&1; systemctl restart rsync
+    echo "siap \$(date +%s)" > \$STATUS
+    catat "data siap diambil server utama (\$(du -h \$KIRIM/db.sql.gz | cut -f1) database)"
+}
+
+cairkan() {   # batal: server cadangan melayani ujian lagi
+    mariadb -e "SET GLOBAL read_only = 0;"
+    sed -i 's/^read_only = 1/read_only = 0/' $DB_CNF
+    cron_ujian hidup
+    echo utama > $ROLE_FILE
+    halaman buka
+    systemctl disable --now rsync >/dev/null 2>&1
+    rm -rf \$KIRIM \$STATUS
+    catat "pengembalian dibatalkan: server cadangan melayani ujian lagi"
+}
+
+BATAL=/etc/cbt-ha-kembali-batal
+if [ "\${1:-}" = batal ]; then
+    # Dibatalkan admin di konsol: jangan menerima permintaan Kembalikan lagi selama 15 menit.
+    touch \$BATAL
+    [ -f \$STATUS ] && [ "\$peran" = nonaktif ] && cairkan
+    exit 0
+fi
+baru_batal() { [ -f \$BATAL ] && [ \$(( \$(date +%s) - \$(stat -c %Y \$BATAL) )) -lt 900 ]; }
+case "\$peran:\$pasangan" in
+    utama:kembali)
+        baru_batal && exit 0
+        [ -f \$STATUS ] && grep -q '^tolak' \$STATUS && [ \$(( \$(date +%s) - \$(stat -c %Y \$STATUS) )) -lt 60 ] || bekukan ;;
+    utama:*) [ -f \$STATUS ] && grep -q '^tolak' \$STATUS && rm -f \$STATUS ;;
+    nonaktif:utama)
+        if [ -f \$STATUS ]; then
+            catat "server utama aktif lagi: server ini dipasang ulang sebagai cadangan"
+            setsid nohup flock -n /run/cbt-ha-pasang.lock env YES=1 bash /usr/local/share/cbt-ha/ha-cadangan.sh pasang \
+                >> \$LOG 2>&1 < /dev/null &
+        fi ;;
+    nonaktif:nonaktif) [ -f \$STATUS ] && cairkan ;;
+esac
+exit 0
+EOJ
+    install -m 700 "$tmp" /usr/local/sbin/cbt-ha-jaga.baru && mv /usr/local/sbin/cbt-ha-jaga.baru /usr/local/sbin/cbt-ha-jaga
+    rm -f "$tmp"
+    cat > /etc/cron.d/cbt-ha-jaga <<EOC
+# CBT HA - pengaman dan "Kembalikan" server cadangan (dibuat oleh ha-cadangan.sh)
+* * * * * root flock -n /run/cbt-ha-jaga.lock /usr/local/sbin/cbt-ha-jaga >/dev/null 2>&1
+EOC
+    chmod 644 /etc/cron.d/cbt-ha-jaga
+    rm -f /etc/cron.d/cbt-ha-utama
+}
+
+
 # ----------------------------------------------------------------- pasang
 # Catatan password dari instalasi server ini sendiri sudah tidak berlaku: database (termasuk akun) kini salinan
 # server utama. Isinya diganti keterangan supaya tidak mengecoh; aslinya disimpan sebagai .lama.
@@ -364,8 +522,9 @@ pasang() {
     done
     # Server utama membaca peran ini: setelah PINDAH ("utama") server utama lama berhenti melayani siswa.
     pasang_peran_web
-    # Bila server ini dulunya utama, pengamannya (cbt-ha-jaga) tidak dipakai lagi.
-    rm -f /etc/cron.d/cbt-ha-utama /usr/local/sbin/cbt-ha-jaga
+    # Pengaman versi cadangan (menggantikan versi utama bila server ini dulunya utama) + sisa proses Kembalikan.
+    tulis_jaga
+    rm -rf /var/lib/cbt-ha-kembali /etc/cbt-ha-kembali
     # Bila server ini dulunya utama, matikan sumber rsync-nya.
     if [ -f /etc/rsyncd.conf ] && grep -q "CBT HA" /etc/rsyncd.conf; then
         systemctl disable --now rsync >/dev/null 2>&1 || true
@@ -525,10 +684,18 @@ pindah() {
     load_conf
     [ "$(cat "$ROLE_FILE" 2>/dev/null)" = cadangan ] || die "Server ini bukan cadangan."
     echo "Server ini ($URL_CADANGAN) akan dijadikan SERVER UTAMA."
-    if ping -c1 -W2 "$PEER_WG_IP" >/dev/null 2>&1; then
-        warn "Server utama MASIH terhubung. Setelah pindah, server utama otomatis berhenti melayani siswa dalam
-  1 menit (cbt-ha-jaga). Tetap umumkan alamat baru ke siswa; bila server utama dipasang dengan skrip lama,
-  matikan server utama (atau hapus DNS $DOMAIN_UTAMA di Cloudflare) supaya jawaban tidak bercabang."
+    # Pindah hanya untuk server utama yang benar-benar mati/terputus: selama server utama masih menjawab
+    # (lewat terowongan WireGuard atau LAN), siswa masih bisa mengerjakan di sana dan jawaban akan bercabang.
+    # Darurat (server utama hidup tetapi rusak): PAKSA=1 cbt-ha pindah — server utama lalu dinonaktifkan cbt-ha-jaga.
+    if ping -c3 -i0.5 -W2 "$PEER_WG_IP" >/dev/null 2>&1; then
+        if [ "${PAKSA:-}" = 1 ]; then
+            warn "Server utama MASIH terhubung, tetapi PAKSA=1: tetap pindah. Server utama akan dinonaktifkan
+  otomatis dalam 1 menit (cbt-ha-jaga); umumkan alamat baru ke siswa."
+        else
+            die "Server utama ($PEER_WG_IP) MASIH terhubung, jadi pindah ditolak supaya jawaban tidak bercabang.
+  Matikan server utama atau putuskan jaringannya dulu, lalu ulangi. Bila server utama hidup tetapi rusak,
+  jalankan di konsol: PAKSA=1 cbt-ha pindah"
+        fi
     fi
     confirm "PINDAH"
 
@@ -583,5 +750,7 @@ case "${1:-}" in
     pasang) pasang ;;
     status) status ;;
     pindah) pindah ;;
-    *) echo "Pakai: bash $0 pasang | status | pindah   (tambahkan YES=1 di depan untuk tanpa konfirmasi)"; exit 1 ;;
+    # Pasang ulang pengaman (cbt-ha-jaga) + alamat /cbt-ha-* saja, tanpa menyentuh data (dipanggil cbt-perbarui).
+    jaga) load_conf; pasang_peran_web; tulis_jaga ;;
+    *) echo "Pakai: bash $0 pasang | status | pindah | jaga   (tambahkan YES=1 di depan untuk tanpa konfirmasi)"; exit 1 ;;
 esac

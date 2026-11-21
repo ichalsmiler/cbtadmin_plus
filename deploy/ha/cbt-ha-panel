@@ -8,11 +8,13 @@
  *   cbt-ha-panel status   → JSON: peran server, alamat, koneksi, replikasi, salinan file, backup
  *   cbt-ha-panel pindah   → jalankan "ha-cadangan.sh pindah" di latar belakang (hanya di server cadangan)
  *   cbt-ha-panel log      → JSON: isi log pindah terakhir + apakah masih berjalan
+ *   cbt-ha-panel kembalikan → jalankan "ha-utama.sh kembalikan" di latar belakang (hanya di server utama yang nonaktif)
  */
 
 const HA_DIR    = '/etc/cbt-ha';
 const ROLE_FILE = '/etc/cbt-ha-peran';
 const SKRIP     = '/usr/local/share/cbt-ha/ha-cadangan.sh';
+const SKRIP_UTAMA = '/usr/local/share/cbt-ha/ha-utama.sh';
 const LOG_FILE  = '/var/log/cbt-ha-pindah.log';
 const PID_FILE  = '/run/cbt-ha-pindah.pid';
 const BACKUP    = '/var/backups/cbt/db';
@@ -132,8 +134,39 @@ if ($aksi === 'pindah') {
     if (berjalan()) {
         keluar(['ok' => false, 'error' => 'Proses pindah sedang berjalan.'], 1);
     }
+    // Server utama masih menjawab (lewat WireGuard atau LAN) → tolak, supaya jawaban siswa tidak bercabang.
+    $conf = bacaConf();
+    $utama = jalan('ip link show wg-cbt >/dev/null 2>&1 && echo ya') === 'ya' ? '10.77.0.1' : (string) ($conf['UTAMA_IP'] ?? '');
+    if ($utama !== '' && jalan('ping -c3 -i0.5 -W2 ' . escapeshellarg($utama) . ' >/dev/null 2>&1 && echo ok') === 'ok') {
+        keluar(['ok' => false, 'error' => 'Server utama masih terhubung, jadi pindah ditolak supaya jawaban siswa tidak bercabang. '
+            . 'Matikan server utama atau putuskan jaringannya dulu, lalu ulangi.'], 1);
+    }
     file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . "] Mulai pindah dari panel CBT Admin\n");
     $pid = jalan('YES=1 setsid nohup bash ' . escapeshellarg(SKRIP) . ' pindah >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
+    file_put_contents(PID_FILE, $pid);
+    keluar(['ok' => true, 'pid' => (int) $pid]);
+}
+
+if ($aksi === 'kembalikan') {
+    // Server utama nonaktif → ambil data terbaru dari server cadangan lalu aktif lagi (ha-utama.sh kembalikan).
+    if (trim((string) @file_get_contents(ROLE_FILE)) !== 'nonaktif') {
+        keluar(['ok' => false, 'error' => 'Kembalikan hanya untuk server utama yang sedang nonaktif.'], 1);
+    }
+    if (! is_file(SKRIP_UTAMA)) {
+        keluar(['ok' => false, 'error' => 'Skrip ' . SKRIP_UTAMA . ' tidak ada. Jalankan cbt-perbarui.'], 1);
+    }
+    if (berjalan()) {
+        keluar(['ok' => false, 'error' => 'Proses lain sedang berjalan.'], 1);
+    }
+    $conf     = bacaConf();
+    $cadangan = jalan('ip link show wg-cbt >/dev/null 2>&1 && echo ya') === 'ya' ? '10.77.0.2' : (string) ($conf['CADANGAN_IP'] ?? '');
+    $peran    = $cadangan === '' ? '' : jalan('curl -fsS --max-time 5 ' . escapeshellarg('http://' . $cadangan . '/cbt-ha-peran') . " | tr -d '[:space:]'");
+    if ($peran !== 'utama') {
+        keluar(['ok' => false, 'error' => 'Server cadangan tidak sedang dipakai ujian atau tidak terjangkau (peran: ' . ($peran ?: 'tidak terjangkau')
+            . '). Pastikan server cadangan hidup dan sudah cbt-perbarui.'], 1);
+    }
+    file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . "] Mulai kembalikan dari panel CBT Admin\n");
+    $pid = jalan('YES=1 setsid nohup bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
     file_put_contents(PID_FILE, $pid);
     keluar(['ok' => true, 'pid' => (int) $pid]);
 }
@@ -144,4 +177,4 @@ if ($aksi === 'log') {
     keluar(['ok' => true, 'berjalan' => berjalan(), 'log' => mb_substr($isi, -20000)]);
 }
 
-keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | log'], 1);
+keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | log'], 1);

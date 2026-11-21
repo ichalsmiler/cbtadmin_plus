@@ -35,7 +35,7 @@ class ServerCadangan
 
         // cadangan = belum dipindah; nonaktif = server utama lama setelah cadangan aktif (cbt-ha-jaga). Keduanya
         // database hanya-baca, panel hanya untuk admin di menu Server Cadangan.
-        return $hasil ??= is_readable('/etc/cbt-ha-peran') && in_array(trim((string) @file_get_contents('/etc/cbt-ha-peran')), ['cadangan', 'nonaktif'], true);
+        return $hasil ??= is_readable('/etc/cbt-ha-peran') && in_array(trim((string) @file_get_contents('/etc/cbt-ha-peran')), ['cadangan', 'nonaktif', 'kembali'], true);
     }
 
     public static function tersedia(): bool
@@ -46,7 +46,7 @@ class ServerCadangan
     /** @return array<string,mixed> */
     public static function jalankan(string $aksi): array
     {
-        if (! in_array($aksi, ['status', 'pindah', 'log'], true)) {
+        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'log'], true)) {
             throw new RuntimeException('Aksi tidak dikenal.');
         }
         if (! self::tersedia()) {

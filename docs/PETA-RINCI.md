@@ -90,6 +90,9 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Semua setelan ada di `deploy/moodle/setelan.php` (idempoten), CSS di `deploy/moodle/boost.scss` (tema Boost,
   antara penanda `CBT MULAI/SELESAI`), teks bahasa di `deploy/moodle/lang/` (→ `moodledata/lang/{id,en}_local`).
   Ubah di sana lalu jalankan `setelan-moodle.sh`; jangan ubah manual lewat Site administration.
+- boost.scss: footer Moodle (tombol ? dan isi footer: Anda belum masuk, retensi data, tema standar, Ditenagai oleh Moodle)
+  disembunyikan; Daftar Ujian kosong bertuliskan "Belum ada ujian yang aktif, hubungi pengawas/proktor" (lang moodle.php
+  `nocourses`, juga mengganti "Tidak ada kursus" di tempat lain); kotak login di tengah layar (min-height 100dvh-140px), di HP diberi jarak 16px kiri-kanan.
 - Plugin `moodle/local/`: `cbtblokir` (pesan "User Anda terblokir"), `cbtnama` (nama depan di samping ikon profil),
   `cbtujian` (Anti Submit / Lock login / Resume timer / Anti Newtab; setelan plugin `local_cbtujian` dikirim dari
   Tools via aksi `cbtujian_config`, Lock login mematikan `limitconcurrentlogins`; juga kotak cari di
@@ -147,4 +150,29 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - `nonaktif` dikenali: `ServerCadangan::siaga()` (panel admin-only menu Server Cadangan), install.sh (lewati migrasi,
   cron mati), view Server Cadangan (lencana kuning), `cbt-ha status` (peringatan). ha-cadangan.sh pasang menghapus jaga.
 - Berlaku setelah `cbt-perbarui` lalu `cbt-ha utama` dijalankan ulang di server utama (jaga dipasang saat pasang HA).
-- Bagian 2 (tombol "Kembalikan ke server sekolah": salin data VPS → sekolah lalu tukar peran) BELUM dibuat.
+- cbt-ha-jaga memasang `export PATH=…/usr/sbin…` (cron hanya /usr/bin:/bin → `nginx` tak ditemukan, halaman Moodle tidak
+  tertutup; ditemukan 21 Nov 2026 di cbt162).
+- PINDAH ditolak bila server utama masih menjawab ping (3x lewat WireGuard 10.77.0.1 atau UTAMA_IP LAN): di ha-cadangan.sh
+  `pindah` (darurat: `PAKSA=1 cbt-ha pindah`), di `cbt-ha-panel pindah` (pesan error ke panel), dan tombol Aktifkan
+  dikunci bila kontak ≤ 3 menit (`$kontakHidup` di view).
+
+## HA: tombol Kembalikan (failback tanpa tukar ha.conf, 21 Nov 2026)
+- Peran: utama | cadangan | nonaktif (utama lama / cadangan yang dibekukan) | kembali (utama sedang mengambil data).
+  Halaman siaga membuka `/cbt-ha-*` (peran + status) untuk pasangan; install.sh menambahkannya ke snippet lama.
+- Server utama nonaktif: menu Server Cadangan → kartu hijau "Kembalikan ujian ke server ini" (ketik KEMBALIKAN, tombol
+  terkunci bila kontak > 3 menit) → `cbt-ha-panel kembalikan` (cek pasangan = utama) → `ha-utama.sh kembalikan`
+  (latar belakang, log sama dengan pindah). Konsol: `cbt-ha kembalikan`.
+  Langkah: peran `kembali` → tunggu `/cbt-ha-kembali` di cadangan `siap` (≤15 mnt; `tolak …` → batal) → backup DB lama
+  `/var/backups/cbt/db/sebelum-kembali-*` → rsync modul `kembali` (db.sql.gz, --add-drop-database moodle cbtadmin) →
+  impor → rsync moodledata + uploads → read_only 0, cron, peran utama, purge cache. Gagal → peran nonaktif lagi.
+- Cadangan: `cbt-ha-jaga` versi cadangan (ha-cadangan.sh `tulis_jaga`, cron `/etc/cron.d/cbt-ha-jaga`, flock):
+  utama+pasangan kembali → tolak bila quiz_attempts inprogress / settings sesi_aktif, selain itu bekukan (read_only,
+  cron mati, halaman "Ujian kembali ke server utama", peran nonaktif, dump ke /var/lib/cbt-ha-kembali, rsyncd modul
+  moodledata/cbtupload/kembali untuk 10.77.0.1, status `siap`); nonaktif+pasangan utama → `ha-cadangan.sh pasang`
+  otomatis (YES=1, flock /run/cbt-ha-pasang.lock, log /var/log/cbt-ha-kembali.log); nonaktif+pasangan nonaktif →
+  cairkan (aktif lagi). `cbt-ha batal` di cadangan = cairkan + tolak permintaan 15 menit.
+- Utama: jaga mengubah sisa peran `kembali` tanpa proses (pgrep) jadi nonaktif. Cron jaga kini `/etc/cron.d/cbt-ha-jaga`.
+- Berlaku setelah cbt-perbarui di kedua server, lalu `cbt-ha utama` (server utama) dan `cbt-ha cadangan KODE` (cadangan).
+  Diuji 21 Nov 2026 cbt162 (nonaktif) ← VPS (utama): 5 langkah ±1 menit, VPS terpasang ulang cadangan otomatis
+  (replikasi Yes/Yes, lag 0). Pasang pengaman tanpa data: `ha-utama.sh jaga` / `ha-cadangan.sh jaga` (install.sh otomatis;
+  jenis = ada cron cbt-ha-cadangan). Cek pengecualian siaga pakai `grep -F "^/cbt-ha-)"` (komentar memuat "cbt-ha-").

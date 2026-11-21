@@ -134,7 +134,7 @@ chown -R www-data:www-data "$APP_DIR/writable"
 mkdir -p "$APP_DIR/webroot"
 ln -sfn ../public "$APP_DIR/webroot/cbtadmin"
 CRON_FILE=/etc/cron.d/cbtadmin
-if [[ "$(cat /etc/cbt-ha-peran 2>/dev/null)" =~ ^(cadangan|nonaktif)$ ]]; then
+if [[ "$(cat /etc/cbt-ha-peran 2>/dev/null)" =~ ^(cadangan|nonaktif|kembali)$ ]]; then
     # Server cadangan HA (atau utama lama yang dinonaktifkan cbt-ha-jaga): database hanya-baca;
     # migrasi dilewati dan cron tetap dimatikan.
     CRON_FILE=/etc/cron.d/cbtadmin.cadangan-off
@@ -209,10 +209,21 @@ if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
     install -m 755 "$SRC/deploy/ha/cbt-ha-panel" /usr/local/sbin/cbt-ha-panel
     [ -f "$SRC/deploy/ha/cbt-ha" ] && install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
     printf '%s\n' '# Panel CBT Admin: menu Server Cadangan (dibuat oleh install.sh)' \
-        'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel log' \
+        'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel kembalikan, /usr/local/sbin/cbt-ha-panel log' \
         > /etc/sudoers.d/cbtadmin-ha
     chmod 440 /etc/sudoers.d/cbtadmin-ha
     visudo -cf /etc/sudoers.d/cbtadmin-ha >/dev/null || { rm -f /etc/sudoers.d/cbtadmin-ha; echo "[PERINGATAN] sudoers Server Cadangan tidak valid, dilewati."; }
+fi
+
+# HA sudah dipasang: perbarui pengaman cbt-ha-jaga + alamat /cbt-ha-* sesuai jenis server, tanpa menyentuh data.
+# Jenis dilihat dari cron cbt-ha-cadangan (hanya ada di server yang dipasang sebagai cadangan, juga setelah PINDAH).
+if [ -f /etc/cbt-ha/ha.conf ] && [ -s /etc/cbt-ha-peran ] && [ -f /usr/local/share/cbt-ha/ha-utama.sh ]; then
+    JENIS_HA=utama; [ -f /etc/cron.d/cbt-ha-cadangan ] && JENIS_HA=cadangan
+    if YES=1 bash "/usr/local/share/cbt-ha/ha-$JENIS_HA.sh" jaga >/dev/null 2>&1; then
+        echo "  - pengaman HA (server $JENIS_HA) diperbarui"
+    else
+        echo "[PERINGATAN] Pengaman HA gagal diperbarui; jalankan: bash /usr/local/share/cbt-ha/ha-$JENIS_HA.sh jaga"
+    fi
 fi
 
 # Server cadangan siaga yang dipasang versi lama: halaman siaga menutup /cbtadmin/ juga, sehingga tombol PINDAH
@@ -226,9 +237,15 @@ location = /cbt-cadangan.html { root /var/www/cbt-ha; internal; }
 set $cbt_siaga 1;
 if ($uri = /cbt-cadangan.html) { set $cbt_siaga 0; }
 if ($uri ~ ^/cbtadmin(/|$)) { set $cbt_siaga 0; }
+if ($uri ~ ^/cbt-ha-) { set $cbt_siaga 0; }
 if ($cbt_siaga) { return 503; }
 EOF
     if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "  - halaman siaga cadangan: panel /cbtadmin/ dibuka"; fi
+fi
+# Halaman siaga lama menutup juga /cbt-ha-peran (dipakai server pasangan untuk pengaman dan tombol Kembalikan).
+if [ -f "$SIAGA" ] && grep -q 'cbt_siaga' "$SIAGA" && ! grep -qF '^/cbt-ha-)' "$SIAGA"; then
+    sed -i '/\^\/cbtadmin(/a if ($uri ~ ^/cbt-ha-) { set $cbt_siaga 0; }' "$SIAGA"
+    if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "  - halaman siaga: alamat /cbt-ha-* untuk server pasangan dibuka"; fi
 fi
 # Kosongkan OPcache supaya kode baru langsung dipakai.
 systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
