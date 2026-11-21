@@ -29,10 +29,32 @@
         </div>
         <div class="mb-4">
             <label class="form-label" for="password">Password</label>
-            <input class="form-control" type="password" id="password" name="password" required>
+            <div class="input-group">
+                <input class="form-control" type="password" id="password" name="password" required>
+                <button class="btn btn-outline-secondary" type="button" id="lihatPassword" title="Tampilkan password" aria-label="Tampilkan password" aria-pressed="false">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
         <button class="btn btn-primary w-100 py-2" type="submit">Masuk ke panel</button>
     </form>
 </main>
+<script>
+(function () {
+    var btn = document.getElementById('lihatPassword');
+    var inp = document.getElementById('password');
+    if (!btn || !inp) return;
+    btn.addEventListener('click', function () {
+        var tampil = inp.type === 'password';
+        inp.type = tampil ? 'text' : 'password';
+        var teks = tampil ? 'Sembunyikan password' : 'Tampilkan password';
+        btn.title = teks;
+        btn.setAttribute('aria-label', teks);
+        btn.setAttribute('aria-pressed', tampil ? 'true' : 'false');
+        btn.querySelector('i').className = tampil ? 'bi bi-eye-slash' : 'bi bi-eye';
+        inp.focus();
+    });
+})();
+</script>
 </body>
 </html>
