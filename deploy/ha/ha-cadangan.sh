@@ -508,10 +508,17 @@ pindah() {
     fi
     confirm "PINDAH"
 
-    log "1/4 Salin file terakhir dari server utama (bila masih bisa)"
-    timeout 120 /usr/local/sbin/cbt-sync || warn "Server utama tidak terjangkau; memakai salinan file terakhir."
+    # Berkas (moodledata, uploads) sudah disalin cron cbt-sync tiap menit; tidak disalin ulang di sini
+    # supaya pindah tidak menunggu server utama yang mati.
+    local terakhir
+    terakhir="$(cat "$HA_DIR/sync-terakhir" 2>/dev/null || echo 0)"
+    if [ "$terakhir" -gt 0 ]; then
+        echo "Berkas terakhir tersalin $(( $(date +%s) - terakhir )) detik lalu ($(date -d "@$terakhir" '+%Y-%m-%d %H:%M:%S'))."
+    else
+        warn "Belum ada catatan salin berkas dari server utama."
+    fi
 
-    log "2/4 Terapkan sisa data replikasi"
+    log "1/3 Terapkan sisa data replikasi"
     mariadb -e "STOP SLAVE IO_THREAD;" 2>/dev/null || true
     local i state
     for i in $(seq 1 60); do
@@ -521,11 +528,11 @@ pindah() {
     done
     echo "Posisi data: $(mariadb -N -e 'SELECT @@gtid_slave_pos')"
 
-    log "3/4 Database dibuka untuk menulis"
+    log "2/3 Database dibuka untuk menulis"
     mariadb -e "STOP SLAVE; RESET SLAVE ALL; SET GLOBAL read_only = 0;"
     sed -i 's/^read_only = 1/read_only = 0/' "$DB_CNF"
 
-    log "4/4 Moodle dan CBT Admin dibuka untuk siswa di server ini"
+    log "3/3 Moodle dan CBT Admin dibuka untuk siswa di server ini"
     echo "utama" > "$ROLE_FILE"
     local f
     for f in moodle cbtadmin; do
