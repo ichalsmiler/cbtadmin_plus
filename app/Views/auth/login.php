@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Masuk · CBT Admin</title>
+    <?= view('partials/favicon') ?>
     <?= view('partials/tema_awal') ?>
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">

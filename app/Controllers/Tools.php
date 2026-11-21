@@ -90,6 +90,7 @@ class Tools extends PanelController
             'hasTtd'  => School::ttdPath() !== null,
             'hasLogo2' => School::logo2Path() !== null,
             'hasLogoLogin' => School::logoLoginPath() !== null,
+            'hasFavicon'   => School::faviconPath() !== null,
             'admins'  => $db->table('admins')->select('id, username, nama, role, aktif, last_login')->orderBy('role')->orderBy('username')->get()->getResultArray(),
             'meId'    => (int) session()->get('admin_id'),
             'logs'    => $db->table('activity_log')->orderBy('id', 'DESC')->limit(300)->get()->getResultArray(),
@@ -199,10 +200,21 @@ class Tools extends PanelController
 
         $pesan = ['sekolah' => 'Info sekolah disimpan.', 'kegiatan' => 'Info kegiatan disimpan.', 'panel' => 'Pengaturan panel disimpan.'][$bagian];
         if ($bagian === 'sekolah') {
-            foreach (['logo' => 'Logo sekolah', 'logo2' => 'Logo kanan kartu', 'ttd' => 'Tanda tangan', 'logologin' => 'Logo halaman login ujian'] as $jenis => $label) {
+            foreach (['logo' => 'Logo sekolah', 'logo2' => 'Logo kanan kartu', 'ttd' => 'Tanda tangan', 'logologin' => 'Logo halaman login ujian', 'favicon' => 'Favicon'] as $jenis => $label) {
                 $hasil = $this->unggahGambar($jenis);
                 if ($hasil === false) {
-                    return redirect()->to(self::halaman('sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus PNG atau JPG, maksimal 1 MB.');
+                    return redirect()->to(self::halaman('sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus '
+                        . ($jenis === 'favicon' ? 'PNG, ICO, atau JPG' : 'PNG atau JPG') . ', maksimal 1 MB.');
+                }
+                // Favicon dipasang juga ke Moodle (Appearance → Logos → Favicon) lewat jembatan.
+                if ($jenis === 'favicon' && $hasil !== null) {
+                    try {
+                        MoodleBridge::call('favicon', $hasil === 'dihapus' ? ['hapus' => true] : ['path' => (string) School::faviconPath()]);
+                        $pesan .= $hasil === 'dihapus' ? ' Favicon dihapus (panel dan Moodle kembali ke ikon bawaan).' : ' Favicon dipasang di panel dan Moodle.';
+                    } catch (\Throwable $e) {
+                        return redirect()->to(self::halaman('sekolah'))->with('error', 'Favicon tersimpan di panel, tetapi gagal dipasang di Moodle: ' . $e->getMessage());
+                    }
+                    continue;
                 }
                 if ($hasil !== null) {
                     $pesan .= ' ' . $label . ' ' . $hasil . '.';
@@ -228,12 +240,17 @@ class Tools extends PanelController
     {
         $file = $this->request->getFile($jenis);
         if ($file && $file->getError() !== UPLOAD_ERR_NO_FILE) {
-            $type = $file->isValid() ? $file->getMimeType() : '';
-            if (! in_array($type, ['image/png', 'image/jpeg'], true) || $file->getSize() > 1024 * 1024) {
+            $type  = $file->isValid() ? $file->getMimeType() : '';
+            $jenisBerkas = ['image/png' => 'png', 'image/jpeg' => 'jpg'];
+            if ($jenis === 'favicon') {
+                // Favicon boleh .ico (dibaca finfo sebagai image/vnd.microsoft.icon atau image/x-icon).
+                $jenisBerkas += ['image/vnd.microsoft.icon' => 'ico', 'image/x-icon' => 'ico'];
+            }
+            if (! isset($jenisBerkas[$type]) || $file->getSize() > 1024 * 1024) {
                 return false;
             }
             School::hapusGambar($jenis);
-            $name = $jenis . '.' . ($type === 'image/png' ? 'png' : 'jpg');
+            $name = $jenis . '.' . $jenisBerkas[$type];
             $file->move(School::UPLOAD_DIR, $name, true);
             Settings::set($jenis . '_file', $name);
 
@@ -251,13 +268,14 @@ class Tools extends PanelController
     /** Pratinjau logo / tanda tangan di halaman Tools. */
     public function gambar(string $jenis)
     {
-        $path = match ($jenis) { 'ttd' => School::ttdPath(), 'logo2' => School::logo2Path(), 'logologin' => School::logoLoginPath(), default => School::logoPath() };
+        $path = match ($jenis) { 'ttd' => School::ttdPath(), 'logo2' => School::logo2Path(), 'logologin' => School::logoLoginPath(), 'favicon' => School::faviconPath(), default => School::logoPath() };
         if ($path === null) {
             return $this->response->setStatusCode(404);
         }
 
+        // Favicon diminta di setiap halaman: boleh disimpan browser (alamatnya memuat ?v=<waktu ubah>).
         return $this->response->setHeader('Content-Type', mime_content_type($path))
-            ->setHeader('Cache-Control', 'no-cache')
+            ->setHeader('Cache-Control', $jenis === 'favicon' ? 'public, max-age=86400' : 'no-cache')
             ->setBody((string) file_get_contents($path));
     }
 

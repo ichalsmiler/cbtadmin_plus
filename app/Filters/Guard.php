@@ -27,7 +27,8 @@ class Guard implements FilterInterface
             }
         }
 
-        if ($path === 'login') {
+        // Halaman login dan favicon (dipakai juga di halaman login) terbuka tanpa sesi.
+        if ($path === 'login' || $path === 'tools/gambar/favicon') {
             return null;
         }
 

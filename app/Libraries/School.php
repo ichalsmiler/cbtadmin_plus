@@ -66,6 +66,12 @@ class School
         return self::gambar('logologin_file');
     }
 
+    /** Favicon (ikon tab browser) panel dan Moodle. */
+    public static function faviconPath(): ?string
+    {
+        return self::gambar('favicon_file');
+    }
+
     /** Tanda tangan pimpinan (untuk dokumen). */
     public static function ttdPath(): ?string
     {
@@ -99,7 +105,7 @@ class School
     private static function hapus(string $jenis): void
     {
         // "logo.*" tidak boleh ikut menghapus "logo2.*", jadi cocokkan nama persis.
-        foreach (glob(self::UPLOAD_DIR . $jenis . '.{png,jpg}', GLOB_BRACE) ?: [] as $file) {
+        foreach (glob(self::UPLOAD_DIR . $jenis . '.{png,jpg,ico}', GLOB_BRACE) ?: [] as $file) {
             @unlink($file);
         }
         Settings::set($jenis . '_file', '');

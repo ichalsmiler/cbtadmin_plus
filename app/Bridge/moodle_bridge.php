@@ -455,6 +455,33 @@ try {
             $result['items'][] = ['status' => 'dipasang', 'file' => $nama];
             break;
 
+        case 'favicon':
+            // Ikon tab browser Moodle (Site administration → Appearance → Logos → Favicon, core_admin/favicon).
+            // Masukan: path = berkas PNG/ICO/JPG yang bisa dibaca, atau hapus = true untuk kembali ke ikon bawaan.
+            $sys = context_system::instance();
+            $fs  = get_file_storage();
+            $fs->delete_area_files($sys->id, 'core_admin', 'favicon', 0);
+            if (! empty($in['hapus'])) {
+                set_config('favicon', '', 'core_admin');
+                theme_reset_all_caches();
+                $result['items'][] = ['status' => 'dihapus'];
+                break;
+            }
+            $path = (string) ($in['path'] ?? '');
+            if (! is_file($path) || ! is_readable($path)) {
+                throw new RuntimeException('Berkas favicon tidak ditemukan.');
+            }
+            $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $nama = 'favicon.' . (in_array($ext, ['png', 'ico', 'jpg'], true) ? $ext : 'png');
+            $fs->create_file_from_pathname([
+                'contextid' => $sys->id, 'component' => 'core_admin', 'filearea' => 'favicon',
+                'itemid'    => 0, 'filepath' => '/', 'filename' => $nama,
+            ], $path);
+            set_config('favicon', '/' . $nama, 'core_admin');
+            theme_reset_all_caches();
+            $result['items'][] = ['status' => 'dipasang', 'file' => $nama];
+            break;
+
         case 'kategori_nonaktif':
             // Pastikan kategori SESI NONAKTIF ada; kembalikan id-nya.
             $result['items'][] = ['id' => cbt_kategori_nonaktif()];

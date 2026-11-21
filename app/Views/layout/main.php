@@ -34,6 +34,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= esc($title) ?> · CBT Admin</title>
+    <?= view('partials/favicon') ?>
     <?= view('partials/tema_awal') ?>
     <link rel="stylesheet" href="<?= $asset('vendor/bootstrap.min.css') ?>">
     <link rel="stylesheet" href="<?= $asset('vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
