@@ -323,6 +323,8 @@ class Peserta extends PanelController
                 'email'      => $teks('email', 100),
                 'department' => $teks('department', 255),
                 'address'    => $teks('address', 255),
+                // Satu atau beberapa cohort (per kelas dan/atau per mapel), maks 60 nama.
+                'cohort'     => array_slice(array_values(array_unique(array_filter(array_map(static fn ($c) => mb_substr(trim((string) $c), 0, 254), array_filter((array) ($u['cohort'] ?? []), 'is_scalar')), 'strlen'))), 0, 60),
                 'course'     => array_values(array_filter(array_map(static fn ($c) => mb_substr(trim((string) $c), 0, 255), array_filter((array) ($u['course'] ?? []), 'is_scalar')))),
             ];
         }

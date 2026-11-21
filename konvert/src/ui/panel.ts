@@ -153,6 +153,7 @@ export async function kirimKeMoodle(
       department: b.department,
       address: b.address,
       course: b.course,
+      cohort: b.cohort ?? [],
     }));
     const res = await ambil(url, {
       method: 'POST',

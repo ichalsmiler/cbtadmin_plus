@@ -1,7 +1,7 @@
 // Tab "User → Moodle": memakai peserta dari tab User → CBTAdmin (password yang sama) dan
 // daftar mapel dari tab Jadwal, lalu menghasilkan CSV seperti USER MOODLE.csv.
 
-import { keMoodle, pengecualianAwal, tingkatPeserta, tulisMoodleCsv, uraiDaftarShortname } from '../core/moodle';
+import { keMoodle, pengecualianAwal, terapkanCohort, tingkatPeserta, tulisMoodleCsv, uraiDaftarShortname, type ModeCohort } from '../core/moodle';
 import { urutTingkat } from '../core/jadwal';
 import { keCbt } from '../core/user';
 import {
@@ -9,10 +9,12 @@ import {
   ambilMoving,
   ambilPeserta,
   mapelLengkap,
+  muatCohort,
   muatPengecualian,
   saatHasilMapelBerubah,
   saatMovingBerubah,
   saatPesertaBerubah,
+  simpanCohort,
   simpanPengecualian,
   unduhCsv,
 } from './simpan';
@@ -35,6 +37,13 @@ function ringkasCourse(course: string[]): HTMLElement {
   const tampil = course.slice(0, 3).map((c) => c.replace(/^USBK-[IVX]+-/, '')).join(', ');
   const sisa = course.length > 3 ? ` +${course.length - 3} lainnya` : '';
   return el('span', { class: 'ringkas-course', title: course.join('\n') }, tampil + sisa);
+}
+
+/** Cohort pertama + "+N lainnya"; daftar lengkap ada di tooltip. */
+function ringkasCohort(cohort: string[]): HTMLElement | string {
+  if (!cohort.length) return '–';
+  const sisa = cohort.length > 1 ? ` +${cohort.length - 1} lainnya` : '';
+  return el('span', { class: 'ringkas-course', title: cohort.join('\n') }, cohort[0] + sisa);
 }
 
 /** Tingkatan yang punya mapel pilihan (kelas moving): pratinjau menampilkan mapel pilihannya saja. */
@@ -60,6 +69,7 @@ function bukaTab(id: string): void {
 
 export function pasangTabMoodle(akar: HTMLElement): void {
   let kecuali = muatPengecualian(pengecualianAwal());
+  let cohort = muatCohort();
   let sheetDipilih = SEMUA;
   let tampilkanPassword = false;
   /** Jumlah baris pratinjau; 0 = semua (file unduhan & kiriman tetap berisi semua). */
@@ -156,12 +166,48 @@ export function pasangTabMoodle(akar: HTMLElement): void {
     );
   }
 
+  function kartuCohort(): HTMLElement {
+    const pilihan: [ModeCohort, string][] = [
+      ['kelas', 'Per kelas (nama kelas, mis. XII-1)'],
+      ['tingkat', 'Per tingkatan (X, XI, XII)'],
+      ['mapel', 'Per mapel (shortname, mis. USBK-XII-BINDO)'],
+      ['kelas-mapel', 'Per kelas dan per mapel'],
+      ['tidak', 'Tidak dimasukkan ke cohort'],
+    ];
+    const mode = el('select', { id: 'cohort-mode' }, ...pilihan.map(([v, t]) => el('option', { value: v, selected: v === cohort.mode }, t)));
+    const awalan = el('input', { type: 'text', id: 'cohort-awalan', value: cohort.awalan, placeholder: 'mis. Kelas ', maxlength: '50' });
+    const simpan = () => {
+      cohort = { mode: mode.value as ModeCohort, awalan: awalan.value };
+      simpanCohort(cohort);
+      gambar();
+    };
+    mode.addEventListener('change', simpan);
+    awalan.addEventListener('change', simpan);
+    const perluAwalan = cohort.mode === 'kelas' || cohort.mode === 'tingkat' || cohort.mode === 'kelas-mapel';
+    return el(
+      'div',
+      { class: 'kartu' },
+      el('h2', {}, el('span', { class: 'langkah' }, '3'), 'Cohort Moodle'),
+      el(
+        'p',
+        { class: 'bantu' },
+        'Siswa dimasukkan ke cohort tingkat situs. Cohort yang belum ada dibuat otomatis saat Kirim ke Moodle; siswa tidak dikeluarkan dari cohort lamanya. Pengaturan disimpan otomatis.',
+      ),
+      el('div', { class: 'baris-kontrol' }, el('label', { for: 'cohort-mode' }, 'Cohort:'), mode),
+      perluAwalan ? el('div', { class: 'baris-kontrol' }, el('label', { for: 'cohort-awalan' }, cohort.mode === 'tingkat' ? 'Awalan nama tingkatan (opsional):' : 'Awalan nama kelas (opsional):'), awalan) : null,
+      cohort.mode === 'mapel' || cohort.mode === 'kelas-mapel' ? el('p', { class: 'bantu' }, 'Cohort mapel bernama sama dengan shortname mapel, berisi siswa yang didaftarkan ke mapel itu (mapel pilihan hanya siswa Kelas Moving).') : null,
+    );
+  }
+
   function kartuHasil(): HTMLElement | null {
     const data = ambilPeserta();
     if (!data) return null;
     const sheet = [...new Set(data.peserta.map((p) => p.sheet).filter((x): x is string => !!x))];
     const peserta = sheetDipilih ? data.peserta.filter((p) => p.sheet === sheetDipilih) : data.peserta;
-    const { baris, peringatan, tingkatTanpaMapel } = keMoodle(peserta, keCbt(peserta), ambilHasilMapel(), kecuali, ambilMoving());
+    const hasilMoodle = keMoodle(peserta, keCbt(peserta), ambilHasilMapel(), kecuali, ambilMoving());
+    const { peringatan, tingkatTanpaMapel } = hasilMoodle;
+    const baris = terapkanCohort(hasilMoodle.baris, cohort);
+    const jumlahCohort = new Set(baris.flatMap((b) => b.cohort ?? [])).size;
     const belumLengkap = [...new Set(baris.map((b) => b.tingkat))].filter((t) => ambilHasilMapel().has(t) && !mapelLengkap(t));
     const pesan = [
       ...peringatan,
@@ -214,7 +260,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
       const tombol = el('button', { class: 'tombol', type: 'button', id: 'tombol-kirim-moodle', disabled: unduh.disabled || baris.length === 0 }, label);
       tombol.addEventListener('click', async () => {
         const jumlahCourse = baris.reduce((n, b) => n + b.course.length, 0);
-        if (!confirm(`Kirim ${baris.length} siswa ke Moodle?\n\n• Akun yang belum ada dibuat; yang sudah ada: password, nama, kelas, dan ruang disamakan.\n• Setiap siswa didaftarkan ke mapelnya (${jumlahCourse} pendaftaran); yang sudah terdaftar dilewati.\n\nUntuk ±1.000 siswa butuh beberapa menit; jangan tutup halaman.`)) return;
+        if (!confirm(`Kirim ${baris.length} siswa ke Moodle?\n\n• Akun yang belum ada dibuat; yang sudah ada: password, nama, kelas, dan ruang disamakan.\n• Setiap siswa didaftarkan ke mapelnya (${jumlahCourse} pendaftaran); yang sudah terdaftar dilewati.\n• ${jumlahCohort ? `Siswa dimasukkan ke ${jumlahCohort} cohort (yang belum ada dibuat).` : 'Tanpa cohort.'}\n\nUntuk ±1.000 siswa butuh beberapa menit; jangan tutup halaman.`)) return;
         tombol.disabled = true;
         hasilKirim.replaceChildren(el('p', { class: 'memuat', role: 'status' }, 'Mengirim…'));
         try {
@@ -252,7 +298,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
     return el(
       'div',
       { class: 'kartu', id: 'kartu-moodle' },
-      el('h2', {}, el('span', { class: 'langkah' }, '3'), 'Pratinjau & unduh'),
+      el('h2', {}, el('span', { class: 'langkah' }, '4'), 'Pratinjau & unduh'),
       pilihSheet,
       daftarPesan(pesan),
       el('div', { class: 'baris-kontrol' }, tombolPassword, el('label', { for: 'batas-moodle' }, 'Tampilkan:'), pilihBatas),
@@ -266,6 +312,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
           { judul: 'email' },
           { judul: 'department' },
           { judul: 'address', angka: true },
+          { judul: 'cohort' },
           { judul: 'Jumlah course', angka: true },
           { judul: 'course (XI/XII: mapel pilihan)' },
         ],
@@ -279,6 +326,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
             b.email,
             b.department,
             b.address,
+            ringkasCohort(b.cohort ?? []),
             b.course.length,
             selCourse(b.course, b.tingkat, ambilMoving().get(b.username) ?? []),
           ],
@@ -293,7 +341,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
       ),
       el('div', { class: 'baris-kontrol' }, unduh, kirim),
       hasilKirim,
-      el('p', { class: 'bantu' }, 'Format sama dengan USER MOODLE.csv: pemisah titik koma (;), email = username@smada.id.'),
+      el('p', { class: 'bantu' }, 'Format sama dengan USER MOODLE.csv: pemisah titik koma (;), email = username@smada.id. Dengan cohort ada kolom cohort1, cohort2, …; upload CSV di Moodle mencocokkannya dengan ID number cohort, jadi pakai Kirim ke Moodle atau buat cohort dulu.'),
       kirim ? el('p', { class: 'bantu' }, 'Kirim ke Moodle = tanpa unduh dan upload CSV: akun dibuat dan siswa langsung didaftarkan ke mapelnya. Mapel (course) harus sudah ada di Moodle.') : null,
     );
   }
@@ -302,7 +350,7 @@ export function pasangTabMoodle(akar: HTMLElement): void {
     const fokus = document.activeElement?.id;
     const data = ambilPeserta();
     const tingkatAda = urutTingkat([...new Set((data?.peserta ?? []).map(tingkatPeserta).filter(Boolean))]);
-    akar.replaceChildren(...[kartuSumber(tingkatAda), kartuPengecualian(tingkatAda), kartuHasil()].filter((x): x is HTMLElement => x !== null));
+    akar.replaceChildren(...[kartuSumber(tingkatAda), kartuPengecualian(tingkatAda), kartuCohort(), kartuHasil()].filter((x): x is HTMLElement => x !== null));
     if (fokus) document.getElementById(fokus)?.focus();
   }
 

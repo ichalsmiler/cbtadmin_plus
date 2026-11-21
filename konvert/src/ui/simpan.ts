@@ -4,6 +4,7 @@
 import { kamusAwal, kodeTerbaru, lengkapiKamus, shortnameTerbaru } from '../core/kamus';
 import { rapikanUrutanSesi, type EditMapel } from '../core/mapel';
 import type { Kamus, PesertaMasuk, Peringatan, PilihanMapel } from '../core/tipe';
+import { COHORT_AWAL, MODE_COHORT, type AturCohort } from '../core/moodle';
 
 const KUNCI_KAMUS = 'web-ujian.kamus';
 
@@ -262,6 +263,30 @@ export function muatPengecualian(awal: Record<string, string[]>): Record<string,
 export function simpanPengecualian(k: Record<string, string[]>): void {
   try {
     localStorage.setItem(KUNCI_KECUALI, JSON.stringify(k));
+  } catch {
+    // abaikan
+  }
+}
+
+// ---- Pengaturan cohort Moodle (tab User → Moodle) ----
+
+const KUNCI_COHORT = 'web-ujian.cohort.v1';
+
+export function muatCohort(): AturCohort {
+  try {
+    const d = JSON.parse(localStorage.getItem(KUNCI_COHORT) ?? 'null') as Partial<AturCohort> | null;
+    if (d && typeof d === 'object' && (MODE_COHORT as readonly string[]).includes(String(d.mode))) {
+      return { mode: d.mode as AturCohort['mode'], awalan: String(d.awalan ?? '') };
+    }
+  } catch {
+    // abaikan
+  }
+  return { ...COHORT_AWAL };
+}
+
+export function simpanCohort(a: AturCohort): void {
+  try {
+    localStorage.setItem(KUNCI_COHORT, JSON.stringify(a));
   } catch {
     // abaikan
   }

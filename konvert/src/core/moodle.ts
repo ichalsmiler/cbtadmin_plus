@@ -54,6 +54,37 @@ export interface BarisMoodle {
   address: string;
   course: string[];
   tingkat: string;
+  /** Nama cohort Moodle siswa ini (kosong = tidak dimasukkan ke cohort); diisi terapkanCohort. */
+  cohort?: string[];
+}
+
+/** Cara mengisi cohort: per kelas (department), per tingkatan (X/XI/XII), per mapel (shortname course), kelas + mapel, atau tidak ada. */
+export type ModeCohort = 'kelas' | 'tingkat' | 'mapel' | 'kelas-mapel' | 'tidak';
+
+export const MODE_COHORT: readonly ModeCohort[] = ['kelas', 'tingkat', 'mapel', 'kelas-mapel', 'tidak'];
+
+export interface AturCohort {
+  mode: ModeCohort;
+  /** Ditambahkan di depan nama kelas/tingkatan, mis. "Kelas " → "Kelas XII-1" (tidak untuk cohort mapel). */
+  awalan: string;
+}
+
+export const COHORT_AWAL: AturCohort = { mode: 'kelas', awalan: '' };
+
+/** Nama cohort satu siswa menurut pengaturan ([] = tanpa cohort). Tiap nama maks 254 karakter (batas Moodle). */
+export function namaCohort(b: Pick<BarisMoodle, 'department' | 'tingkat' | 'course'>, atur: AturCohort): string[] {
+  const rapi = (t: string) => t.trim().replace(/\s+/g, ' ');
+  const pakaiAwalan = (t: string) => (rapi(t) ? rapi(atur.awalan + rapi(t)) : '');
+  const hasil: string[] = [];
+  if (atur.mode === 'kelas' || atur.mode === 'kelas-mapel') hasil.push(pakaiAwalan(b.department));
+  if (atur.mode === 'tingkat') hasil.push(pakaiAwalan(b.tingkat));
+  if (atur.mode === 'mapel' || atur.mode === 'kelas-mapel') hasil.push(...b.course.map(rapi));
+  return [...new Set(hasil.filter(Boolean).map((n) => n.slice(0, 254)))];
+}
+
+/** Salinan baris dengan kolom cohort terisi menurut pengaturan. */
+export function terapkanCohort(baris: readonly BarisMoodle[], atur: AturCohort): BarisMoodle[] {
+  return baris.map((b) => ({ ...b, cohort: namaCohort(b, atur) }));
 }
 
 export interface HasilMoodle {
@@ -143,11 +174,14 @@ export function keMoodle(
 
 /**
  * CSV persis seperti USER MOODLE.csv: pemisah titik koma, akhir baris CRLF, baris terakhir
- * diakhiri CRLF, UTF-8 tanpa BOM. Kolom course1..N dengan N ≥ 14 (sebanyak course terbanyak).
+ * diakhiri CRLF, UTF-8 tanpa BOM. Kolom course1..N dengan N ≥ 14 (sebanyak course terbanyak);
+ * kolom cohort1..M setelah address bila ada siswa ber-cohort (M = cohort terbanyak per siswa).
  */
 export function tulisMoodleCsv(baris: BarisMoodle[]): string {
   const n = Math.max(MIN_KOLOM_COURSE, ...baris.map((b) => b.course.length));
-  const fields = ['username', 'password', 'firstname', 'lastname', 'email', 'department', 'address', ...Array.from({ length: n }, (_, i) => `course${i + 1}`)];
-  const data = baris.map((b) => [b.username, b.password, b.firstname, b.lastname, b.email, b.department, b.address, ...Array.from({ length: n }, (_, i) => b.course[i] ?? '')]);
+  // Kolom cohortN (dicocokkan Moodle dengan ID number cohort) hanya ada bila ada siswa ber-cohort.
+  const m = Math.max(0, ...baris.map((b) => b.cohort?.length ?? 0));
+  const fields = ['username', 'password', 'firstname', 'lastname', 'email', 'department', 'address', ...Array.from({ length: m }, (_, i) => `cohort${i + 1}`), ...Array.from({ length: n }, (_, i) => `course${i + 1}`)];
+  const data = baris.map((b) => [b.username, b.password, b.firstname, b.lastname, b.email, b.department, b.address, ...Array.from({ length: m }, (_, i) => b.cohort?.[i] ?? ''), ...Array.from({ length: n }, (_, i) => b.course[i] ?? '')]);
   return Papa.unparse({ fields, data }, { delimiter: ';', newline: '\r\n' }) + '\r\n';
 }

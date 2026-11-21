@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keMoodle, pengecualianAwal, tingkatPeserta, tulisMoodleCsv, uraiDaftarShortname } from '../../src/core/moodle';
+import { keMoodle, namaCohort, pengecualianAwal, terapkanCohort, tingkatPeserta, tulisMoodleCsv, uraiDaftarShortname } from '../../src/core/moodle';
 import { bacaUser, isiPassword, keCbt } from '../../src/core/user';
 import { bukuContohPeserta } from './contoh-peserta';
 
@@ -130,5 +130,31 @@ describe('keMoodle — kelas moving', () => {
 
   it('tanpa data moving, perilaku lama tidak berubah', () => {
     expect(keMoodle(peserta, cbt, MAPEL, pengecualianAwal()).peringatan.some((x) => /moving/.test(x.pesan))).toBe(false);
+  });
+});
+
+describe('cohort', () => {
+  const b = { department: ' XII-1 ', tingkat: 'XII', course: ['USBK-XII-BINDO', 'USBK-XII-MTK'] };
+  it('per kelas, per tingkatan, dengan awalan', () => {
+    expect(namaCohort(b, { mode: 'kelas', awalan: '' })).toEqual(['XII-1']);
+    expect(namaCohort(b, { mode: 'kelas', awalan: 'Kelas  ' })).toEqual(['Kelas XII-1']);
+    expect(namaCohort(b, { mode: 'tingkat', awalan: 'Tingkat ' })).toEqual(['Tingkat XII']);
+  });
+  it('per mapel, kelas + mapel (awalan hanya untuk kelas), atau tidak ada', () => {
+    expect(namaCohort(b, { mode: 'mapel', awalan: 'Kelas ' })).toEqual(['USBK-XII-BINDO', 'USBK-XII-MTK']);
+    expect(namaCohort(b, { mode: 'kelas-mapel', awalan: 'Kelas ' })).toEqual(['Kelas XII-1', 'USBK-XII-BINDO', 'USBK-XII-MTK']);
+    expect(namaCohort(b, { mode: 'tidak', awalan: 'Kelas ' })).toEqual([]);
+    expect(namaCohort({ department: '', tingkat: '', course: [] }, { mode: 'kelas-mapel', awalan: 'Kelas ' })).toEqual([]);
+  });
+  it('CSV mendapat kolom cohort1..M setelah address hanya bila ada cohort', () => {
+    const { baris } = keMoodle(peserta, cbt, MAPEL, pengecualianAwal());
+    const dengan = tulisMoodleCsv(terapkanCohort(baris, { mode: 'kelas-mapel', awalan: '' })).split('\r\n');
+    const kepala = dengan[0].split(';');
+    const m = Math.max(...terapkanCohort(baris, { mode: 'kelas-mapel', awalan: '' }).map((x) => x.cohort!.length));
+    expect(kepala.slice(6, 8)).toEqual(['address', 'cohort1']);
+    expect(kepala.filter((k) => k.startsWith('cohort'))).toHaveLength(m);
+    expect(dengan[1].split(';').slice(7, 9)).toEqual(['X-1', 'USBK-X-MATEMATIKA']);
+    const tanpa = tulisMoodleCsv(terapkanCohort(baris, { mode: 'tidak', awalan: '' })).split('\r\n');
+    expect(tanpa[0]).not.toContain('cohort');
   });
 });

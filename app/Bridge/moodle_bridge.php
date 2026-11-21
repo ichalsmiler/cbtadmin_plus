@@ -38,7 +38,8 @@ function cbt_add_to_cohort(int $userid, string $name): void
         $cohortid = cohort_add_cohort((object) [
             'contextid'         => $context->id,
             'name'              => $name,
-            'idnumber'          => '',
+            // ID number = nama (bila belum dipakai cohort lain) agar kolom cohort1 di upload CSV Moodle juga cocok.
+            'idnumber'          => $DB->record_exists('cohort', ['idnumber' => $name]) ? '' : $name,
             'description'       => '',
             'descriptionformat' => FORMAT_HTML,
             'visible'           => 1,
@@ -196,8 +197,11 @@ try {
                         ];
                         $item += ['id' => (int) user_create_user($user, true, false), 'status' => 'dibuat'];
                     }
-                    if (! empty($u['cohort'])) {
-                        cbt_add_to_cohort($item['id'], (string) $u['cohort']);
+                    // cohort: satu nama (Tambah user) atau daftar nama (Konvert: per kelas/mapel).
+                    foreach ((array) ($u['cohort'] ?? []) as $namaCohort) {
+                        if (trim((string) $namaCohort) !== '') {
+                            cbt_add_to_cohort($item['id'], trim((string) $namaCohort));
+                        }
                     }
                 } catch (Throwable $e) {
                     $item['error'] = cbt_clean_error($e->getMessage());

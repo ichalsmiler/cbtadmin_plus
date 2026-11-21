@@ -37,6 +37,7 @@ describe('kirim ke Moodle', () => {
     expect(meta['cbt-csrf'].content).toBe('t2');
     expect(h).toEqual({ dibuat: PAKET_MOODLE + 5, diperbarui: 0, enrolBaru: PAKET_MOODLE + 5, enrolSudah: 0, gagal: [], tidakAda: ['USBK-X-KKA'] });
     expect(kemajuan).toEqual([PAKET_MOODLE, PAKET_MOODLE + 5]);
+    expect(JSON.parse(String(ambil.mock.calls[0][1]?.body)).users[0].cohort).toEqual([]);
   });
 
   it('berhenti dengan pesan jelas bila paket gagal', async () => {
