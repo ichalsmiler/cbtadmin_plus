@@ -69,7 +69,7 @@ export interface AturCohort {
   awalan: string;
 }
 
-export const COHORT_AWAL: AturCohort = { mode: 'kelas', awalan: '' };
+export const COHORT_AWAL: AturCohort = { mode: 'tidak', awalan: '' };
 
 /** Nama cohort satu siswa menurut pengaturan ([] = tanpa cohort). Tiap nama maks 254 karakter (batas Moodle). */
 export function namaCohort(b: Pick<BarisMoodle, 'department' | 'tingkat' | 'course'>, atur: AturCohort): string[] {

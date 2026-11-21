@@ -168,11 +168,11 @@ export function pasangTabMoodle(akar: HTMLElement): void {
 
   function kartuCohort(): HTMLElement {
     const pilihan: [ModeCohort, string][] = [
+      ['tidak', 'Tidak dimasukkan ke cohort'],
       ['kelas', 'Per kelas (nama kelas, mis. XII-1)'],
       ['tingkat', 'Per tingkatan (X, XI, XII)'],
       ['mapel', 'Per mapel (shortname, mis. USBK-XII-BINDO)'],
       ['kelas-mapel', 'Per kelas dan per mapel'],
-      ['tidak', 'Tidak dimasukkan ke cohort'],
     ];
     const mode = el('select', { id: 'cohort-mode' }, ...pilihan.map(([v, t]) => el('option', { value: v, selected: v === cohort.mode }, t)));
     const awalan = el('input', { type: 'text', id: 'cohort-awalan', value: cohort.awalan, placeholder: 'mis. Kelas ', maxlength: '50' });
