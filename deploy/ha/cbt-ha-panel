@@ -9,6 +9,9 @@
  *   cbt-ha-panel pindah   → jalankan "ha-cadangan.sh pindah" di latar belakang (hanya di server cadangan)
  *   cbt-ha-panel log      → JSON: isi log pindah terakhir + apakah masih berjalan
  *   cbt-ha-panel kembalikan → jalankan "ha-utama.sh kembalikan" di latar belakang (hanya di server utama yang nonaktif)
+ *   cbt-ha-panel utama    → "cbt-ha utama" di latar belakang: mode sinkron di server utama (tombol di panel)
+ *   cbt-ha-panel cadangan → KODE dari stdin (bukan argumen, supaya kunci rahasia tidak terlihat di daftar proses),
+ *                           simpan ha.conf lalu "ha-cadangan.sh pasang" di latar belakang
  */
 
 const HA_DIR    = '/etc/cbt-ha';
@@ -18,6 +21,7 @@ const SKRIP_UTAMA = '/usr/local/share/cbt-ha/ha-utama.sh';
 const LOG_FILE  = '/var/log/cbt-ha-pindah.log';
 const PID_FILE  = '/run/cbt-ha-pindah.pid';
 const BACKUP    = '/var/backups/cbt/db';
+const CBT_HA    = '/usr/local/sbin/cbt-ha';
 
 function keluar(array $data, int $kode = 0): never
 {
@@ -52,6 +56,27 @@ function berjalan(): bool
     $pid = (int) @file_get_contents(PID_FILE);
 
     return $pid > 0 && file_exists('/proc/' . $pid);
+}
+
+/** Jumlah percobaan ujian yang sedang dikerjakan siswa (null bila database Moodle tidak terbaca). */
+function ujianBerjalan(): ?int
+{
+    $cfg = (string) @file_get_contents('/var/www/moodle/config.php');
+    if (! preg_match("/\\\$CFG->dbname\\s*=\\s*'([A-Za-z0-9_]+)'/", $cfg, $db) || ! preg_match("/\\\$CFG->prefix\\s*=\\s*'([A-Za-z0-9_]*)'/", $cfg, $pf)) {
+        return null;
+    }
+    $n = jalan('mariadb -N -B -e ' . escapeshellarg("SELECT COUNT(*) FROM `{$db[1]}`.`{$pf[1]}quiz_attempts` WHERE state = 'inprogress'"));
+
+    return ctype_digit($n) ? (int) $n : null;
+}
+
+/** Proses latar belakang (setsid, tetap jalan walau halaman ditutup); catatan ke LOG_FILE. */
+function mulaiLatar(string $judul, string $cmd): never
+{
+    file_put_contents(LOG_FILE, '[' . date('Y-m-d H:i:s') . '] ' . $judul . "\n");
+    $pid = jalan('YES=1 setsid nohup ' . $cmd . ' >> ' . escapeshellarg(LOG_FILE) . ' 2>&1 < /dev/null & echo $!');
+    file_put_contents(PID_FILE, $pid);
+    keluar(['ok' => true, 'pid' => (int) $pid]);
 }
 
 $aksi = $argv[1] ?? '';
@@ -184,10 +209,73 @@ if ($aksi === 'kembalikan') {
     keluar(['ok' => true, 'pid' => (int) $pid]);
 }
 
+if ($aksi === 'utama') {
+    // Mode sinkron di server utama = "cbt-ha utama" (ha.conf dari pengaturan panel, lalu ha-utama.sh pasang).
+    $peran = trim((string) @file_get_contents(ROLE_FILE));
+    if (is_file('/etc/cron.d/cbt-ha-cadangan') || $peran === 'cadangan') {
+        keluar(['ok' => false, 'error' => 'Server ini dipasang sebagai server cadangan. Tombol ini dipakai di panel server utama.'], 1);
+    }
+    if ($peran === 'nonaktif' || $peran === 'kembali') {
+        keluar(['ok' => false, 'error' => 'Server ini sedang nonaktif (ujian dilayani server cadangan). Pakai tombol Kembalikan.'], 1);
+    }
+    if (! is_file(CBT_HA) || ! is_file(SKRIP_UTAMA)) {
+        keluar(['ok' => false, 'error' => 'Skrip HA belum terpasang. Jalankan cbt-perbarui di server ini.'], 1);
+    }
+    if (berjalan()) {
+        keluar(['ok' => false, 'error' => 'Proses lain sedang berjalan. Tunggu sampai selesai.'], 1);
+    }
+    // Pemasangan bisa me-restart MariaDB (binlog), jadi ditolak saat siswa sedang mengerjakan.
+    $n = ujianBerjalan();
+    if ($n > 0) {
+        keluar(['ok' => false, 'error' => $n . ' siswa sedang mengerjakan ujian. Aktifkan mode sinkron setelah ujian selesai.'], 1);
+    }
+    mulaiLatar('Mulai mode sinkron (cbt-ha utama) dari panel CBT Admin', escapeshellarg(CBT_HA) . ' utama');
+}
+
+if ($aksi === 'cadangan') {
+    // Jadikan server ini cadangan: KODE (base64 ha.conf dari panel server utama) dibaca dari stdin.
+    $kode = trim((string) stream_get_contents(STDIN, 16384));
+    $kode = preg_replace('/^cbt-ha\s+cadangan\s+/', '', $kode);  // boleh menempel perintah lengkapnya
+    $kode = preg_replace('/\s+/', '', (string) $kode);
+    $isi  = preg_match('#^[A-Za-z0-9+/]+={0,2}$#', $kode) ? base64_decode($kode, true) : false;
+    if (! is_string($isi) || ! preg_match('/^HA_SECRET="[A-Za-z0-9]{32,}"$/m', $isi)
+        || ! preg_match('/^UTAMA_IP="[0-9.]+"$/m', $isi) || ! preg_match('/^CADANGAN_IP="[0-9.]+"$/m', $isi)) {
+        keluar(['ok' => false, 'error' => 'KODE tidak valid. Salin ulang seluruh KODE dari menu Server Cadangan di panel server utama.'], 1);
+    }
+    // Hanya baris VAR="nilai" yang dikenal; ha.conf di-source oleh skrip bash sebagai root.
+    $baris = [];
+    foreach (explode("\n", $isi) as $b) {
+        $b = rtrim($b, "\r");
+        if ($b === '' || str_starts_with($b, '#')) {
+            continue;
+        }
+        if (! preg_match('/^[A-Z_]+="[A-Za-z0-9.:_-]*"$/', $b)) {
+            keluar(['ok' => false, 'error' => 'KODE berisi baris yang tidak dikenal. Salin ulang dari panel server utama.'], 1);
+        }
+        $baris[] = $b;
+    }
+    $peran = trim((string) @file_get_contents(ROLE_FILE));
+    if ($peran === 'utama' || $peran === 'nonaktif' || $peran === 'kembali') {
+        keluar(['ok' => false, 'error' => 'Server ini sedang berperan ' . strtoupper($peran) . '. Hanya server baru atau server cadangan yang bisa dipasang sebagai cadangan.'], 1);
+    }
+    if (! is_file(SKRIP)) {
+        keluar(['ok' => false, 'error' => 'Skrip HA belum terpasang. Jalankan cbt-perbarui di server ini.'], 1);
+    }
+    if (berjalan()) {
+        keluar(['ok' => false, 'error' => 'Proses lain sedang berjalan. Tunggu sampai selesai.'], 1);
+    }
+    if (! is_dir(HA_DIR)) {
+        mkdir(HA_DIR, 0700, true);
+    }
+    file_put_contents(HA_DIR . '/ha.conf', '# Konfigurasi CBT HA (dari KODE panel server utama, ' . date('Y-m-d H:i') . ").\n" . implode("\n", $baris) . "\n");
+    chmod(HA_DIR . '/ha.conf', 0600);
+    mulaiLatar('Mulai pasang server cadangan dari panel CBT Admin', 'flock -n /run/cbt-ha-pasang.lock bash ' . escapeshellarg(SKRIP) . ' pasang');
+}
+
 if ($aksi === 'log') {
     $isi = is_file(LOG_FILE) ? (string) file_get_contents(LOG_FILE) : '';
     $isi = preg_replace('/\e\[[0-9;]*m/', '', $isi);  // buang kode warna terminal
     keluar(['ok' => true, 'berjalan' => berjalan(), 'log' => mb_substr($isi, -20000)]);
 }
 
-keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | log'], 1);
+keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | utama | cadangan | log'], 1);

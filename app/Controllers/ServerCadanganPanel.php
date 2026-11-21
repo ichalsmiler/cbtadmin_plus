@@ -115,6 +115,45 @@ class ServerCadanganPanel extends PanelController
         return redirect()->to($back . '#proses')->with('success', 'Proses kembalikan dimulai. Ikuti catatannya di bawah sampai selesai (beberapa menit).');
     }
 
+    /** Server utama: mode sinkron = "cbt-ha utama" dari tombol (latar belakang, lewat jembatan root). */
+    public function sinkron()
+    {
+        $back = site_url('server_cadangan');
+        $kode = ServerCadangan::kodeCadangan();
+        if ($kode === null) {
+            return redirect()->to($back . '#pengaturan')->with('error', 'Lengkapi dan Simpan pengaturan dulu (IP server utama, IP server cadangan).');
+        }
+        try {
+            ServerCadangan::jalankan('utama');
+        } catch (\Throwable $e) {
+            return redirect()->to($back . '#peranUtama')->with('error', 'Mode sinkron tidak bisa diaktifkan: ' . $e->getMessage());
+        }
+        ActivityLog::add('server_cadangan', 'mode sinkron diaktifkan (cbt-ha utama)');
+
+        return redirect()->to($back . '#proses')->with('success', 'Mode sinkron sedang diaktifkan. Ikuti catatannya di bawah; setelah selesai, salin KODE ke panel server cadangan.');
+    }
+
+    /** Server cadangan: tempel KODE dari panel server utama → ha.conf + ha-cadangan.sh pasang (latar belakang). */
+    public function jadiCadangan()
+    {
+        $back = site_url('server_cadangan');
+        if (trim((string) $this->request->getPost('konfirmasi')) !== 'CADANGAN') {
+            return redirect()->to($back . '#jadi-cadangan')->with('error', 'Ketik CADANGAN (huruf kapital) untuk menjadikan server ini cadangan.');
+        }
+        $kode = trim((string) $this->request->getPost('kode'));
+        if ($kode === '') {
+            return redirect()->to($back . '#jadi-cadangan')->with('error', 'Tempel KODE dari menu Server Cadangan di panel server utama.');
+        }
+        try {
+            ServerCadangan::jalankan('cadangan', $kode);
+        } catch (\Throwable $e) {
+            return redirect()->to($back . '#jadi-cadangan')->with('error', 'Server ini tidak bisa dijadikan cadangan: ' . $e->getMessage());
+        }
+        ActivityLog::add('server_cadangan', 'server ini dipasang sebagai CADANGAN (KODE dari panel utama)');
+
+        return redirect()->to($back . '#proses')->with('success', 'Pemasangan server cadangan dimulai (beberapa menit). Setelah selesai, login panel memakai akun admin server utama.');
+    }
+
     /** Catatan proses pindah (JSON, untuk diperbarui berkala di halaman). */
     public function log()
     {

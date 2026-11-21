@@ -145,7 +145,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 </div>
 
 <div class="card mt-4 <?= ! empty($s['pindah_berjalan']) ? '' : 'd-none' ?>" id="proses">
-    <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses pindah / kembalikan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
+    <div class="card-header fw-semibold"><i class="bi bi-terminal me-1"></i>Proses server cadangan <span class="spinner-border spinner-border-sm ms-1" id="prosesSpin"></span></div>
     <pre class="card-body small mb-0" id="prosesLog" style="max-height:24rem;overflow:auto;white-space:pre-wrap"></pre>
 </div>
 
@@ -200,32 +200,70 @@ $tersambung = $peran === 'cadangan' || ($peran === 'utama' && ($s['kontak_detik'
 <details class="mt-4 small text-muted">
     <summary>Sambungkan ulang / ganti server cadangan</summary>
 <?php endif ?>
-<div class="card mt-<?= $tersambung ? '2' : '4' ?>">
+<?php
+// Tombol per server: mode sinkron hanya di server utama (baru atau sudah utama); tempel KODE hanya di server
+// baru atau server cadangan (server utama yang aktif tidak boleh ditimpa data server lain).
+$bisaUtama    = $jenis === 'utama' && in_array($peran, ['', 'utama'], true);
+$bisaCadangan = in_array($peran, ['', 'cadangan'], true);
+?>
+<div class="card mt-<?= $tersambung ? '2' : '4' ?>" id="sambung">
     <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i>Sambungkan ke cadangan (sekali)</div>
     <div class="card-body small">
         <ol class="mb-3">
             <li>VPS sudah dipasang dengan perintah yang sama seperti server utama (<em>pasang-cbt.sh</em>, lihat tutorial), port <strong>UDP 51820</strong> dibuka.</li>
-            <li>Isi pengaturan di atas lalu <strong>Simpan</strong>.</li>
-            <li>Di <strong>konsol server utama</strong> (login root), jalankan:</li>
-        </ol>
-        <div class="input-group mb-3">
-            <input class="form-control font-monospace" readonly value="cbt-ha utama" id="cmdUtama">
-            <button class="btn btn-outline-secondary" type="button" data-salin="#cmdUtama"><i class="bi bi-clipboard me-1"></i>Salin</button>
-        </div>
-        <ol class="mb-3" start="4">
-            <li>Di <strong>konsol VPS cadangan</strong> (login root), jalankan perintah ini (berisi kunci rahasia, jangan dibagikan):</li>
-        </ol>
-        <?php if ($kode !== null): ?>
-            <div class="input-group mb-3">
-                <input class="form-control font-monospace" readonly value="<?= esc('cbt-ha cadangan ' . $kode, 'attr') ?>" id="cmdCadangan">
-                <button class="btn btn-outline-secondary" type="button" data-salin="#cmdCadangan"><i class="bi bi-clipboard me-1"></i>Salin</button>
-            </div>
-        <?php else: ?>
-            <div class="alert alert-warning py-2">Perintah muncul setelah IP server utama, IP server cadangan, dan pengaturan disimpan.</div>
-        <?php endif ?>
-        <ol class="mb-0" start="5">
+            <li>Di panel server utama: isi pengaturan di atas lalu <strong>Simpan</strong>.</li>
+            <li>Di panel <strong>server utama</strong>: pilih <strong>Server utama</strong> → <strong>Aktifkan mode sinkron</strong>, tunggu catatannya selesai, lalu salin <strong>KODE</strong>.</li>
+            <li>Di panel <strong>server cadangan</strong> (VPS) → Server Cadangan: pilih <strong>Server cadangan</strong>, tempel KODE lalu klik <strong>Jadikan server cadangan</strong>.</li>
             <li>Muat ulang halaman ini di kedua server: utama berstatus <em>UTAMA</em>, VPS berstatus <em>CADANGAN</em> dengan salinan database <em>Berjalan</em>.</li>
         </ol>
+
+        <?php $pilih = $bisaUtama && $bisaCadangan; // server baru: pilih dulu jadi utama atau cadangan ?>
+        <?php if ($pilih): ?>
+            <p class="fw-semibold mb-2 mt-4">Server ini akan dijadikan:</p>
+            <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Pilih peran server ini">
+                <button class="btn btn-outline-primary" type="button" data-peran-pilih="peranUtama" aria-pressed="false"><i class="bi bi-broadcast me-1"></i>Server utama</button>
+                <button class="btn btn-outline-primary" type="button" data-peran-pilih="peranCadangan" aria-pressed="false"><i class="bi bi-shield-check me-1"></i>Server cadangan</button>
+            </div>
+        <?php endif ?>
+
+        <?php if ($bisaUtama): ?>
+          <div id="peranUtama" class="<?= $pilih ? 'd-none' : '' ?>">
+            <h6 class="fw-semibold mt-4"><i class="bi bi-broadcast me-1"></i>Server utama (server ini)</h6>
+            <?php if ($kode === null): ?>
+                <div class="alert alert-warning py-2">Isi IP server utama, IP server cadangan, dan pengaturan lainnya, lalu Simpan.</div>
+            <?php else: ?>
+                <form method="post" action="<?= site_url('server_cadangan/sinkron') ?>" class="mb-3" data-no-dirty
+                      data-confirm="Aktifkan mode sinkron di server ini? Pemasangan bisa me-restart database sebentar, jadi jangan dilakukan saat ujian berlangsung.">
+                    <?= csrf_field() ?>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-repeat me-1"></i>Aktifkan mode sinkron</button>
+                </form>
+                <label class="form-label" for="kodeCadangan">KODE untuk server cadangan (berisi kunci rahasia, jangan dibagikan)</label>
+                <div class="input-group mb-1">
+                    <input class="form-control font-monospace" readonly value="<?= esc($kode, 'attr') ?>" id="kodeCadangan">
+                    <button class="btn btn-outline-secondary" type="button" data-salin="#kodeCadangan"><i class="bi bi-clipboard me-1"></i>Salin</button>
+                </div>
+                <div class="form-text mb-3">Tanpa panel di VPS: jalankan <code>cbt-ha cadangan KODE</code> di konsol VPS.</div>
+            <?php endif ?>
+          </div>
+        <?php endif ?>
+
+        <?php if ($bisaCadangan): ?>
+          <div id="peranCadangan" class="<?= $pilih ? 'd-none' : '' ?>">
+            <form method="post" action="<?= site_url('server_cadangan/jadi_cadangan') ?>" id="jadi-cadangan" class="<?= $pilih ? '' : 'border-top pt-3 ' ?>mt-3" autocomplete="off" data-no-dirty>
+                <?= csrf_field() ?>
+                <h6 class="fw-semibold"><i class="bi bi-shield-check me-1"></i>Jadikan server ini cadangan</h6>
+                <p class="text-muted mb-2">Hanya di server cadangan (VPS). Database Moodle dan panel di server ini <strong>diganti salinan dari server utama</strong>.
+                    Setelah selesai, login panel memakai akun admin server utama.</p>
+                <label class="form-label" for="kodeTempel">KODE dari panel server utama</label>
+                <textarea class="form-control font-monospace mb-2" id="kodeTempel" name="kode" rows="3" required spellcheck="false"
+                          placeholder="Tempel KODE di sini"></textarea>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <input class="form-control" style="max-width:14rem" name="konfirmasi" required placeholder="Ketik CADANGAN" autocomplete="off">
+                    <button class="btn btn-outline-danger" type="submit"><i class="bi bi-shield-check me-1"></i>Jadikan server cadangan</button>
+                </div>
+            </form>
+          </div>
+        <?php endif ?>
     </div>
 </div>
 <?php if ($tersambung): ?>
@@ -237,7 +275,27 @@ $tersambung = $peran === 'cadangan' || ($peran === 'utama' && ($s['kontak_detik'
 <script>
 (function () {
     'use strict';
-    // Tombol Salin perintah konsol.
+    // Server baru: tombol Server utama / Server cadangan menampilkan bagiannya (yang lain disembunyikan).
+    var pilihPeran = function (id) {
+        document.querySelectorAll('[data-peran-pilih]').forEach(function (b) {
+            var aktif = b.dataset.peranPilih === id;
+            b.classList.toggle('btn-primary', aktif);
+            b.classList.toggle('btn-outline-primary', !aktif);
+            b.setAttribute('aria-pressed', aktif ? 'true' : 'false');
+            var bagian = document.getElementById(b.dataset.peranPilih);
+            if (bagian) { bagian.classList.toggle('d-none', !aktif); }
+        });
+    };
+    document.querySelectorAll('[data-peran-pilih]').forEach(function (b) {
+        b.addEventListener('click', function () { pilihPeran(b.dataset.peranPilih); });
+    });
+    // Kembali dari tombol (pesan galat) di bagian tertentu: bagian itu langsung terpilih.
+    if (location.hash === '#jadi-cadangan') { pilihPeran('peranCadangan'); }
+    if (location.hash === '#peranUtama') { pilihPeran('peranUtama'); }
+    // Pesan dari tombol di dalam <details> yang tertutup (#sambung / #jadi-cadangan): buka supaya terlihat.
+    var tuju = location.hash && document.querySelector(location.hash);
+    if (tuju && tuju.closest('details')) { tuju.closest('details').open = true; tuju.scrollIntoView(); }
+    // Tombol Salin (KODE / perintah konsol).
     document.querySelectorAll('[data-salin]').forEach(function (b) {
         b.addEventListener('click', function () {
             var el = document.querySelector(b.dataset.salin);

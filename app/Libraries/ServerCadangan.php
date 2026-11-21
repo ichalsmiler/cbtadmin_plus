@@ -44,18 +44,21 @@ class ServerCadangan
     }
 
     /** @return array<string,mixed> */
-    public static function jalankan(string $aksi): array
+    public static function jalankan(string $aksi, string $masukan = ''): array
     {
-        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'log'], true)) {
+        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'utama', 'cadangan', 'log'], true)) {
             throw new RuntimeException('Aksi tidak dikenal.');
         }
         if (! self::tersedia()) {
             throw new RuntimeException('Jembatan Server Cadangan belum terpasang. Jalankan deploy ulang panel di server ini.');
         }
-        $proc = proc_open(['sudo', '-n', self::HELPER, $aksi], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        // Masukan (KODE cadangan) lewat stdin, bukan argumen: berisi kunci rahasia.
+        $proc = proc_open(['sudo', '-n', self::HELPER, $aksi], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (! is_resource($proc)) {
             throw new RuntimeException('Jembatan Server Cadangan tidak bisa dijalankan.');
         }
+        fwrite($pipes[0], $masukan);
+        fclose($pipes[0]);
         $out = (string) stream_get_contents($pipes[1]);
         $err = (string) stream_get_contents($pipes[2]);
         fclose($pipes[1]);
