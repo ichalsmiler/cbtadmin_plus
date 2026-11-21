@@ -640,7 +640,8 @@ status() {
     else
         hs="$(wg show "$WG_IF" latest-handshakes 2>/dev/null | awk '{print $2}')"
     fi
-    if [ -n "$hs" ] && [ "$hs" -gt 0 ] && [ $(( $(date +%s) - hs )) -le 180 ]; then
+    # Terhubung sekarang = pasangan menjawab ping lewat terowongan (handshake hanya diperbarui ±2 menit sekali).
+    if ping -c2 -i0.3 -W1 "$PEER_WG_IP" >/dev/null 2>&1; then
         echo "Terhubung ke utama, kontak terakhir $(( $(date +%s) - hs )) detik lalu"
     elif [ -n "$hs" ] && [ "$hs" -gt 0 ]; then
         echo "PUTUS dari utama: kontak terakhir $(( ($(date +%s) - hs) / 60 )) menit lalu ($PEER_WG_IP)"

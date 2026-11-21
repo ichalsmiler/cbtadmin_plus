@@ -81,6 +81,11 @@ if ($aksi === 'status') {
             }
         }
     }
+    // Terhubung SEKARANG: ping lewat terowongan (atau IP LAN pasangan). Handshake WireGuard hanya diperbarui ±2 menit
+    // sekali, jadi umurnya tidak cukup cepat menandai server pasangan yang baru mati.
+    $sasaran   = $adaWg ? $peerIp : ($peran === 'cadangan' ? ($conf['UTAMA_IP'] ?? '') : ($conf['CADANGAN_IP'] ?? ''));
+    $terhubung = $sasaran !== '' && $peran !== ''
+        && jalan('ping -c2 -i0.3 -W1 ' . escapeshellarg($sasaran) . ' >/dev/null && echo ok') === 'ok';
 
     // Replikasi database (hanya di server cadangan).
     $repl = null;
@@ -116,6 +121,7 @@ if ($aksi === 'status') {
         'utama_ip'        => $conf['UTAMA_IP'] ?? '',
         'cadangan_ip'     => $conf['CADANGAN_IP'] ?? '',
         'kontak_detik'    => $kontak,
+        'terhubung'       => $terhubung,
         'replikasi'       => $repl,
         'sync_detik'      => $sync,
         'backup'          => $backup,

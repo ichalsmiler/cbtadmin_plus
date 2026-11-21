@@ -14,8 +14,11 @@ $detik  = static function ($d): string {
 };
 $ukuran = static fn ($b): string => $b >= 1073741824 ? round($b / 1073741824, 1) . ' GB' : round($b / 1048576, 1) . ' MB';
 $repl   = $s['replikasi'] ?? null;
-// WireGuard memperbarui kontak (handshake) ±2 menit sekali selama tersambung; lebih dari 3 menit = putus.
-$kontakHidup = isset($s['kontak_detik']) && $s['kontak_detik'] !== null && (int) $s['kontak_detik'] <= 180;
+// Terhubung = server pasangan menjawab ping lewat terowongan sekarang (helper baru). Helper lama: umur handshake
+// WireGuard (diperbarui ±2 menit sekali) maksimal 3 menit.
+$kontakHidup = array_key_exists('terhubung', $s)
+    ? (bool) $s['terhubung']
+    : isset($s['kontak_detik']) && $s['kontak_detik'] !== null && (int) $s['kontak_detik'] <= 180;
 $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 ?>
 <?php if ($error !== ''): ?>
