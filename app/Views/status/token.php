@@ -11,7 +11,7 @@
         <form class="row g-2 mb-1" method="post" data-no-dirty action="<?= site_url('status_tes/release') ?>">
             <?= csrf_field() ?>
             <div class="col-md-9">
-                <input class="form-control form-control-lg font-monospace fw-bold text-center token-box" id="tokenValue" readonly aria-label="Token"
+                <input class="form-control form-control-lg font-monospace fw-semibold text-center token-box" id="tokenValue" readonly aria-label="Token"
                        value="<?= esc(! $tokenEnabled ? 'Token dinonaktifkan' : ($sesiAktif === 0 ? 'Sesi nonaktif' : ($token !== '' ? $token : 'Silakan klik tombol Release'))) ?>">
             </div>
             <div class="col-md-3 d-grid">

@@ -11,7 +11,7 @@
         <div class="me-auto">
             <div class="small text-muted"><?= $token['mapel'] !== '' ? 'Token tes ' . esc($token['mapel']) : 'Belum ada tes aktif' ?></div>
             <div>
-                <span class="font-monospace fw-bold fs-4 token-ringkas" id="tokenValue" style="letter-spacing:.2em"><?= esc(! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–'))) ?></span>
+                <span class="font-monospace fw-semibold fs-4 token-ringkas" id="tokenValue" style="letter-spacing:.2em"><?= esc(! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–'))) ?></span>
                 <?php if ($token['enabled'] && $token['next'] > 0): ?>
                     <span class="small text-muted ms-2">ganti pukul <strong id="tokenNext"><?= date('H:i', $token['next']) ?></strong> (<span id="tokenLeft">–</span>)</span>
                 <?php endif ?>
@@ -25,7 +25,7 @@
     <div class="card-body text-center py-4">
         <?php if (! empty($token['sesiBelum'])): ?>
             <?php // Sesi nonaktif: nama tes disembunyikan; pesan di atas ikon, ukuran sama dengan baris nama tes (tebal). ?>
-            <div class="mb-2 fw-bold text-warning-emphasis">Sesi belum diaktifkan oleh proktor.</div>
+            <div class="mb-2 fw-semibold text-warning-emphasis">Sesi belum diaktifkan oleh proktor</div>
             <div class="token-display text-muted"><i class="bi bi-hourglass-split"></i></div>
             <p class="small text-muted mt-2 mb-0">Token akan muncul setelah proktor mengaktifkan sesi ujian. Halaman ini diperbarui otomatis.</p>
         <?php else: ?>
@@ -39,7 +39,7 @@
             <p class="mt-2 mb-3">Token muncul setelah absensi siswa ruang ini hari ini disimpan.</p>
             <a class="btn btn-primary" href="<?= site_url('kehadiran') ?>"><i class="bi bi-clipboard-check me-1"></i>Isi Laporan Kehadiran</a>
         <?php else: ?>
-            <div class="token-display font-monospace fw-bold" id="tokenValue">
+            <div class="token-display font-monospace fw-semibold" id="tokenValue">
                 <?= esc(! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–'))) ?>
             </div>
             <p class="text-muted small mt-2 mb-0">

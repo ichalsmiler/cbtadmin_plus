@@ -48,7 +48,7 @@ $bars = $isAdmin ? [
 <?php else: ?>
     <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2" role="status">
         <i class="bi bi-exclamation-triangle"></i>
-        <span>Belum ada sesi yang aktif.</span>
+        <span>Belum ada sesi yang aktif</span>
         <?php if ($isAdmin): ?><a class="alert-link ms-auto small" href="<?= site_url('status_tes') ?>">Aktifkan di Setting Ujian</a><?php endif ?>
     </div>
 <?php endif ?>
