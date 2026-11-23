@@ -77,16 +77,30 @@
             <?php else: ?>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Nama Pelajaran</th><th>Shortname</th><th class="text-center">Status</th><th class="text-center">Aksi</th></tr></thead>
+                        <thead><tr><th data-hanya-admin><input class="form-check-input" type="checkbox" id="pm_semua" aria-label="Centang semua mapel"></th><th>Nama Pelajaran</th><th>Shortname</th><th class="text-center">Status</th><th class="text-center">Aksi</th></tr></thead>
                         <tbody>
                         <?php if ($mapel === []): ?>
-                            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada pelajaran.</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted py-4">Belum ada pelajaran.</td></tr>
                         <?php endif ?>
                         <?php foreach ($mapel as $c): ?>
+                            <?php $on = (int) $c['visible'] === 1; ?>
                             <tr>
+                                <td data-hanya-admin>
+                                    <input class="form-check-input" type="checkbox" name="ids[]" value="<?= (int) $c['id'] ?>" form="pindahForm" data-pm-cek
+                                           <?= $tesAktif && $on ? 'disabled title="Aktif di tes aktif; nonaktifkan dulu untuk memindah"' : '' ?>
+                                           aria-label="Pilih <?= esc($c['fullname'], 'attr') ?>">
+                                </td>
                                 <td><?= esc($c['fullname']) ?></td>
                                 <td><code><?= esc($c['shortname']) ?></code></td>
-                                <td class="text-center"><?= (int) $c['visible'] ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td>
+                                <td class="text-center">
+                                    <button type="button" class="badge border-0 text-bg-<?= $on ? 'success' : 'secondary' ?>" data-hanya-admin
+                                            title="Klik untuk <?= $on ? 'menonaktifkan' : 'mengaktifkan' ?>"
+                                            data-post="<?= site_url('tools/test_manage/mapel/status') ?>"
+                                            data-fields="<?= esc(json_encode(['id' => (int) $c['id']]), 'attr') ?>"
+                                            data-confirm-text="<?= esc(($on ? 'Nonaktifkan' : 'Aktifkan') . ' mapel "' . $c['fullname'] . '"?' . ($on ? ' Peserta tidak bisa membukanya lagi.' : ' Peserta bisa membukanya.'), 'attr') ?>">
+                                        <?= $on ? 'Aktif' : 'Nonaktif' ?> <i class="bi bi-arrow-repeat ms-1" aria-hidden="true"></i>
+                                    </button>
+                                </td>
                                 <td class="text-center">
                                     <a class="btn btn-sm btn-link" href="<?= esc($moodle . '/course/view.php?id=' . (int) $c['id'], 'attr') ?>" target="_blank" rel="noopener" title="Buka di Moodle untuk mengisi soal">
                                         <i class="bi bi-box-arrow-up-right"></i>
@@ -101,7 +115,25 @@
                         </tbody>
                     </table>
                 </div>
+                <?php if ($mapel !== []): ?>
+                    <form class="card-body border-top d-flex flex-wrap gap-2 align-items-center" id="pindahForm" method="post" data-hanya-admin
+                          action="<?= site_url('tools/test_manage/mapel/pindah') ?>"
+                          data-confirm="Pindahkan mapel yang dicentang? Soal, jawaban, dan nilai ikut pindah; mapel menjadi Nonaktif di ujian tujuan.">
+                        <?= csrf_field() ?>
+                        <label class="fw-semibold small" for="pm_kategori">Pindahkan mapel yang dicentang ke</label>
+                        <select class="form-select form-select-sm w-auto" id="pm_kategori" name="kategori" required>
+                            <option value="">Pilih ujian…</option>
+                            <?php foreach ($kategori as $k): ?>
+                                <?php if ((int) $k['id'] === (int) $aktif['id'] || \App\Libraries\ActiveTest::isNonaktif($k['name'])) { continue; } ?>
+                                <option value="<?= (int) $k['id'] ?>"><?= esc($k['name']) ?> (<?= (int) $k['coursecount'] ?> mapel)</option>
+                            <?php endforeach ?>
+                        </select>
+                        <button class="btn btn-primary btn-sm" type="submit" id="pm_kirim" disabled>Pindah</button>
+                        <span class="small text-body-secondary" id="pm_jumlah" aria-live="polite"></span>
+                    </form>
+                <?php endif ?>
                 <div class="card-body small text-muted border-top">
+                    Klik status untuk mengaktifkan/menonaktifkan mapel (aktifkan hanya bisa di tes aktif).
                     Pelajaran baru dibuat sebagai course <em>Single activity</em> berisi Quiz dan tersembunyi dari peserta.
                     Isi soalnya di Moodle (ikon <i class="bi bi-box-arrow-up-right"></i>), lalu aktifkan di <a href="<?= site_url('status_tes') ?>?kat=<?= (int) $aktif['id'] ?>">Setting Ujian</a>.
                 </div>
@@ -261,6 +293,10 @@
 <?php endif ?>
 
 <?php if ($aktif): ?>
+<form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
+<?php endif ?>
+
+<?php if ($aktif): ?>
 <div class="modal fade" id="ubahUjianModal" tabindex="-1" aria-labelledby="ubahUjianLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form class="modal-content" method="post" action="<?= site_url('tools/test_manage/ujian/ubah') ?>">
@@ -377,6 +413,24 @@
         hmKonfirmasi.addEventListener('input', function () {
             hmKirim.disabled = hmKonfirmasi.value.trim() !== hmShort;
         });
+    }
+    // Pindah mapel massal: tombol Pindah aktif bila ada mapel dicentang dan ujian tujuan dipilih.
+    var pf = document.getElementById('pindahForm');
+    if (pf) {
+        var cek = Array.prototype.slice.call(document.querySelectorAll('[data-pm-cek]:not(:disabled)'));
+        var semua = document.getElementById('pm_semua');
+        var tujuan = document.getElementById('pm_kategori');
+        var hitung = function () {
+            var n = cek.filter(function (el) { return el.checked; }).length;
+            document.getElementById('pm_kirim').disabled = n === 0 || !tujuan.value;
+            document.getElementById('pm_jumlah').textContent = n ? n + ' mapel dicentang' : '';
+            semua.checked = n > 0 && n === cek.length;
+            semua.indeterminate = n > 0 && n < cek.length;
+        };
+        semua.disabled = cek.length === 0;
+        semua.addEventListener('change', function () { cek.forEach(function (el) { el.checked = semua.checked; }); hitung(); });
+        cek.forEach(function (el) { el.addEventListener('change', hitung); });
+        tujuan.addEventListener('change', hitung);
     }
     // Reset Moodle: tombol aktif bila RESET MOODLE diketik persis; "simpan guru" hanya berlaku bila akun siswa dihapus.
     var rm = document.getElementById('rm_konfirmasi');

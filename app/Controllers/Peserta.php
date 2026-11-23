@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Libraries\ActivityLog;
 use App\Libraries\Excel;
+use App\Libraries\MapelPilihan;
 use App\Libraries\Moodle;
 use App\Libraries\MoodleBridge;
 use App\Libraries\Pengawas;
@@ -483,6 +484,18 @@ class Peserta extends PanelController
         $db     = db_connect();
         $linked = array_column($db->table('peserta')->select('username')->get()->getResultArray(), 'username');
 
+        // Mapel pilihan (moving) XI/XII: daftar course per tingkat dan yang sudah diikuti tiap siswa.
+        $pilihan      = array_fill_keys(MapelPilihan::TINGKAT, []);
+        $pilihanSiswa = [];
+        if (! $error) {
+            try {
+                $pilihan      = MapelPilihan::courses();
+                $pilihanSiswa = MapelPilihan::terdaftar(array_merge(...array_map('array_keys', array_values($pilihan))));
+            } catch (\Throwable $e) {
+                log_message('error', 'Mapel pilihan: ' . $e->getMessage());
+            }
+        }
+
         return $this->render('peserta/moodle', [
             'title'       => 'Daftar Peserta Moodle',
             'rows'        => $rows,
@@ -492,7 +505,73 @@ class Peserta extends PanelController
             'kelasList'   => array_values($kelasList),
             'moodleError' => $error,
             'linked'      => array_flip($linked),
+            'pilihan'     => $pilihan,
+            'pilihanSiswa' => $pilihanSiswa,
         ]);
+    }
+
+    /**
+     * Atur mapel pilihan (moving) satu siswa XI/XII: course pilihan tingkatnya yang dicentang didaftarkan
+     * (bridge enrol_users), yang tidak dicentang dikeluarkan (bridge unenrol_users). Mapel yang sudah ada
+     * attempt siswa ini tidak dikeluarkan supaya jawaban dan nilainya tetap ada.
+     */
+    public function mapelPilihan()
+    {
+        $back   = site_url('daftar_peserta/moodle') . (($q = (string) $this->request->getPost('kembali')) !== '' ? '?' . $q : '');
+        $userid = (int) $this->request->getPost('userid');
+        $pilih  = array_map('intval', (array) $this->request->getPost('course'));
+        try {
+            $u = $userid > 0 && ! in_array($userid, Moodle::nonParticipantIds(), true)
+                ? Moodle::db()->table(Moodle::t('user'))->select('id, username, firstname, lastname, department')->where('id', $userid)->where('deleted', 0)->get()->getRowArray()
+                : null;
+            if (! $u) {
+                return redirect()->to($back)->with('error', 'Siswa tidak ditemukan di Moodle.');
+            }
+            $kelas   = trim((string) $u['department']) !== '' ? trim((string) $u['department']) : trim((string) $u['lastname']);
+            $tingkat = Tingkat::of($kelas);
+            $courses = MapelPilihan::courses()[$tingkat] ?? null;
+            if ($courses === null) {
+                return redirect()->to($back)->with('error', 'Mapel pilihan hanya untuk siswa kelas XI dan XII.');
+            }
+            $sekarang = array_values(array_intersect(MapelPilihan::terdaftar(array_keys($courses))[$userid] ?? [], array_keys($courses)));
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        $pilih  = array_values(array_intersect($pilih, array_keys($courses)));
+        $tambah = array_map(static fn ($id) => $courses[$id]['shortname'], array_diff($pilih, $sekarang));
+        $hapus  = array_map(static fn ($id) => $courses[$id]['shortname'], array_diff($sekarang, $pilih));
+        $nama   = trim($u['firstname'] . ' ' . $u['lastname']);
+        if ($tambah === [] && $hapus === []) {
+            return redirect()->to($back)->with('success', 'Mapel pilihan ' . $nama . ' tidak berubah.');
+        }
+        $gagal = [];
+        try {
+            if ($hapus !== []) {
+                $h = MoodleBridge::call('unenrol_users', ['users' => [['userid' => $userid, 'courses' => array_values($hapus)]]])[0] ?? [];
+                if (isset($h['error'])) {
+                    $gagal[] = $h['error'];
+                }
+                if (($h['ada_attempt'] ?? []) !== []) {
+                    $gagal[] = 'tidak dikeluarkan karena sudah ada jawaban: ' . implode(', ', $h['ada_attempt']);
+                    $hapus   = array_diff($hapus, $h['ada_attempt']);
+                }
+            }
+            if ($tambah !== []) {
+                $t = MoodleBridge::call('enrol_users', ['users' => [['userid' => $userid, 'courses' => array_values($tambah)]]])[0] ?? [];
+                if (isset($t['error'])) {
+                    $gagal[] = $t['error'];
+                }
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal mengubah mapel pilihan: ' . $e->getMessage());
+        }
+        $ringkas = trim(($tambah !== [] ? 'ditambah ' . implode(', ', $tambah) : '') . ($tambah !== [] && $hapus !== [] ? '; ' : '') . ($hapus !== [] ? 'dikeluarkan dari ' . implode(', ', $hapus) : ''));
+        ActivityLog::add('mapel_pilihan', $u['username'] . ': ' . ($ringkas !== '' ? $ringkas : 'tidak berubah'));
+        if ($gagal !== []) {
+            return redirect()->to($back)->with('error', 'Mapel pilihan ' . $nama . ($ringkas !== '' ? ' ' . $ringkas : '') . '. Sebagian gagal: ' . implode('; ', $gagal) . '.');
+        }
+
+        return redirect()->to($back)->with('success', 'Mapel pilihan ' . $nama . ' ' . $ringkas . '.');
     }
 
     /**

@@ -621,6 +621,29 @@ try {
             $result['items'][] = ['id' => (int) $course->id, 'shortname' => $course->shortname, 'status' => 'dihapus'];
             break;
 
+        case 'move_courses':
+            // Pindahkan mapel (course) ke kategori ujian tingkat atas lain: {courses: [id], category: id}.
+            // Sesudah dipindah mapel tetap tersembunyi; dibuka lagi lewat Setting Ujian / status di Kategori Mapel.
+            require_once $CFG->dirroot . '/course/lib.php';
+            $cat = core_course_category::get((int) $in['category'], MUST_EXIST, true);
+            if ((int) $cat->parent !== 0 || cbt_kategori_nonaktif_kah((string) $cat->name)) {
+                throw new RuntimeException('Kategori tujuan harus kategori ujian tingkat atas (bukan ' . CBT_KAT_NONAKTIF . ').');
+            }
+            $ids = array_values(array_filter(array_map('intval', (array) $in['courses']), static fn ($id) => $id > 1));
+            if ($ids === []) {
+                throw new RuntimeException('Tidak ada mapel yang dipindah.');
+            }
+            if (! move_courses($ids, (int) $cat->id)) {
+                throw new RuntimeException('Moodle gagal memindahkan mapel.');
+            }
+            foreach ($ids as $id) {
+                if ($DB->get_field('course', 'visible', ['id' => $id])) {
+                    course_change_visibility($id, false);
+                }
+                $result['items'][] = ['id' => $id, 'category' => (int) $cat->id, 'status' => 'dipindah'];
+            }
+            break;
+
         case 'rename_categories':
             // Ganti nama beberapa kategori tingkat atas sekaligus: [{id, name}]. Dua tahap (nama sementara dulu)
             // supaya pertukaran nama, mis. h1 -> H2 sementara H2 -> H3, tidak bentrok di tengah jalan.
@@ -862,6 +885,48 @@ try {
                         }
                         $manual->enrol_user($inst, $item['userid'], (int) $role->id);
                         $item['baru']++;
+                    }
+                } catch (Throwable $e) {
+                    $item['error'] = cbt_clean_error($e->getMessage());
+                }
+                $result['items'][] = $item;
+            }
+            break;
+
+        case 'unenrol_users':
+            // Keluarkan user dari course (shortname) lewat semua metode enrol tempat ia terdaftar.
+            // Masukan: users = [{userid, courses: [shortname, ...]}]. Course yang sudah ada attempt user ini dilewati
+            // (ada_attempt) supaya jawaban dan nilainya tidak hilang dari laporan.
+            require_once $CFG->dirroot . '/lib/enrollib.php';
+            foreach ($in['users'] as $u) {
+                $item = ['userid' => (int) $u['userid'], 'keluar' => 0, 'ada_attempt' => [], 'tidak_ada' => []];
+                try {
+                    $user = $DB->get_record('user', ['id' => $item['userid'], 'deleted' => 0], '*', MUST_EXIST);
+                    if (is_siteadmin($user) || isguestuser($user)) {
+                        throw new RuntimeException('Akun admin tidak diubah dari panel.');
+                    }
+                    foreach ((array) $u['courses'] as $sn) {
+                        $course = $DB->get_record('course', ['shortname' => trim((string) $sn)], 'id, shortname');
+                        if (! $course || (int) $course->id === (int) SITEID) {
+                            $item['tidak_ada'][] = (string) $sn;
+
+                            continue;
+                        }
+                        $attempt = $DB->record_exists_sql(
+                            'SELECT 1 FROM {quiz_attempts} a JOIN {quiz} q ON q.id = a.quiz WHERE q.course = ? AND a.userid = ? AND a.preview = 0',
+                            [$course->id, $item['userid']]
+                        );
+                        if ($attempt) {
+                            $item['ada_attempt'][] = $course->shortname;
+
+                            continue;
+                        }
+                        foreach (enrol_get_instances((int) $course->id, false) as $inst) {
+                            if ($DB->record_exists('user_enrolments', ['enrolid' => $inst->id, 'userid' => $item['userid']])) {
+                                enrol_get_plugin($inst->enrol)->unenrol_user($inst, $item['userid']);
+                                $item['keluar']++;
+                            }
+                        }
                     }
                 } catch (Throwable $e) {
                     $item['error'] = cbt_clean_error($e->getMessage());

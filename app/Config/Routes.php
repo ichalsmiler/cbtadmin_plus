@@ -26,6 +26,8 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('tools/test_manage/ujian', 'Tools::tambahUjian');
     $routes->post('tools/test_manage/mapel', 'Tools::tambahMapel');
     $routes->post('tools/test_manage/mapel/hapus', 'Tools::hapusMapel');
+    $routes->post('tools/test_manage/mapel/pindah', 'Tools::pindahMapel');
+    $routes->post('tools/test_manage/mapel/status', 'Tools::statusMapel');
     $routes->post('tools/test_manage/reset', 'Tools::resetMoodle');
     $routes->post('tools/test_manage/durasi', 'Tools::durasi');
     $routes->post('tools/test_manage/reset/lanjut', 'Tools::resetLanjut');
@@ -83,6 +85,7 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('daftar_peserta/moodle/tambah', 'Peserta::tambahMoodle');
     $routes->post('daftar_peserta/moodle/kirim_json', 'Peserta::kirimMoodleJson');
     $routes->post('daftar_peserta/moodle/reset_password', 'Peserta::resetPassword');
+    $routes->post('daftar_peserta/moodle/mapel_pilihan', 'Peserta::mapelPilihan');
 
     $routes->get('status_tes', 'StatusTes::index');
     $routes->get('token_ujian', 'StatusTes::halamanToken');

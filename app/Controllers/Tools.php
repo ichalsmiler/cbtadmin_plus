@@ -734,20 +734,11 @@ class Tools extends PanelController
     {
         $id   = (int) $this->request->getPost('id');
         $back = site_url('tools/test_manage');
-        try {
-            $c = Moodle::db()->query(
-                'SELECT c.id, c.fullname, c.shortname, c.visible, cc.path FROM ' . Moodle::t('course') . ' c
-                   JOIN ' . Moodle::t('course_categories') . ' cc ON cc.id = c.category WHERE c.id = ? AND c.id > 1',
-                [$id]
-            )->getRowArray();
-        } catch (\Throwable $e) {
-            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        $c    = $this->mapelById($id);
+        if (! is_array($c)) {
+            return redirect()->to($back)->with('error', $c);
         }
-        if (! $c) {
-            return redirect()->to($back)->with('error', 'Mapel tidak ditemukan.');
-        }
-        // Kategori ujian = kategori tingkat atas, angka pertama di path "/<id>/...".
-        $katUjian = (int) explode('/', trim((string) $c['path'], '/'))[0];
+        $katUjian = $c['kat_ujian'];
         $back    .= '?kat=' . $katUjian;
         if ((int) $c['visible'] === 1 && $katUjian === \App\Libraries\ActiveTest::categoryId()) {
             return redirect()->to($back)->with('error', 'Mapel "' . $c['fullname'] . '" sedang aktif di tes aktif. Nonaktifkan dulu di Setting Ujian.');
@@ -763,6 +754,119 @@ class Tools extends PanelController
         ActivityLog::add('hapus_mapel', $c['shortname'] . ' (' . $c['fullname'] . ', id ' . $id . ')');
 
         return redirect()->to($back)->with('success', 'Mapel "' . $c['fullname'] . '" dihapus dari Moodle.');
+    }
+
+    /**
+     * Satu mapel (course) beserta kategori ujiannya (kategori tingkat atas, angka pertama di path "/<id>/...")
+     * sebagai kat_ujian; string = pesan galat.
+     */
+    private function mapelById(int $id): array|string
+    {
+        try {
+            $c = Moodle::db()->query(
+                'SELECT c.id, c.fullname, c.shortname, c.visible, cc.path FROM ' . Moodle::t('course') . ' c
+                   JOIN ' . Moodle::t('course_categories') . ' cc ON cc.id = c.category WHERE c.id = ? AND c.id > 1',
+                [$id]
+            )->getRowArray();
+        } catch (\Throwable $e) {
+            return 'Database Moodle tidak bisa dibaca.';
+        }
+        if (! $c) {
+            return 'Mapel tidak ditemukan.';
+        }
+        $c['kat_ujian'] = (int) explode('/', trim((string) $c['path'], '/'))[0];
+
+        return $c;
+    }
+
+    /**
+     * Pindahkan mapel yang dicentang (ids[]) ke kategori ujian lain (bridge move_courses). Mapel yang sedang aktif
+     * di tes aktif ditolak; sesudah dipindah mapel tersembunyi sampai diaktifkan lagi.
+     */
+    public function pindahMapel()
+    {
+        $ids    = array_values(array_unique(array_filter(array_map('intval', (array) $this->request->getPost('ids')))));
+        $tujuan = (int) $this->request->getPost('kategori');
+        $back   = site_url('tools/test_manage');
+        if ($ids === []) {
+            return redirect()->to($back)->with('error', 'Centang mapel yang akan dipindah.');
+        }
+        $daftar = [];
+        foreach ($ids as $id) {
+            $c = $this->mapelById($id);
+            if (! is_array($c)) {
+                return redirect()->to($back)->with('error', $c);
+            }
+            $daftar[] = $c;
+        }
+        $back .= '?kat=' . $daftar[0]['kat_ujian'];
+        $nama  = null;
+        try {
+            foreach (Moodle::categories() as $k) {
+                if ((int) $k['id'] === $tujuan && (int) $k['parent'] === 0) {
+                    $nama = $k['name'];
+                }
+            }
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Database Moodle tidak bisa dibaca.');
+        }
+        if ($nama === null || \App\Libraries\ActiveTest::isNonaktif($nama)) {
+            return redirect()->to($back)->with('error', 'Pilih kategori ujian tujuan.');
+        }
+        $tesAktif = \App\Libraries\ActiveTest::categoryId();
+        foreach ($daftar as $c) {
+            if ((int) $c['visible'] === 1 && $c['kat_ujian'] === $tesAktif) {
+                return redirect()->to($back)->with('error', 'Mapel "' . $c['fullname'] . '" sedang aktif di tes aktif. Nonaktifkan dulu sebelum dipindah.');
+            }
+        }
+        $pindah = array_values(array_filter($daftar, static fn ($c) => $c['kat_ujian'] !== $tujuan));
+        if ($pindah === []) {
+            return redirect()->to($back)->with('error', 'Mapel yang dicentang sudah ada di ujian ' . $nama . '.');
+        }
+        try {
+            MoodleBridge::call('move_courses', ['courses' => array_map(static fn ($c) => (int) $c['id'], $pindah), 'category' => $tujuan]);
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal memindahkan mapel: ' . $e->getMessage());
+        }
+        ActivityLog::add('pindah_mapel', implode(', ', array_column($pindah, 'shortname')) . ' → ' . $nama . ' (kategori ' . $tujuan . ')');
+
+        return redirect()->to($back)->with('success', count($pindah) . ' mapel dipindah ke ujian ' . $nama . ' (berstatus Nonaktif): ' . implode(', ', array_column($pindah, 'fullname')) . '.');
+    }
+
+    /**
+     * Ganti status Aktif/Nonaktif satu mapel (bridge course_visibility). Mapel hanya bisa diaktifkan di tes aktif
+     * (kategori lain tersembunyi dari peserta); mapel aktif terakhir di tes aktif tidak bisa dinonaktifkan.
+     */
+    public function statusMapel()
+    {
+        $id = (int) $this->request->getPost('id');
+        $c  = $this->mapelById($id);
+        if (! is_array($c)) {
+            return redirect()->to(site_url('tools/test_manage'))->with('error', $c);
+        }
+        $back     = site_url('tools/test_manage') . '?kat=' . $c['kat_ujian'];
+        $aktifkan = (int) $c['visible'] !== 1;
+        $tesAktif = $c['kat_ujian'] === \App\Libraries\ActiveTest::categoryId();
+        try {
+            if ($aktifkan && ! $tesAktif) {
+                return redirect()->to($back)->with('error', 'Mapel hanya bisa diaktifkan di tes aktif. Jadikan ujian ini tes aktif dulu di Setting Ujian.');
+            }
+            if (! $aktifkan && $tesAktif) {
+                $lain = array_filter(Moodle::coursesInCategory($c['kat_ujian']), static fn ($m) => (int) $m['visible'] === 1 && (int) $m['id'] !== $id);
+                if ($lain === []) {
+                    return redirect()->to($back)->with('error', 'Harus ada minimal 1 mata pelajaran yang aktif di tes aktif.');
+                }
+            }
+            $hasil = MoodleBridge::call('course_visibility', ['courses' => [['id' => $id, 'visible' => $aktifkan]]]);
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Gagal mengubah status mapel: ' . $e->getMessage());
+        }
+        if (isset($hasil[0]['error'])) {
+            return redirect()->to($back)->with('error', 'Gagal mengubah status mapel: ' . $hasil[0]['error']);
+        }
+        ActivityLog::add('status_mapel', $c['shortname'] . ' (id ' . $id . ') → ' . ($aktifkan ? 'aktif' : 'nonaktif'));
+
+        return redirect()->to($back)->with('success', 'Mapel "' . $c['fullname'] . '" ' . ($aktifkan ? 'diaktifkan' : 'dinonaktifkan') . '.');
     }
 
     // ------------------------------------------------------------------ Durasi pengerjaan
