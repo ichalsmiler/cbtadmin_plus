@@ -71,8 +71,8 @@ class Dashboard extends PanelController
                 // Pengawas ruang: sesi yang sedang ujian dan jumlah siswa ruang ini di sesi itu
                 // (tanpa sesi aktif: semua siswa di ruang).
                 $sesi          = ActiveTest::sesiAktif();
-                $data['ruang'] = $sesi !== null ? 'Sesi ' . $sesi['nama'] : '–';
-                $data['users'] = count(Pengawas::usernamesInRuang($ruang, $sesi['id'] ?? null));
+                $data['ruang'] = $sesi !== null ? ($sesi['id'] === ActiveTest::SEMUA ? $sesi['label'] : 'Sesi ' . $sesi['nama']) : '–';
+                $data['users'] = count(Pengawas::usernamesInRuang($ruang, ActiveTest::sesiFilter()));
             } else {
                 $data['ruang'] = db_connect()->table('ruang')->countAllResults();
             }
@@ -83,7 +83,7 @@ class Dashboard extends PanelController
         try {
             // Hitungan submit mengikuti tes aktif (Setting Ujian); tanpa tes aktif, semua quiz.
             $catId   = ActiveTest::categoryId() ?: null;
-            $userIds = $ruang !== null ? Pengawas::moodleIdsInRuang($ruang, ActiveTest::sesiId() ?: null) : null;
+            $userIds = $ruang !== null ? Pengawas::moodleIdsInRuang($ruang, ActiveTest::sesiFilter()) : null;
             if ($ruang === null) {
                 $minutes       = max(1, (int) Settings::get('active_minutes', '5'));
                 $data['users'] = Moodle::totalUsers();
@@ -91,7 +91,7 @@ class Dashboard extends PanelController
             }
             if ($ruang !== null) {
                 // Pengawas: tiap siswa masuk satu kelompok (belum login → belum mulai → mengerjakan → sudah submit).
-                $pantau          = PantauRuang::get($ruang, ActiveTest::sesiId() ?: null);
+                $pantau          = PantauRuang::get($ruang, ActiveTest::sesiFilter());
                 $data['pantau']  = $pantau;
                 $data['belumLogin'] = count($pantau['belumLogin']);
                 $data['belumMulai'] = count($pantau['belumMulai']);

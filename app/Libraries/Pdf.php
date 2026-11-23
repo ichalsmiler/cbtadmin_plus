@@ -15,6 +15,17 @@ class Pdf
             return self::cetakBrowser(view($view, $data + ['school' => School::info()]), $orientation);
         }
 
+        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '_', $filename);
+
+        return service('response')
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', (service('request')->getGet('unduh') ? 'attachment' : 'inline') . '; filename="' . $safe . '"')
+            ->setBody(self::render($view, $data, $orientation));
+    }
+
+    /** Render view menjadi isi berkas PDF A4 (string). */
+    public static function render(string $view, array $data, string $orientation = 'portrait'): string
+    {
         @set_time_limit(300);
         @ini_set('memory_limit', '384M');
 
@@ -30,12 +41,7 @@ class Pdf
         $dompdf->setPaper('A4', $orientation);
         $dompdf->render();
 
-        $safe = preg_replace('/[^A-Za-z0-9._-]+/', '_', $filename);
-
-        return service('response')
-            ->setHeader('Content-Type', 'application/pdf')
-            ->setHeader('Content-Disposition', (service('request')->getGet('unduh') ? 'attachment' : 'inline') . '; filename="' . $safe . '"')
-            ->setBody($dompdf->output());
+        return (string) $dompdf->output();
     }
 
     /**

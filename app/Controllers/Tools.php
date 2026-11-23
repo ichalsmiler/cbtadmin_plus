@@ -925,7 +925,7 @@ class Tools extends PanelController
         if ($opsi === []) {
             return redirect()->to($back)->with('error', 'Centang minimal satu data yang akan dihapus.');
         }
-        if (\App\Libraries\ActiveTest::sesiId() > 0) {
+        if (\App\Libraries\ActiveTest::sesiId() !== 0) {
             return redirect()->to($back)->with('error', 'Masih ada sesi ujian aktif. Nonaktifkan sesi di Setting Ujian dulu.');
         }
         try {

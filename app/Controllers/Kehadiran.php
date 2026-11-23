@@ -42,7 +42,7 @@ class Kehadiran extends PanelController
         }
         $rows    = [];
         if ($ruang && ($sesi !== null || $isAdmin)) {
-            $rows = array_values(array_filter(Absensi::forRuang($ruangId, $tanggal, $sesi['id'] ?? null), static fn ($r) => Tingkat::cocok((string) $r['kelas'], $tingkat)));
+            $rows = array_values(array_filter(Absensi::forRuang($ruangId, $tanggal, ActiveTest::sesiFilter()), static fn ($r) => Tingkat::cocok((string) $r['kelas'], $tingkat)));
         }
 
         return $this->render('kehadiran/index', [

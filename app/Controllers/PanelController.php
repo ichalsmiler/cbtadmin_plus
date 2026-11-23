@@ -6,7 +6,7 @@ use App\Libraries\Settings;
 
 abstract class PanelController extends BaseController
 {
-    public const VERSION = '2.6.15';
+    public const VERSION = '2.6.16';
 
     protected $helpers = ['url', 'form'];
 
@@ -37,7 +37,7 @@ abstract class PanelController extends BaseController
         }
         $sesi = \App\Libraries\ActiveTest::sesiAktif();
 
-        return $sesi === null ? [] : \App\Libraries\Pengawas::usernamesInRuang($this->myRuang(), $sesi['id']);
+        return $sesi === null ? [] : \App\Libraries\Pengawas::usernamesInRuang($this->myRuang(), \App\Libraries\ActiveTest::sesiFilter());
     }
 
     /** Saring baris (berkolom username) menjadi siswa sesi aktif untuk pengawas; admin tidak disaring. */

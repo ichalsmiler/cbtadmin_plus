@@ -52,6 +52,8 @@ Repo lama `cbtadmin` dan `web-ujian` tidak dipakai lagi untuk fitur baru.
   Kartu Peserta (`data-no-pdf`) dan Cetak ID Login). CSS `public/assets/css/panel.css` (token warna terang/gelap di `:root` dan `[data-bs-theme=dark]`; arah desain di `DESIGN.md`: sejak 2.6.9 palet (2.6.10 font Figtree) Dens-UI (Mars Green #00797A/#19A3A4 + satu aksen oranye, netral kehijauan, radius .875rem, bayangan `--shadow-panel` di kartu), tema bawaan terang, font Figtree/JetBrains Mono (woff2 variabel) lokal di `public/assets/fonts` (OFL); Konvert memakai token dan font yang sama, kaca hanya bilah atas + `.token-card`, kartu statistik `stat-netral|proses|ok|awas|redup`; tema disimpan `localStorage cbt-tema`, dipasang `partials/tema_awal`, tombol `[data-tema-toggle]`).
 - Server utama RAM 1 GB: dompdf maks ±400 kartu per PDF (`Dokumen::MAKS_KARTU`, lebih → daftar tautan per
   ruang/kelas `dokumen/kartu_bagian`); gambar di PDF besar pakai path berkas (chroot `writable/uploads`), bukan data-URI.
+- Kartu per File (ZIP) `dokumen/cetak_doc/kartu_zip`: satu PDF per kelas/ruang (`Pdf::render`) dalam ZIP; "Semua kelas/ruang (N)" dihitung JS dari `data-jumlah` sesuai Tingkatan.
+- Setting Ujian: pilihan "Semua Sesi" (`ActiveTest::SEMUA` = -1, `sesiPilihan()`) di paling bawah; siswa tidak disaring sesi (`sesiFilter()` = null).
 - Partial `Views/partials/filter_tingkat.php` (select Tingkatan X/XI/XII lalu "Semua", `Libraries/Tingkat.php`);
   `Tingkat::dariRequest()` bawaan X, pilihan diingat di sesi `filter_tingkat` (dipakai juga ekspor tanpa ?tingkat=).
   Urutan filter di semua halaman: Tingkatan → Kelas → Ruang. panel.js menyaring `#fKelas` menurut `#fTingkat` dan

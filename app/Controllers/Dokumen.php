@@ -69,7 +69,57 @@ class Dokumen extends PanelController
         }
         ActivityLog::add('cetak_kartu', count($rows) . ' kartu, per ' . ($perKelas ? 'kelas' : 'ruang') . ', ' . count($groups) . ' kelompok');
 
-        // Jam ujian per tingkatan (Admin Tools → Sesi).
+        return Pdf::respond('pdf/kartu', [
+            'groups'  => $this->pasangJam($groups),
+            'catatan' => Settings::get('catatan_kartu', 'Kartu peserta wajib dibawa selama ujian berlangsung.'),
+        ], 'kartu_peserta_per_' . ($perKelas ? 'kelas' : 'ruang') . '.pdf');
+    }
+
+    /** Kartu dalam satu ZIP: satu PDF per kelas (Per Kelas) atau per ruang (Per Ruang). */
+    public function kartuZip()
+    {
+        $rows = $this->pesertaCetak();
+        if ($rows === []) {
+            return redirect()->to(site_url('dokumen/cetak_doc'))->with('error', 'Tidak ada peserta untuk pilihan ini.');
+        }
+        $perKelas = $this->request->getGet('per') === 'kelas';
+        $groups   = [];
+        foreach ($rows as $r) {
+            $label            = $perKelas ? 'Kelas ' . ($r['kelas'] !== '' ? $r['kelas'] : '(tanpa kelas)') : 'Ruang ' . ($r['ruang_nama'] ?? '(tanpa ruang)');
+            $groups[$label][] = $r;
+        }
+        uksort($groups, 'strnatcasecmp');
+        $groups = $this->pasangJam($groups);
+
+        @set_time_limit(0);
+        $catatan = Settings::get('catatan_kartu', 'Kartu peserta wajib dibawa selama ujian berlangsung.');
+        $tmp     = tempnam(WRITEPATH . 'cache', 'kartu');
+        $zip     = new \ZipArchive();
+        if ($zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+            return redirect()->to(site_url('dokumen/cetak_doc'))->with('error', 'Berkas ZIP tidak bisa dibuat.');
+        }
+        foreach ($groups as $label => $anggota) {
+            $nama = preg_replace('/[^A-Za-z0-9._-]+/', '_', 'Kartu ' . $label) . '.pdf';
+            $zip->addFromString($nama, Pdf::render('pdf/kartu', ['groups' => [$label => $anggota], 'catatan' => $catatan, 'school' => \App\Libraries\School::info()]));
+        }
+        $zip->close();
+        ActivityLog::add('cetak_kartu', count($rows) . ' kartu, ZIP per ' . ($perKelas ? 'kelas' : 'ruang') . ', ' . count($groups) . ' berkas');
+
+        $isi = (string) file_get_contents($tmp);
+        @unlink($tmp);
+
+        // Tanda selesai untuk tombol di halaman (lihat dokumen/cetak.php), dibaca JS jadi tanpa HttpOnly.
+        $token = (string) $this->request->getGet('token_unduh');
+        if (ctype_digit($token)) {
+            header('Set-Cookie: kartu_zip=' . $token . '; Path=/; Max-Age=120; SameSite=Lax', false);
+        }
+
+        return $this->response->download('kartu_peserta_per_' . ($perKelas ? 'kelas' : 'ruang') . '.zip', $isi);
+    }
+
+    /** Jam ujian per tingkatan (Admin Tools → Sesi) untuk tiap kartu. */
+    private function pasangJam(array $groups): array
+    {
         $jam = [];
         foreach (Tingkat::LIST as $t) {
             $jam[$t] = Tingkat::jam($t);
@@ -82,10 +132,7 @@ class Dokumen extends PanelController
         }
         unset($anggota);
 
-        return Pdf::respond('pdf/kartu', [
-            'groups'  => $groups,
-            'catatan' => Settings::get('catatan_kartu', 'Kartu peserta wajib dibawa selama ujian berlangsung.'),
-        ], 'kartu_peserta_per_' . ($perKelas ? 'kelas' : 'ruang') . '.pdf');
+        return $groups;
     }
 
     public function daftarHadir()

@@ -50,7 +50,7 @@ class StatusTes extends PanelController
             'shown'        => $shown,
             'courses'      => $courses,
             'moodleError'  => $error,
-            'sesiList'     => ActiveTest::sesiList(),
+            'sesiList'     => ActiveTest::sesiPilihan(),
             'sesiAktif'    => ActiveTest::sesiId(),
             // Pilihan sesi ikut terbawa saat ganti tes (halaman dimuat ulang dengan ?kat=&sesi=).
             'sesiPilih'    => $this->request->getGet('sesi') !== null ? (int) $this->request->getGet('sesi') : ActiveTest::sesiId(),
@@ -117,7 +117,7 @@ class StatusTes extends PanelController
 
         // Ujian hanya bisa diaktifkan untuk satu sesi yang dipilih.
         $sesi = null;
-        foreach (ActiveTest::sesiList() as $s) {
+        foreach (ActiveTest::sesiPilihan() as $s) {
             if ($s['id'] === $sesiId) {
                 $sesi = $s;
             }
@@ -241,7 +241,7 @@ class StatusTes extends PanelController
 
         $sesiId = (int) $this->request->getPost('sesi_id');
         $sesi   = null;
-        foreach (ActiveTest::sesiList() as $s) {
+        foreach (ActiveTest::sesiPilihan() as $s) {
             if ($s['id'] === $sesiId) {
                 $sesi = $s;
             }
@@ -317,7 +317,7 @@ class StatusTes extends PanelController
                 ActiveTest::apply('');
                 Settings::set('token_nilai', '');
                 $message .= ' Token dinonaktifkan dan dilepas dari semua quiz.';
-            } elseif ($enabled && ActiveTest::categoryId() > 0 && ActiveTest::sesiId() > 0 && ActiveTest::token() === '') {
+            } elseif ($enabled && ActiveTest::categoryId() > 0 && ActiveTest::sesiId() !== 0 && ActiveTest::token() === '') {
                 $message .= ' Token: ' . ActiveTest::release() . '.';
             }
         } catch (\Throwable $e) {

@@ -257,6 +257,17 @@
         if (reset || kelas.selectedOptions[0] && kelas.selectedOptions[0].hidden) {
             kelas.selectedIndex = 0;
         }
+        // "Semua kelas/ruang (N peserta)": N = jumlah peserta tingkatan terpilih (dari data-jumlah kelas).
+        if (kelas.options[0] && kelas.options[0].dataset.semua) {
+            var n = 0;
+            Array.prototype.forEach.call(kelas.options, function (opt) {
+                if (!opt.hidden && opt.dataset.jumlah) { n += parseInt(opt.dataset.jumlah, 10) || 0; }
+            });
+            [kelas, document.getElementById('fRuang')].forEach(function (sel) {
+                var o = sel && sel.form === kelas.form ? sel.options[0] : null;
+                if (o && o.dataset.semua) { o.textContent = o.dataset.semua + ' (' + n + ' peserta)'; }
+            });
+        }
     };
     var tingkatSel = document.getElementById('fTingkat');
     var kelasSel = document.getElementById('fKelas');

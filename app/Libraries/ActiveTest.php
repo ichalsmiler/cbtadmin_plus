@@ -42,10 +42,38 @@ class ActiveTest
         return (int) MoodleBridge::call('kategori_nonaktif', [])[0]['id'];
     }
 
-    /** Sesi yang sedang ujian (wajib dipilih saat mengaktifkan tes), 0 = belum dipilih. */
+    /** Pilihan "Semua Sesi" di Setting Ujian: semua peserta boleh ujian sekaligus. */
+    public const SEMUA = -1;
+
+    /** Sesi yang sedang ujian (wajib dipilih saat mengaktifkan tes), 0 = belum dipilih, -1 = semua sesi. */
     public static function sesiId(): int
     {
         return (int) Settings::get('sesi_aktif', '0');
+    }
+
+    /** Id sesi untuk menyaring siswa: null bila tanpa sesi aktif atau Semua Sesi (tidak disaring). */
+    public static function sesiFilter(): ?int
+    {
+        $id = self::sesiId();
+
+        return $id > 0 ? $id : null;
+    }
+
+    /** sesiList() ditambah pilihan Semua Sesi di paling bawah (untuk Setting Ujian). */
+    public static function sesiPilihan(): array
+    {
+        $list = self::sesiList();
+        if ($list !== []) {
+            $list[] = [
+                'id'      => self::SEMUA,
+                'nama'    => 'Semua',
+                'jumlah'  => db_connect()->table('peserta')->countAllResults(),
+                'tingkat' => '',
+                'label'   => 'Semua Sesi',
+            ];
+        }
+
+        return $list;
     }
 
     /**
@@ -88,7 +116,7 @@ class ActiveTest
         if ($id === 0) {
             return null;
         }
-        foreach (self::sesiList() as $s) {
+        foreach (self::sesiPilihan() as $s) {
             if ($s['id'] === $id) {
                 return $s;
             }
@@ -110,7 +138,7 @@ class ActiveTest
     public static function token(): string
     {
         // Tanpa sesi aktif tidak ada token (semua quiz berpassword bawaan); token baru dirilis saat sesi diaktifkan.
-        return self::tokenEnabled() && self::sesiId() > 0 ? Settings::get('token_nilai') : '';
+        return self::tokenEnabled() && self::sesiId() !== 0 ? Settings::get('token_nilai') : '';
     }
 
     public static function releasedAt(): int
@@ -160,7 +188,7 @@ class ActiveTest
         }
 
         $builder = db_connect()->table('absensi a')->where('a.ruang_id', $ruangId)->where('a.tanggal', date('Y-m-d'));
-        if (($sesi = self::sesiId()) > 0) {
+        if (($sesi = self::sesiFilter()) !== null) {
             // Absensi sesi aktif: siswa sesi sebelumnya yang sudah diabsen tidak membuka token sesi ini.
             $builder->join('peserta p', 'p.id = a.peserta_id')->join('ruang r', 'r.id = p.ruang_id', 'left')
                 ->where('COALESCE(p.sesi_id, r.sesi_id)', $sesi, false);
@@ -234,7 +262,7 @@ class ActiveTest
     {
         $categoryId = self::categoryId();
         // Tanpa sesi aktif semua sesi tertutup: quiz tes aktif ikut dikunci password bawaan.
-        $aktif      = $categoryId > 0 && self::sesiId() > 0 ? array_map('intval', array_column(Moodle::quizzes($categoryId), 'id')) : [];
+        $aktif      = $categoryId > 0 && self::sesiId() !== 0 ? array_map('intval', array_column(Moodle::quizzes($categoryId), 'id')) : [];
         $ids        = [];
         foreach (Moodle::quizzes() as $quiz) {
             if ((string) $quiz['password'] !== self::DEFAULT_PASSWORD && ! in_array((int) $quiz['id'], $aktif, true)) {
