@@ -45,16 +45,20 @@ class Auth extends PanelController
             'cred'       => \App\Filters\Guard::cap((string) $admin['password_hash']),
         ]);
         $ubah = ['last_login' => date('Y-m-d H:i:s')];
-        // Pengawas: satu akun satu perangkat. Token baru menggantikan yang lama; sesi di perangkat lama ditolak Guard.
+        // Pengawas: maksimal Guard::MAKS_PERANGKAT perangkat. Token per login disimpan berurutan (terlama di depan,
+        // dipisah koma); login di perangkat berikutnya memutus perangkat terlama, sesinya lalu ditolak Guard.
         $sesiLama = null;
         if ($admin['role'] === 'proktor' && array_key_exists('sesi_token', $admin)) {
-            $token = bin2hex(random_bytes(16));
-            $ubah += ['sesi_token' => $token, 'sesi_ip' => $ip, 'sesi_mulai' => date('Y-m-d H:i:s')];
-            $session->set('sesi_token', $token);
-            if ((string) $admin['sesi_token'] !== '') {
-                $sesiLama = 'login di perangkat baru (IP ' . $ip . '); sesi sebelumnya (IP ' . ($admin['sesi_ip'] ?: '?')
-                    . ', login ' . ($admin['sesi_mulai'] ? date('d-m H:i', strtotime((string) $admin['sesi_mulai'])) : '?') . ') diputus';
+            $token  = bin2hex(random_bytes(15));
+            $tokens = \App\Filters\Guard::tokenPerangkat((string) $admin['sesi_token']);
+            $tokens[] = $token;
+            if (count($tokens) > \App\Filters\Guard::MAKS_PERANGKAT) {
+                array_shift($tokens);
+                $sesiLama = 'login di perangkat ke-' . (\App\Filters\Guard::MAKS_PERANGKAT + 1) . ' (IP ' . $ip . '); perangkat terlama diputus'
+                    . ' (login terakhir sebelumnya IP ' . ($admin['sesi_ip'] ?: '?') . ', ' . ($admin['sesi_mulai'] ? date('d-m H:i', strtotime((string) $admin['sesi_mulai'])) : '?') . ')';
             }
+            $ubah += ['sesi_token' => implode(',', $tokens), 'sesi_ip' => $ip, 'sesi_mulai' => date('Y-m-d H:i:s')];
+            $session->set('sesi_token', $token);
         }
         try {
             $db->table('admins')->where('id', $admin['id'])->update($ubah);
@@ -72,7 +76,22 @@ class Auth extends PanelController
     public function logout()
     {
         ActivityLog::add('logout');
-        session()->destroy();
+        $session = session();
+        // Pengawas logout: jatah perangkatnya dilepas supaya bisa login di perangkat lain tanpa memutus siapa pun.
+        $token = (string) $session->get('sesi_token');
+        if ($token !== '' && ! $session->get('tukar_dari')) {
+            try {
+                $db  = db_connect();
+                $row = $db->table('admins')->select('sesi_token')->where('id', (int) $session->get('admin_id'))->get()->getRowArray();
+                if ($row !== null) {
+                    $sisa = array_values(array_filter(\App\Filters\Guard::tokenPerangkat((string) $row['sesi_token']), static fn ($t) => ! hash_equals($t, $token)));
+                    $db->table('admins')->where('id', (int) $session->get('admin_id'))->update(['sesi_token' => $sisa === [] ? null : implode(',', $sisa)]);
+                }
+            } catch (\Throwable $e) {
+                // Database hanya-baca (server cadangan siaga): cukup akhiri sesi.
+            }
+        }
+        $session->destroy();
 
         return redirect()->to(site_url('login'));
     }

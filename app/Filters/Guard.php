@@ -13,6 +13,18 @@ use CodeIgniter\Security\Exceptions\SecurityException;
  */
 class Guard implements FilterInterface
 {
+    /** Pengawas (role proktor): jumlah perangkat yang boleh login bersamaan; login berikutnya memutus yang terlama. */
+    public const MAKS_PERANGKAT = 2;
+
+    /** Pengawas: sesi berakhir setelah 30 menit tanpa aktivitas (pembaruan otomatis dashboard ikut dihitung). */
+    public const TIMEOUT_PENGAWAS = 1800;
+
+    /** Token perangkat pengawas dari kolom admins.sesi_token (dipisah koma, terlama di depan). */
+    public static function tokenPerangkat(string $kolom): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', $kolom)), static fn ($t) => $t !== ''));
+    }
+
     public function before(RequestInterface $request, $arguments = null)
     {
         helper('url');
@@ -54,15 +66,16 @@ class Guard implements FilterInterface
 
             return $this->deny($request, 'Password akun ini sudah diganti. Silakan login lagi.');
         }
-        // Pengawas: satu akun satu perangkat. Token sesi harus sama dengan token login terakhir akun ini; login di
-        // perangkat lain menggantinya. Tukar Akses (admin masuk sebagai pengawas) tidak ikut dicek.
-        $tokenAkun = (string) ($admin['sesi_token'] ?? '');
+        // Pengawas: maksimal MAKS_PERANGKAT perangkat. Token sesi harus ada di daftar token akun ini; login di
+        // perangkat berikutnya mengeluarkan token terlama. Tukar Akses (admin masuk sebagai pengawas) tidak ikut dicek.
+        $tokenAkun = self::tokenPerangkat((string) ($admin['sesi_token'] ?? ''));
+        $tokenSesi = (string) $session->get('sesi_token');
         // Akun demo (role demo) tidak dibatasi: dipakai bersama di banyak perangkat saat demonstrasi.
-        if ($admin['role'] === 'proktor' && $tokenAkun !== '' && ! $session->get('tukar_dari')
-            && ! hash_equals($tokenAkun, (string) $session->get('sesi_token'))) {
+        if ($admin['role'] === 'proktor' && $tokenAkun !== [] && ! $session->get('tukar_dari')
+            && ! array_filter($tokenAkun, static fn ($t) => hash_equals($t, $tokenSesi))) {
             $session->destroy();
 
-            return $this->deny($request, 'Akun pengawas ini sudah login di perangkat lain, jadi sesi di perangkat ini diakhiri.');
+            return $this->deny($request, 'Akun pengawas ini sudah login di ' . self::MAKS_PERANGKAT . ' perangkat lain, jadi sesi di perangkat ini diakhiri.');
         }
         $session->set([
             'admin_role'  => $admin['role'],
@@ -72,14 +85,16 @@ class Guard implements FilterInterface
             'admin_ruang' => in_array($admin['role'], ['proktor', 'demo'], true) ? (int) ($admin['ruang_id'] ?? 0) : null,
         ]);
 
-        $timeout = (int) env('cbt.sessionTimeout', 3600);
+        $pengawas = $admin['role'] === 'proktor' && ! $session->get('tukar_dari');
+        $timeout  = $pengawas ? self::TIMEOUT_PENGAWAS : (int) env('cbt.sessionTimeout', 3600);
         if (time() - (int) $session->get('last_seen') > $timeout) {
             $session->destroy();
 
-            return $this->deny($request, 'Sesi berakhir karena terlalu lama diam.');
+            return $this->deny($request, 'Sesi berakhir karena ' . intdiv($timeout, 60) . ' menit tidak ada aktivitas.');
         }
-        // Permintaan auto-refresh tidak dihitung sebagai aktivitas.
-        if (! in_array($path, ['dashboard/stats', 'status_tes/token'], true)) {
+        // Permintaan auto-refresh tidak dihitung sebagai aktivitas, kecuali untuk pengawas: dashboard pantauan yang
+        // terbuka menjaga sesinya; sesi berakhir 30 menit setelah halaman ditutup.
+        if ($pengawas || ! in_array($path, ['dashboard/stats', 'status_tes/token'], true)) {
             $session->set('last_seen', time());
         }
 
