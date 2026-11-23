@@ -71,14 +71,14 @@
                     </td>
                     <td data-order="<?= (int) $u['lastaccess'] ?>"><?= $u['lastaccess'] ? date('d/m/Y H:i', (int) $u['lastaccess']) : 'Belum pernah' ?></td>
                     <td><?= isset($linked[$u['username']]) ? '<span class="badge text-bg-success">Ada</span>' : '<span class="badge text-bg-secondary">Belum</span>' ?></td>
-                    <td class="text-end text-nowrap" data-hanya-admin>
+                    <td class="text-end text-nowrap">
                         <?php if (isset($pilihan[$tk]) && $pilihan[$tk] !== []): ?>
                             <button class="btn btn-outline-secondary btn-sm text-nowrap" type="button" data-mapel-pilihan
                                     data-siswa="<?= esc(json_encode(['userid' => (int) $u['id'], 'nama' => trim($u['firstname'] . ' ' . $u['lastname']), 'kelas' => $u['kelas'], 'tingkat' => $tk, 'course' => $punya]), 'attr') ?>">
                                 <i class="bi bi-ui-checks me-1"></i>Mapel pilihan
                             </button>
                         <?php endif ?>
-                        <button class="btn btn-outline-secondary btn-sm text-nowrap" type="button" data-fill-modal="#resetModal"
+                        <button class="btn btn-outline-secondary btn-sm text-nowrap" type="button" data-hanya-admin data-fill-modal="#resetModal"
                                 data-fill="<?= esc(json_encode(['userid' => $u['id'], 'username' => $u['username'], 'password' => '']), 'attr') ?>">
                             <i class="bi bi-key me-1"></i>Reset password
                         </button>

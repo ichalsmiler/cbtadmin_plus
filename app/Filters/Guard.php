@@ -142,7 +142,7 @@ class Guard implements FilterInterface
         '', 'logout', 'dashboard/stats', 'tools/gambar/logo',
         'status_tes', 'status_tes/kategori', 'status_tes/sesi', 'status_tes/release', 'status_tes/token', 'status_tes/token_setting', 'token_ujian', 'hapus_attempt*',
         'status_peserta*', 'reset_login*', 'blokir_siswa*', 'kehadiran*',
-        'daftar_peserta/cbtadmin', 'daftar_peserta/moodle',
+        'daftar_peserta/cbtadmin', 'daftar_peserta/moodle', 'daftar_peserta/moodle/mapel_pilihan',
         'dokumen*', 'hasil_ujian*',
         'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',
         'tools/lainnya', 'tools/log_export', 'tools/jejak', // Tools → Panel: hanya kartu Log aktivitas (view tools/index)
