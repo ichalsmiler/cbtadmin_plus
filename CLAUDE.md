@@ -66,7 +66,7 @@ Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, quiz_
 add_time, list_sessions, kill_sessions, quiz_password, course_visibility, category_visibility, suspend_users,
 cbtujian_config, purge_caches, create_category, create_categories, rename_categories, update_category, delete_category,
 delete_course, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, quiz_timelimit,
-create_course, create_courses, session_gc.
+create_course, create_courses.
 
-Migrasi `Database/Migrations/`: admins, peserta, ruang, sesi, settings, activity_log, absensi, blokir.
+Migrasi `Database/Migrations/`: admins (role admin/operator/proktor/demo, + sesi_token: pengawas satu perangkat), peserta, ruang, sesi, settings, activity_log, absensi, blokir.
 README.md = panduan untuk manusia; `docs/INSTALASI-SERVER.md` = tutorial pasang server.

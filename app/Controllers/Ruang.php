@@ -168,7 +168,7 @@ class Ruang extends PanelController
         if ($row) {
             $db->table('peserta')->where('ruang_id', $id)->update(['ruang_id' => null]);
             // Akun pengawas ruang ini ikut dihapus.
-            $db->table('admins')->where('ruang_id', $id)->where('role', 'proktor')->delete();
+            $db->table('admins')->where('ruang_id', $id)->whereIn('role', ['proktor', 'demo'])->delete();
             $db->table('ruang')->where('id', $id)->delete();
             ActivityLog::add('hapus_ruang', $row['nama']);
         }

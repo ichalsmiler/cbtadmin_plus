@@ -105,7 +105,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
         <div class="d-flex mb-2">
             <span class="small text-muted">Akun administrator dan pengawas panel. Akun pengawas ruang dibuat otomatis di Daftar Ruang.</span>
             <button class="btn btn-primary btn-sm ms-auto" type="button" data-fill-modal="#akunModal"
-                    data-fill='{"id":"","username":"","nama":"","role":"admin","aktif":"1","password":""}'><i class="bi bi-person-plus me-1"></i>Tambah akun</button>
+                    data-fill='{"id":"","username":"","nama":"","role":"admin","aktif":"1","ruang_id":"","password":""}'><i class="bi bi-person-plus me-1"></i>Tambah akun</button>
         </div>
         <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
@@ -115,12 +115,16 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                     <tr>
                         <td class="text-nowrap"><code><?= esc($a['username']) ?></code><?= (int) $a['id'] === $meId ? ' <span class="badge text-bg-light">Anda</span>' : '' ?></td>
                         <td><?= esc($a['nama']) ?></td>
-                        <td><?= esc(\App\Filters\Guard::namaPeran((string) $a['role'])) ?></td>
+                        <td><?= esc(\App\Filters\Guard::namaPeran((string) $a['role'])) ?>
+                            <?php if ($a['role'] === 'demo'): ?>
+                                <?php $rd = array_values(array_filter($ruangDemo, static fn ($r) => (int) $r['id'] === (int) $a['ruang_id']))[0] ?? null; ?>
+                                <span class="small text-muted">· data Ruang <?= esc($rd['nama'] ?? '?') ?> · banyak perangkat</span>
+                            <?php endif ?></td>
                         <td><?= $a['aktif'] ? '<span class="badge text-bg-success">Aktif</span>' : '<span class="badge text-bg-secondary">Nonaktif</span>' ?></td>
                         <td class="text-nowrap"><?= $a['last_login'] ? esc(date('d/m/Y H:i', strtotime($a['last_login']))) : '–' ?></td>
                         <td class="text-end text-nowrap">
                             <button class="btn btn-outline-secondary btn-sm" type="button" title="Ubah" data-fill-modal="#akunModal"
-                                    data-fill="<?= esc(json_encode(['id' => $a['id'], 'username' => $a['username'], 'nama' => $a['nama'], 'role' => $a['role'], 'aktif' => (string) $a['aktif'], 'password' => '']), 'attr') ?>"><i class="bi bi-pencil"></i></button>
+                                    data-fill="<?= esc(json_encode(['id' => $a['id'], 'username' => $a['username'], 'nama' => $a['nama'], 'role' => $a['role'], 'aktif' => (string) $a['aktif'], 'ruang_id' => (string) ($a['ruang_id'] ?? ''), 'password' => '']), 'attr') ?>"><i class="bi bi-pencil"></i></button>
                             <?php if ((int) $a['id'] !== $meId): ?>
                                 <button class="btn btn-outline-danger btn-sm" type="button" title="Hapus" data-post="<?= site_url('tools/akun/hapus/' . $a['id']) ?>"
                                         data-confirm-text="Hapus akun <?= esc($a['username'], 'attr') ?>? Akun ini tidak bisa login lagi."><i class="bi bi-trash"></i></button>
@@ -141,11 +145,6 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . $input('webmin_url', 'URL Webmin', $v('webmin_url'), '', 'col-md-4')
             . '</div><button class="btn btn-success btn-sm mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
 
-        <?= $hanyaLog ? '' : $item('lainTools', 'utilitas', 'database', 'Backup dan sesi',
-            '<div class="d-flex flex-wrap gap-4"><div style="max-width:420px"><a class="btn btn-outline-primary btn-sm" href="' . site_url('tools/backup') . '"><i class="bi bi-database-down me-1"></i>Backup database panel</a>'
-            . '<p class="small text-muted mt-2 mb-0">Mengunduh berkas .sql berisi peserta, ruang, sesi, pengaturan, akun, dan log panel. Berkas ini memuat password peserta, jadi simpan di tempat aman. Data Moodle tidak termasuk.</p></div>'
-            . '<div style="max-width:420px"><button class="btn btn-outline-primary btn-sm" type="button" data-post="' . site_url('tools/bersihkan_sesi') . '" data-confirm-text="Hapus sesi panel dan sesi Moodle yang sudah kedaluwarsa? Pengguna yang masih aktif tidak terpengaruh."><i class="bi bi-trash3 me-1"></i>Bersihkan sesi kedaluwarsa</button>'
-            . '<p class="small text-muted mt-2 mb-0">Menghapus sesi login yang sudah melewati batas waktu. Moodle juga melakukannya otomatis lewat cron.</p></div></div>') ?>
 
         <?php ob_start(); ?>
         <?php
@@ -304,10 +303,20 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                 <div class="col-sm-6"><label class="form-label">Username</label><input class="form-control" name="username" maxlength="60" pattern="[A-Za-z0-9._\-]{3,60}" required></div>
                 <div class="col-sm-6"><label class="form-label">Nama</label><input class="form-control" name="nama" maxlength="120" required></div>
                 <div class="col-sm-6"><label class="form-label">Role</label>
-                    <select class="form-select" name="role"><option value="admin">Administrator</option><option value="operator">Proktor</option><option value="proktor">Pengawas</option></select>
+                    <select class="form-select" name="role" id="akunRole"><option value="admin">Administrator</option><option value="operator">Proktor</option><option value="proktor">Pengawas</option><option value="demo">Demo (pengawas contoh)</option></select>
                 </div>
                 <div class="col-sm-6"><label class="form-label">Status</label>
                     <select class="form-select" name="aktif"><option value="1">Aktif</option><option value="0">Nonaktif</option></select>
+                </div>
+                <div class="col-12 d-none" id="akunRuangDemo"><label class="form-label" for="akunRuang">Pakai data ruang</label>
+                    <select class="form-select" name="ruang_id" id="akunRuang">
+                        <option value="">– pilih ruang –</option>
+                        <?php foreach ($ruangDemo as $r): ?>
+                            <option value="<?= (int) $r['id'] ?>">Ruang <?= esc($r['nama']) ?><?= trim((string) $r['lokasi']) !== '' ? ' · ' . esc($r['lokasi']) : '' ?></option>
+                        <?php endforeach ?>
+                    </select>
+                    <div class="form-text">Akun demo melihat siswa ruang ini seperti pengawasnya, dan boleh login di banyak perangkat sekaligus.
+                        Tindakan (absensi tidak hadir, blokir) berlaku ke siswa sungguhan.</div>
                 </div>
                 <div class="col-12"><label class="form-label">Password</label><input class="form-control" type="password" name="password" minlength="8" autocomplete="new-password" placeholder="minimal 8 karakter; kosongkan bila tidak diganti"></div>
             </div>
@@ -341,6 +350,20 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
     };
     window.addEventListener('hashchange', buka);
     buka();
+})();
+// Form akun: pilihan ruang hanya untuk role Demo (wajib diisi).
+(function () {
+    var role = document.getElementById('akunRole'), kotak = document.getElementById('akunRuangDemo'), ruang = document.getElementById('akunRuang');
+    if (!role || !kotak) { return; }
+    function atur() {
+        var demo = role.value === 'demo';
+        kotak.classList.toggle('d-none', !demo);
+        ruang.required = demo;
+    }
+    role.addEventListener('change', atur);
+    var modal = document.getElementById('akunModal');
+    if (modal) { modal.addEventListener('shown.bs.modal', atur); modal.addEventListener('show.bs.modal', function () { setTimeout(atur, 0); }); }
+    atur();
 })();
 </script>
 <?= $this->endSection() ?>

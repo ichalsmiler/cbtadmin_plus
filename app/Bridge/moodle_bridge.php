@@ -930,12 +930,6 @@ try {
             ];
             break;
 
-        case 'session_gc':
-            // Hapus sesi Moodle yang sudah melewati batas waktu sesi situs.
-            \core\session\manager::gc();
-            $result['items'][] = ['status' => 'dibersihkan', 'timeout' => (int) $CFG->sessiontimeout];
-            break;
-
         default:
             $result = ['ok' => false, 'error' => 'Aksi tidak dikenal: ' . $in['action']];
     }

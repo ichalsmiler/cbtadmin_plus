@@ -9,7 +9,6 @@ use App\Libraries\Moodle;
 use App\Libraries\MoodleBridge;
 use App\Libraries\School;
 use App\Libraries\Settings;
-use Config\Session as SessionConfig;
 
 /**
  * Tools (seperti AIOCBT):
@@ -36,7 +35,7 @@ class Tools extends PanelController
     public const GRUP = [
         'moodle'   => ['Moodle Tools', ['cron', 'cache', 'antisubmit', 'lockres']],
         'cbtadmin' => ['Info Sekolah', ['sekolah', 'kegiatan', 'password']],
-        'lainnya'  => ['Panel', ['akun', 'panel', 'utilitas', 'log']],
+        'lainnya'  => ['Panel', ['akun', 'panel', 'log']],
     ];
 
     /** Alamat halaman grup yang memuat bagian itu, mis. halaman('sekolah') → tools/cbtadmin#sekolah. */
@@ -91,7 +90,8 @@ class Tools extends PanelController
             'hasLogo2' => School::logo2Path() !== null,
             'hasLogoLogin' => School::logoLoginPath() !== null,
             'hasFavicon'   => School::faviconPath() !== null,
-            'admins'  => $db->table('admins')->select('id, username, nama, role, aktif, last_login')->orderBy('role')->orderBy('username')->get()->getResultArray(),
+            'ruangDemo' => $db->table('ruang')->select('id, nama, lokasi')->orderBy('LENGTH(nama)', '', false)->orderBy('nama')->get()->getResultArray(),
+            'admins'  => $db->table('admins')->select('id, username, nama, role, aktif, last_login, ruang_id')->orderBy('role')->orderBy('username')->get()->getResultArray(),
             'meId'    => (int) session()->get('admin_id'),
             'logs'    => $db->table('activity_log')->orderBy('id', 'DESC')->limit(300)->get()->getResultArray(),
         ]);
@@ -974,7 +974,7 @@ class Tools extends PanelController
         $me       = (int) session()->get('admin_id');
         $username = trim((string) $this->request->getPost('username'));
         $nama     = trim((string) $this->request->getPost('nama'));
-        $role     = in_array($this->request->getPost('role'), ['proktor', 'operator'], true) ? (string) $this->request->getPost('role') : 'admin';
+        $role     = in_array($this->request->getPost('role'), ['proktor', 'operator', 'demo'], true) ? (string) $this->request->getPost('role') : 'admin';
         $aktif    = $this->request->getPost('aktif') ? 1 : 0;
         $password = (string) $this->request->getPost('password');
 
@@ -992,6 +992,14 @@ class Tools extends PanelController
         }
 
         $data = ['username' => $username, 'nama' => mb_substr($nama, 0, 120), 'role' => $role, 'aktif' => $aktif];
+        // Akun demo: pengawas contoh yang memakai data satu ruang (wajib dipilih); boleh login di banyak perangkat.
+        if ($role === 'demo') {
+            $ruangId = (int) $this->request->getPost('ruang_id');
+            if (! $db->table('ruang')->where('id', $ruangId)->countAllResults()) {
+                return redirect()->to(self::halaman('akun'))->with('error', 'Pilih ruang yang datanya dipakai akun demo.');
+            }
+            $data['ruang_id'] = $ruangId;
+        }
         if ($password !== '') {
             $data['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
             // Password yang diketik admin tidak ditampilkan lagi di Daftar Ruang.
@@ -1060,27 +1068,4 @@ class Tools extends PanelController
         return $this->response->download('cbtadmin_backup_' . date('Ymd_His') . '.sql', $sql);
     }
 
-    /** Hapus sesi login panel dan sesi Moodle yang sudah kedaluwarsa. */
-    public function bersihkanSesi()
-    {
-        $config  = config(SessionConfig::class);
-        $limit   = time() - max(600, (int) $config->expiration);
-        $current = session_id();
-        $panel   = 0;
-        foreach (glob(rtrim($config->savePath, '/') . '/' . $config->cookieName . '*') ?: [] as $file) {
-            if (! str_ends_with($file, $current) && filemtime($file) < $limit && @unlink($file)) {
-                $panel++;
-            }
-        }
-
-        try {
-            MoodleBridge::call('session_gc', []);
-            $moodle = 'sesi Moodle kedaluwarsa juga dibersihkan';
-        } catch (\Throwable $e) {
-            $moodle = 'sesi Moodle gagal dibersihkan: ' . $e->getMessage();
-        }
-        ActivityLog::add('bersihkan_sesi', "$panel sesi panel; $moodle");
-
-        return redirect()->to(self::halaman('utilitas'))->with('success', "$panel sesi panel kedaluwarsa dihapus, $moodle.");
-    }
 }

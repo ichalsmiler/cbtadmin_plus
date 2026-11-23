@@ -44,12 +44,27 @@ class Auth extends PanelController
             'last_seen'  => time(),
             'cred'       => \App\Filters\Guard::cap((string) $admin['password_hash']),
         ]);
+        $ubah = ['last_login' => date('Y-m-d H:i:s')];
+        // Pengawas: satu akun satu perangkat. Token baru menggantikan yang lama; sesi di perangkat lama ditolak Guard.
+        $sesiLama = null;
+        if ($admin['role'] === 'proktor' && array_key_exists('sesi_token', $admin)) {
+            $token = bin2hex(random_bytes(16));
+            $ubah += ['sesi_token' => $token, 'sesi_ip' => $ip, 'sesi_mulai' => date('Y-m-d H:i:s')];
+            $session->set('sesi_token', $token);
+            if ((string) $admin['sesi_token'] !== '') {
+                $sesiLama = 'login di perangkat baru (IP ' . $ip . '); sesi sebelumnya (IP ' . ($admin['sesi_ip'] ?: '?')
+                    . ', login ' . ($admin['sesi_mulai'] ? date('d-m H:i', strtotime((string) $admin['sesi_mulai'])) : '?') . ') diputus';
+            }
+        }
         try {
-            $db->table('admins')->where('id', $admin['id'])->update(['last_login' => date('Y-m-d H:i:s')]);
+            $db->table('admins')->where('id', $admin['id'])->update($ubah);
         } catch (\Throwable $e) {
             // Server cadangan siaga: database hanya-baca, login tetap boleh (untuk tombol PINDAH).
         }
         ActivityLog::add('login');
+        if ($sesiLama !== null) {
+            ActivityLog::add('login_perangkat_lain', $sesiLama);
+        }
 
         return redirect()->to(site_url(\App\Libraries\ServerCadangan::siaga() ? 'server_cadangan' : '/'));
     }

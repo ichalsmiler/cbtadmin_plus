@@ -200,7 +200,7 @@ class Peserta extends PanelController
         $db->table('blokir')->emptyTable();
         $db->table('peserta')->emptyTable();
         if ($ruang) {
-            $db->table('admins')->where('role', 'proktor')->where('ruang_id IS NOT NULL')->delete();
+            $db->table('admins')->whereIn('role', ['proktor', 'demo'])->where('ruang_id IS NOT NULL')->delete();
             $db->table('ruang')->emptyTable();
             $db->table('sesi')->emptyTable();
         }

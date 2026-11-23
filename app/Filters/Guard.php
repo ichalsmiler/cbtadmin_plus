@@ -37,7 +37,7 @@ class Guard implements FilterInterface
         }
 
         // Akun bisa dihapus, dinonaktifkan, atau diganti rolenya saat sesinya masih berjalan.
-        $admin = db_connect()->table('admins')->select('role, aktif, nama, ruang_id, password_hash')
+        $admin = db_connect()->table('admins')->select('*')
             ->where('id', (int) $session->get('admin_id'))->get()->getRowArray();
         if (! $admin || ! (int) $admin['aktif']) {
             $session->destroy();
@@ -54,12 +54,22 @@ class Guard implements FilterInterface
 
             return $this->deny($request, 'Password akun ini sudah diganti. Silakan login lagi.');
         }
+        // Pengawas: satu akun satu perangkat. Token sesi harus sama dengan token login terakhir akun ini; login di
+        // perangkat lain menggantinya. Tukar Akses (admin masuk sebagai pengawas) tidak ikut dicek.
+        $tokenAkun = (string) ($admin['sesi_token'] ?? '');
+        // Akun demo (role demo) tidak dibatasi: dipakai bersama di banyak perangkat saat demonstrasi.
+        if ($admin['role'] === 'proktor' && $tokenAkun !== '' && ! $session->get('tukar_dari')
+            && ! hash_equals($tokenAkun, (string) $session->get('sesi_token'))) {
+            $session->destroy();
+
+            return $this->deny($request, 'Akun pengawas ini sudah login di perangkat lain, jadi sesi di perangkat ini diakhiri.');
+        }
         $session->set([
             'admin_role'  => $admin['role'],
             'admin_nama'  => $admin['nama'],
             // Pengawas ruang hanya melihat siswa di ruangnya. Pengawas tanpa ruang = ruang 0 (tidak ada):
             // tidak melihat siswa dan tokennya terkunci, bukan tanpa batas seperti admin.
-            'admin_ruang' => $admin['role'] === 'proktor' ? (int) ($admin['ruang_id'] ?? 0) : null,
+            'admin_ruang' => in_array($admin['role'], ['proktor', 'demo'], true) ? (int) ($admin['ruang_id'] ?? 0) : null,
         ]);
 
         $timeout = (int) env('cbt.sessionTimeout', 3600);
@@ -126,7 +136,7 @@ class Guard implements FilterInterface
     /** Nama peran untuk ditampilkan. */
     public static function namaPeran(string $role): string
     {
-        return ['admin' => 'Administrator', 'operator' => 'Proktor'][$role] ?? 'Pengawas';
+        return ['admin' => 'Administrator', 'operator' => 'Proktor', 'demo' => 'Pengawas (demo)'][$role] ?? 'Pengawas';
     }
 
     /** Melihat semua ruang (administrator dan proktor), bukan hanya ruang sendiri seperti pengawas. */

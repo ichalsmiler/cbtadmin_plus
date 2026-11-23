@@ -38,7 +38,6 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('tools/backup', 'Tools::backup');
     $routes->get('tools/jejak', 'Tools::jejak');
     $routes->get('tools/log_export', 'Tools::logExport');
-    $routes->post('tools/bersihkan_sesi', 'Tools::bersihkanSesi');
 
     $routes->get('pengawas', 'PengawasController::index');
     $routes->post('pengawas/generate', 'PengawasController::generate');
@@ -74,9 +73,9 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('server_cadangan/unduh', 'ServerCadanganPanel::unduh');
     $routes->post('server_cadangan/pindah', 'ServerCadanganPanel::pindah');
     $routes->post('server_cadangan/kembalikan', 'ServerCadanganPanel::kembalikan');
+    $routes->get('server_cadangan/log', 'ServerCadanganPanel::log');
     $routes->post('server_cadangan/sinkron', 'ServerCadanganPanel::sinkron');
     $routes->post('server_cadangan/jadi_cadangan', 'ServerCadanganPanel::jadiCadangan');
-    $routes->get('server_cadangan/log', 'ServerCadanganPanel::log');
     $routes->post('sesi_tingkat/simpan', 'SesiTingkat::simpan');
     $routes->post('sesi_tingkat/json', 'SesiTingkat::json');
     $routes->get('konvert/app', 'Konvert::app');

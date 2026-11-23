@@ -16,7 +16,7 @@ $menu = [
     ['Keluar', 'box-arrow-right', 'logout'],
 ];
 // Pengawas: Daftar Peserta = siswa di ruangnya (baca saja).
-if ($adminRole === 'proktor') {
+if ($adminRole === 'proktor' || $adminRole === 'demo') {
     $menu[1] =['Daftar Peserta', 'person', 'peserta_ruang'];
 }
 // Lock login aktif (Tools): peserta yang masih tercatat login perlu di-reset pengawas.
