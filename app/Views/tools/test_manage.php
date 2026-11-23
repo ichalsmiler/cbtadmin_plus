@@ -43,7 +43,7 @@
                 <?php foreach ($kategori as $i => $k): ?>
                     <a class="list-group-item list-group-item-action d-flex align-items-center gap-3 <?= $aktif && (int) $aktif['id'] === (int) $k['id'] ? 'active' : '' ?>"
                        href="<?= site_url('tools/test_manage') ?>?kat=<?= (int) $k['id'] ?>">
-                        <span class="ruang-avatar text-bg-<?= ['primary', 'dark', 'danger', 'success', 'warning', 'info'][$i % 6] ?>"><?= esc(mb_strtoupper(mb_substr($k['name'], 0, 1))) ?></span>
+                        <span class="ruang-avatar avatar-netral"><?= esc(mb_strtoupper(mb_substr($k['name'], 0, 1))) ?></span>
                         <span>
                             <span class="fw-semibold d-block"><?= esc($k['name']) ?></span>
                             <span class="small <?= $aktif && (int) $aktif['id'] === (int) $k['id'] ? '' : 'text-muted' ?>">Id: <?= (int) $k['id'] ?> · Total pelajaran: <?= (int) $k['coursecount'] ?></span>
@@ -77,7 +77,7 @@
             <?php else: ?>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th data-hanya-admin><input class="form-check-input" type="checkbox" id="pm_semua" aria-label="Centang semua mapel"></th><th>Nama Pelajaran</th><th>Shortname</th><th class="text-center">Status</th><th class="text-center">Aksi</th></tr></thead>
+                        <thead><tr><th class="kolom-cek" data-hanya-admin><input class="form-check-input" type="checkbox" id="pm_semua" aria-label="Centang semua mapel"></th><th>Nama Pelajaran</th><th>Shortname</th><th class="text-center">Status</th><th class="text-center">Aksi</th></tr></thead>
                         <tbody>
                         <?php if ($mapel === []): ?>
                             <tr><td colspan="5" class="text-center text-muted py-4">Belum ada pelajaran.</td></tr>
@@ -93,12 +93,12 @@
                                 <td><?= esc($c['fullname']) ?></td>
                                 <td><code><?= esc($c['shortname']) ?></code></td>
                                 <td class="text-center">
-                                    <button type="button" class="badge border-0 text-bg-<?= $on ? 'success' : 'secondary' ?>" data-hanya-admin
+                                    <button type="button" class="status-toggle <?= $on ? 'stat-ok' : 'stat-redup' ?>" data-hanya-admin
                                             title="Klik untuk <?= $on ? 'menonaktifkan' : 'mengaktifkan' ?>"
                                             data-post="<?= site_url('tools/test_manage/mapel/status') ?>"
                                             data-fields="<?= esc(json_encode(['id' => (int) $c['id']]), 'attr') ?>"
                                             data-confirm-text="<?= esc(($on ? 'Nonaktifkan' : 'Aktifkan') . ' mapel "' . $c['fullname'] . '"?' . ($on ? ' Peserta tidak bisa membukanya lagi.' : ' Peserta bisa membukanya.'), 'attr') ?>">
-                                        <?= $on ? 'Aktif' : 'Nonaktif' ?> <i class="bi bi-arrow-repeat ms-1" aria-hidden="true"></i>
+                                        <?= $on ? 'Aktif' : 'Nonaktif' ?>
                                     </button>
                                 </td>
                                 <td class="text-center">
@@ -120,7 +120,7 @@
                           action="<?= site_url('tools/test_manage/mapel/pindah') ?>"
                           data-confirm="Pindahkan mapel yang dicentang? Soal, jawaban, dan nilai ikut pindah; mapel menjadi Nonaktif di ujian tujuan.">
                         <?= csrf_field() ?>
-                        <label class="fw-semibold small" for="pm_kategori">Pindahkan mapel yang dicentang ke</label>
+                        <label class="small" for="pm_kategori">Pindahkan mapel yang dicentang ke</label>
                         <select class="form-select form-select-sm w-auto" id="pm_kategori" name="kategori" required>
                             <option value="">Pilih ujian…</option>
                             <?php foreach ($kategori as $k): ?>

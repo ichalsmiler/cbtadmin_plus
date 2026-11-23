@@ -51,7 +51,7 @@
                         <?php if (! isset($pilihan[$tk])): ?>
                             <span class="text-body-secondary">-</span>
                         <?php else: ?>
-                            <?php foreach ($punya as $cid): ?><span class="badge text-bg-light border me-1"><?= esc($pilihan[$tk][$cid]['kode']) ?></span><?php endforeach ?>
+                            <?php foreach ($punya as $cid): ?><span class="kode-tag me-1"><?= esc($pilihan[$tk][$cid]['kode']) ?></span><?php endforeach ?>
                             <?= $punya === [] ? '<span class="text-body-secondary small">Belum ada</span>' : '' ?>
                         <?php endif ?>
                     </td>

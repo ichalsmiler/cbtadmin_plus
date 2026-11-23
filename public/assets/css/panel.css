@@ -364,3 +364,24 @@ input[type="password"]::-ms-clear { display: none; }
 /* Seleksi teks dan kursor ketik memakai Mars Green (seperti Dens-UI). */
 ::selection { background: color-mix(in srgb, var(--brand-fill) 26%, transparent); color: var(--ink); }
 input, textarea { caret-color: var(--brand-fill); }
+
+/* Status yang bisa diklik (Kategori Mapel): titik status + teks, tombol tenang yang naik satu tingkat saat hover. */
+.status-toggle {
+    display: inline-flex; align-items: center; gap: .5rem; padding: .25rem .625rem; line-height: 1.25;
+    font-size: .8125rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm); cursor: pointer; transition: background-color .15s, border-color .15s;
+}
+.status-toggle::before { content: ""; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--stat, var(--idle)); }
+.status-toggle:hover { background: var(--surface-2); }
+.status-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Avatar huruf netral (Daftar Ujian); di baris terpilih ikut warna baris. */
+.avatar-netral { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.list-group-item.active .avatar-netral { background: rgba(255, 255, 255, .16); color: inherit; border-color: transparent; }
+
+/* Kode singkat (mapel pilihan): mono kecil di permukaan kedua. */
+.kode-tag {
+    display: inline-block; padding: .125rem .375rem; font-family: var(--font-mono); font-size: .75rem; line-height: 1.25;
+    color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px;
+}
+.kolom-cek { width: 1%; }
