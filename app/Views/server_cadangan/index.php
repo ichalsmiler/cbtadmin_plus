@@ -202,8 +202,8 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
 $tersambung = $peran === 'cadangan' || ($peran === 'utama' && ($s['kontak_detik'] ?? null) !== null);
 ?>
 <?php if ($tersambung): ?>
-<details class="mt-4 small text-muted">
-    <summary>Sambungkan ulang / ganti server cadangan</summary>
+<details class="mt-4">
+    <summary class="small text-muted">Sambungkan ulang / ganti server cadangan</summary>
 <?php endif ?>
 <?php
 // Tombol per server: mode sinkron hanya di server utama (baru atau sudah utama); tempel KODE hanya di server
@@ -213,8 +213,8 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
 ?>
 <div class="card mt-<?= $tersambung ? '2' : '4' ?>" id="sambung">
     <div class="card-header fw-semibold"><i class="bi bi-list-ol me-1"></i>Sambungkan ke cadangan (sekali)</div>
-    <div class="card-body small">
-        <ol class="mb-3">
+    <div class="card-body">
+        <ol class="small mb-3">
             <li>VPS sudah dipasang dengan perintah yang sama seperti server utama (<em>pasang-cbt.sh</em>, lihat tutorial), port <strong>UDP 51820</strong> dibuka.</li>
             <li>Di panel server utama: isi pengaturan di atas lalu <strong>Simpan</strong>.</li>
             <li>Di panel <strong>server utama</strong>: pilih <strong>Server utama</strong> → <strong>Aktifkan mode sinkron</strong>, tunggu catatannya selesai, lalu salin <strong>KODE</strong>.</li>
@@ -257,7 +257,7 @@ $bisaCadangan = in_array($peran, ['', 'cadangan'], true);
             <form method="post" action="<?= site_url('server_cadangan/jadi_cadangan') ?>" id="jadi-cadangan" class="<?= $pilih ? '' : 'border-top pt-3 ' ?>mt-3" autocomplete="off" data-no-dirty>
                 <?= csrf_field() ?>
                 <h6 class="fw-semibold"><i class="bi bi-shield-check me-1"></i>Jadikan server ini cadangan</h6>
-                <p class="text-muted mb-2">Hanya di server cadangan (VPS). Database Moodle dan panel di server ini <strong>diganti salinan dari server utama</strong>.
+                <p class="small text-muted mb-3">Hanya di server cadangan (VPS). Database Moodle dan panel di server ini <strong>diganti salinan dari server utama</strong>.
                     Setelah selesai, login panel memakai akun admin server utama.</p>
                 <label class="form-label" for="kodeTempel">KODE dari panel server utama</label>
                 <textarea class="form-control font-monospace mb-2" id="kodeTempel" name="kode" rows="3" required spellcheck="false"

@@ -8,14 +8,16 @@ use App\Libraries\MoodleBridge;
 use App\Libraries\SoalRtf;
 
 /**
- * Admin Tools → Masukkan Soal: unggah soal RTF (pilihan ganda, kunci "ANS: X"), periksa, lalu masukkan langsung ke
+ * Menu Soal → Masukkan Soal: unggah soal RTF (pilihan ganda, kunci "ANS: X"), periksa, lalu masukkan langsung ke
  * quiz mapel di Moodle (jembatan import_soal; quiz dibuat bila belum ada). Hasil periksa disimpan sementara di
  * writable/soal/<token>.json sampai dikirim (dibersihkan setelah 1 hari).
+ * Tab Edit Soal: ubah teks/opsi/kunci soal di quiz mapel lewat jembatan soal_daftar/soal_baca/soal_ubah.
  */
 class Soal extends PanelController
 {
     private const DIR = WRITEPATH . 'soal/';
 
+    /** Menu Soal: tab Masukkan Soal (unggah RTF) dan Edit Soal (perbaiki naskah/kunci soal yang sudah di Moodle). */
     public function index(): string
     {
         $mapel = [];
@@ -24,15 +26,92 @@ class Soal extends PanelController
             $mapel = $this->daftarMapel();
         } catch (\Throwable $e) {
             $error = true;
-            log_message('error', 'Masukkan Soal: ' . $e->getMessage());
+            log_message('error', 'Soal: ' . $e->getMessage());
+        }
+        $tab     = $this->request->getGet('tab') === 'edit' ? 'edit' : 'masuk';
+        $dipilih = (int) $this->request->getGet('mapel');
+        $daftar  = null;
+        $gagal   = null;
+        if ($tab === 'edit' && $dipilih > 1) {
+            try {
+                $daftar = MoodleBridge::call('soal_daftar', ['courseid' => $dipilih])[0] ?? null;
+            } catch (\Throwable $e) {
+                $gagal = $e->getMessage();
+            }
         }
 
         return $this->render('soal/index', [
-            'title'   => 'Masukkan Soal',
+            'title'   => 'Soal',
+            'tab'     => $tab,
             'mapel'   => $mapel,
             'error'   => $error,
-            'dipilih' => (int) $this->request->getGet('mapel'),
+            'dipilih' => $dipilih,
+            'daftar'  => $daftar,
+            'gagal'   => $gagal,
         ]);
+    }
+
+    /** Edit Soal: isi satu soal (JSON) untuk editor. */
+    public function baca()
+    {
+        try {
+            $item = MoodleBridge::call('soal_baca', [
+                'courseid'   => (int) $this->request->getGet('mapel'),
+                'questionid' => (int) $this->request->getGet('id'),
+            ])[0] ?? null;
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => $e->getMessage()]);
+        }
+
+        return $this->response->setJSON($item);
+    }
+
+    /** Edit Soal: simpan teks soal, teks opsi, dan kunci (di tempat; siswa yang sedang mengerjakan ikut melihatnya). */
+    public function ubah()
+    {
+        $courseId = (int) $this->request->getPost('mapel');
+        $nomor    = (int) $this->request->getPost('nomor');
+        $back     = site_url('soal') . '?tab=edit&mapel=' . $courseId . ($nomor > 0 ? '#soal-' . $nomor : '');
+        $opsi     = [];
+        foreach ((array) $this->request->getPost('opsi') as $id => $teks) {
+            $opsi[] = ['id' => (int) $id, 'teks' => self::bersihkanHtml((string) $teks)];
+        }
+        try {
+            $item = MoodleBridge::call('soal_ubah', [
+                'courseid'    => $courseId,
+                'questionid'  => (int) $this->request->getPost('id'),
+                'teks'        => self::bersihkanHtml((string) $this->request->getPost('teks')),
+                'opsi'        => $opsi,
+                'kunci'       => (int) $this->request->getPost('kunci'),
+                'nilai_ulang' => $this->request->getPost('nilai_ulang') === '1',
+            ])[0] ?? [];
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Soal nomor ' . $nomor . ' gagal disimpan: ' . $e->getMessage());
+        }
+        ActivityLog::add('edit_soal', 'Mapel ' . $courseId . ', soal nomor ' . $nomor . (! empty($item['kunci_berubah']) ? ' (kunci diubah, ' . (int) ($item['dinilai_ulang'] ?? 0) . ' attempt dinilai ulang)' : ''));
+
+        $pesan = 'Soal nomor ' . $nomor . ' disimpan.';
+        if (! empty($item['kunci_berubah'])) {
+            $pesan .= ' Kunci berubah; ' . (int) ($item['dinilai_ulang'] ?? 0) . ' jawaban siswa yang sudah selesai dinilai ulang.';
+        }
+        if ((int) ($item['sedang'] ?? 0) > 0) {
+            $pesan .= ' ' . (int) $item['sedang'] . ' siswa yang sedang mengerjakan melihat perbaikan saat pindah nomor atau memuat ulang halaman.';
+        }
+
+        return redirect()->to($back)->with('success', $pesan);
+    }
+
+    /**
+     * HTML dari editor panel. Gambar asli sudah dikembalikan ke @@PLUGINFILE@@ oleh JS (atribut data-berkas);
+     * gambar yang masih data URI berarti tempelan baru (tidak punya berkas di Moodle), jadi dibuang, begitu juga skrip.
+     */
+    private static function bersihkanHtml(string $html): string
+    {
+        $html = (string) preg_replace('/<img\b[^>]*\bsrc="data:[^"]*"[^>]*>/i', '', $html);
+        $html = (string) preg_replace('#<(script|style|iframe)\b.*?</\1>#is', '', $html);
+        $html = (string) preg_replace('/\son\w+="[^"]*"/i', '', $html);
+
+        return trim($html);
     }
 
     /** Langkah 1: baca berkas RTF lalu tampilkan pratinjau soal dan kuncinya. */
@@ -70,7 +149,7 @@ class Soal extends PanelController
         }
 
         return $this->render('soal/periksa', [
-            'title'      => 'Masukkan Soal · Periksa',
+            'title'      => 'Soal · Periksa',
             'token'      => $token,
             'info'       => $info,
             'berkas'     => $file->getClientName(),

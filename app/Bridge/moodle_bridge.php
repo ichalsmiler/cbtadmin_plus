@@ -74,6 +74,47 @@ function cbt_clean_error(string $message): string
  * durasi pengerjaan dari masukan `timelimit` (detik, pengaturan "Durasi pengerjaan" di Kategori Mapel; 0 = tanpa batas).
  * Mengembalikan [cm, dibuat].
  */
+/**
+ * Quiz mapel beserta konteks dan susunan soalnya (slot -> questionid versi terbaru). Dipakai Edit Soal.
+ * Mengembalikan [quiz, cm, context, slots] atau [null, null, null, []] bila mapel belum punya quiz.
+ */
+function cbt_soal_quiz(int $courseid): array
+{
+    global $DB;
+    global $CFG;
+    require_once $CFG->dirroot . '/lib/questionlib.php';
+    if ($courseid <= 1 || $courseid === (int) SITEID) {
+        throw new RuntimeException('Mapel tidak valid.');
+    }
+    $quiz = $DB->get_record('quiz', ['course' => $courseid], '*', IGNORE_MULTIPLE);
+    if (! $quiz) {
+        return [null, null, null, []];
+    }
+    $cm      = get_coursemodule_from_instance('quiz', $quiz->id, $courseid, false, MUST_EXIST);
+    $context = context_module::instance((int) $cm->id);
+
+    return [$quiz, $cm, $context, \mod_quiz\question\bank\qbank_helper::get_question_structure((int) $quiz->id, $context)];
+}
+
+/** Gambar @@PLUGINFILE@@ di teks soal/opsi -> data URI (untuk editor panel); src asli disimpan di data-berkas. */
+function cbt_soal_gambar_ke_data(string $html, int $contextid, string $filearea, int $itemid): string
+{
+    $fs    = get_file_storage();
+    $files = [];
+    foreach ($fs->get_area_files($contextid, 'question', $filearea, $itemid, 'filename', false) as $f) {
+        $files[$f->get_filepath() . $f->get_filename()] = $f;
+    }
+
+    return (string) preg_replace_callback('/src="(@@PLUGINFILE@@(\/[^"]*))"/', static function ($m) use ($files) {
+        $f = $files[rawurldecode(html_entity_decode($m[2]))] ?? null;
+        if (! $f || $f->get_filesize() > 3 * 1024 * 1024) {
+            return $m[0];
+        }
+
+        return 'src="data:' . $f->get_mimetype() . ';base64,' . base64_encode($f->get_content()) . '" data-berkas="' . $m[1] . '"';
+    }, $html);
+}
+
 /** Nama kategori tetap "tanpa ujian": tes aktif saat semua sesi nonaktif, disisakan saat reset, tidak bisa dihapus/diganti nama. */
 const CBT_KAT_NONAKTIF = 'SESI NONAKTIF';
 
@@ -992,6 +1033,143 @@ try {
                 'quiz' => $quiz->name, 'cmid' => (int) $cm->id, 'quiz_baru' => $quizbaru,
                 'ditambah' => count($format->questionids),
                 'total' => (int) $DB->count_records('quiz_slots', ['quizid' => $quiz->id]),
+            ];
+            break;
+
+        case 'soal_daftar':
+            // Edit Soal: daftar soal di quiz mapel (urut slot) + jumlah attempt sedang/selesai.
+            [$quiz, , , $slots] = cbt_soal_quiz((int) $in['courseid']);
+            if (! $quiz) {
+                $result['items'][] = ['quiz' => null, 'soal' => []];
+                break;
+            }
+            $soal = [];
+            foreach ($slots as $sl) {
+                $qid   = (int) $sl->questionid;
+                $kunci = null;
+                $opsi  = 0;
+                if ($sl->qtype === 'multichoice' || $sl->qtype === 'truefalse') {
+                    $ans  = array_values($DB->get_records('question_answers', ['question' => $qid], 'id', 'id, fraction'));
+                    $opsi = count($ans);
+                    foreach ($ans as $i => $a) {
+                        if ((float) $a->fraction > 0.999) {
+                            $kunci = ($kunci ?? '') . chr(65 + $i);
+                        }
+                    }
+                }
+                $teks   = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) $sl->questiontext), ENT_QUOTES)));
+                $soal[] = [
+                    'slot' => (int) $sl->slot, 'id' => $qid, 'qtype' => (string) $sl->qtype,
+                    'teks' => mb_substr($teks, 0, 220), 'gambar' => substr_count((string) $sl->questiontext, '<img'),
+                    'kunci' => $kunci, 'opsi' => $opsi,
+                ];
+            }
+            $result['items'][] = [
+                'quiz'    => ['id' => (int) $quiz->id, 'nama' => $quiz->name],
+                'sedang'  => $DB->count_records_select('quiz_attempts', "quiz = ? AND preview = 0 AND state IN ('inprogress', 'overdue')", [$quiz->id]),
+                'selesai' => $DB->count_records('quiz_attempts', ['quiz' => $quiz->id, 'preview' => 0, 'state' => 'finished']),
+                'soal'    => $soal,
+            ];
+            break;
+
+        case 'soal_baca':
+            // Edit Soal: isi satu soal (teks + opsi, gambar sebagai data URI) untuk editor panel.
+            [$quiz, , , $slots] = cbt_soal_quiz((int) $in['courseid']);
+            $qid = (int) $in['questionid'];
+            if (! $quiz || ! array_filter($slots, static fn ($sl) => (int) $sl->questionid === $qid)) {
+                throw new RuntimeException('Soal tidak ada di quiz mapel ini.');
+            }
+            $q   = $DB->get_record('question', ['id' => $qid], '*', MUST_EXIST);
+            $ctx = (int) $DB->get_field_sql(
+                'SELECT qc.contextid FROM {question_versions} qv JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                   JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid WHERE qv.questionid = ?',
+                [$qid]
+            );
+            $single = $q->qtype === 'multichoice' ? (int) $DB->get_field('qtype_multichoice_options', 'single', ['questionid' => $qid]) : 1;
+            $opsi   = [];
+            foreach ($DB->get_records('question_answers', ['question' => $qid], 'id') as $a) {
+                $opsi[] = ['id' => (int) $a->id, 'teks' => cbt_soal_gambar_ke_data((string) $a->answer, $ctx, 'answer', (int) $a->id), 'kunci' => (float) $a->fraction > 0.999];
+            }
+            $result['items'][] = [
+                'id'     => $qid, 'qtype' => $q->qtype, 'single' => $single === 1,
+                'teks'   => cbt_soal_gambar_ke_data((string) $q->questiontext, $ctx, 'questiontext', $qid),
+                'opsi'   => $q->qtype === 'multichoice' ? $opsi : [],
+            ];
+            break;
+
+        case 'soal_ubah':
+            // Edit Soal: ubah teks soal/opsi dan kunci DI TEMPAT (tanpa versi baru), supaya siswa yang sedang
+            // mengerjakan langsung melihat perbaikannya saat halaman soal dimuat ulang. Opsi tidak ditambah/dihapus
+            // (urutan acak di attempt memakai id opsi). Kunci berubah + nilai_ulang: attempt selesai dinilai ulang.
+            [$quiz, , , $slots] = cbt_soal_quiz((int) $in['courseid']);
+            $qid = (int) $in['questionid'];
+            if (! $quiz || ! array_filter($slots, static fn ($sl) => (int) $sl->questionid === $qid)) {
+                throw new RuntimeException('Soal tidak ada di quiz mapel ini.');
+            }
+            $q    = $DB->get_record('question', ['id' => $qid], '*', MUST_EXIST);
+            $teks = trim((string) $in['teks']);
+            if (trim(strip_tags($teks, '<img>')) === '') {
+                throw new RuntimeException('Teks soal tidak boleh kosong.');
+            }
+            $answers = $DB->get_records('question_answers', ['question' => $qid], 'id');
+            $single  = $q->qtype === 'multichoice' && (int) $DB->get_field('qtype_multichoice_options', 'single', ['questionid' => $qid]) === 1;
+            $tx      = $DB->start_delegated_transaction();
+            $DB->update_record('question', (object) ['id' => $qid, 'questiontext' => $teks, 'timemodified' => time(), 'modifiedby' => get_admin()->id]);
+            $kunciBerubah = false;
+            if ($q->qtype === 'multichoice') {
+                foreach ((array) ($in['opsi'] ?? []) as $o) {
+                    $aid = (int) ($o['id'] ?? 0);
+                    if (! isset($answers[$aid])) {
+                        throw new RuntimeException('Opsi tidak dikenal.');
+                    }
+                    if (trim(strip_tags((string) $o['teks'], '<img>')) === '') {
+                        throw new RuntimeException('Teks opsi tidak boleh kosong.');
+                    }
+                    $DB->set_field('question_answers', 'answer', trim((string) $o['teks']), ['id' => $aid]);
+                }
+                $kunci = (int) ($in['kunci'] ?? 0);
+                if ($single && $kunci > 0) {
+                    if (! isset($answers[$kunci])) {
+                        throw new RuntimeException('Kunci tidak dikenal.');
+                    }
+                    foreach ($answers as $a) {
+                        $baru = (int) $a->id === $kunci ? 1.0 : 0.0;
+                        if (abs((float) $a->fraction - $baru) > 1e-7) {
+                            $DB->set_field('question_answers', 'fraction', $baru, ['id' => $a->id]);
+                            $kunciBerubah = true;
+                        }
+                    }
+                }
+            }
+            $tx->allow_commit();
+            question_bank::notify_question_edited($qid);
+
+            $dinilai = 0;
+            if ($kunciBerubah && ! empty($in['nilai_ulang'])) {
+                $users = [];
+                $rows  = $DB->get_records_sql(
+                    "SELECT a.id, a.uniqueid, a.userid, qa.slot FROM {quiz_attempts} a
+                       JOIN {question_attempts} qa ON qa.questionusageid = a.uniqueid AND qa.questionid = ?
+                      WHERE a.quiz = ? AND a.preview = 0 AND a.state = 'finished'",
+                    [$qid, $quiz->id]
+                );
+                foreach ($rows as $r) {
+                    $quba = question_engine::load_questions_usage_by_activity((int) $r->uniqueid);
+                    $quba->regrade_question((int) $r->slot, true);
+                    question_engine::save_questions_usage_by_activity($quba);
+                    $DB->set_field('quiz_attempts', 'sumgrades', $quba->get_total_mark(), ['id' => $r->id]);
+                    $users[(int) $r->userid] = true;
+                    $dinilai++;
+                }
+                $calc = \mod_quiz\quiz_settings::create((int) $quiz->id)->get_grade_calculator();
+                foreach (array_keys($users) as $uid) {
+                    $calc->recompute_final_grade($uid);
+                    quiz_update_grades($quiz, $uid);
+                }
+            }
+            $result['items'][] = [
+                'kunci_berubah' => $kunciBerubah, 'dinilai_ulang' => $dinilai,
+                'sedang'        => $DB->count_records_select('quiz_attempts', "quiz = ? AND preview = 0 AND state IN ('inprogress', 'overdue')", [$quiz->id]),
             ];
             break;
 

@@ -4,12 +4,14 @@ $menu = [
     ['Dashboard', 'house', ''],
     ['Daftar Peserta', 'person', null, [['Data CBTAdmin', 'daftar_peserta/cbtadmin'], ['Data Moodle', 'daftar_peserta/moodle']]],
     ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Token', 'token_ujian'], ['Hapus Attempt', 'hapus_attempt']]],
+    // Soal: masukkan (RTF) dan edit naskah/kunci soal di Moodle, juga saat ujian berjalan (tab di halaman soal).
+    ['Soal', 'pencil-square', 'soal'],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
-    ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Masukkan Soal', 'soal'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat'], ['Server Cadangan', 'server_cadangan']]],
+    ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat'], ['Server Cadangan', 'server_cadangan']]],
     ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', null, [['Moodle Tools', 'tools/moodle'], ['Info Sekolah', 'tools/cbtadmin'], ['Panel', 'tools/lainnya']]],
