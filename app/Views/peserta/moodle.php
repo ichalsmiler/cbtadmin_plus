@@ -18,6 +18,20 @@
                     <?php endforeach ?>
                 </select>
             </div>
+            <div>
+                <label class="form-label small mb-1" for="fPilihan">Mapel pilihan (XI/XII)</label>
+                <div class="input-group input-group-sm">
+                    <select class="form-select form-select-sm" id="fPilihan" name="pilihan" onchange="this.form.submit()">
+                        <option value="">Semua siswa</option>
+                        <option value="kurang" <?= $saringPilihan === 'kurang' ? 'selected' : '' ?>>Kurang dari</option>
+                        <option value="lebih" <?= $saringPilihan === 'lebih' ? 'selected' : '' ?>>Lebih dari</option>
+                        <option value="pas" <?= $saringPilihan === 'pas' ? 'selected' : '' ?>>Tepat</option>
+                    </select>
+                    <input class="form-control" style="max-width:4.5rem" type="number" name="wajib" min="1" max="10" value="<?= (int) $wajibPilihan ?>"
+                           aria-label="Jumlah mapel pilihan wajib" onchange="this.form.submit()">
+                    <span class="input-group-text">mapel</span>
+                </div>
+            </div>
         </form>
     </div>
 </div>

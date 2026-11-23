@@ -495,8 +495,27 @@ class Peserta extends PanelController
                 log_message('error', 'Mapel pilihan: ' . $e->getMessage());
             }
         }
+        // Filter jumlah mapel pilihan (hanya siswa XI/XII): kurang / lebih / pas dari jumlah wajib.
+        $saring = (string) $this->request->getGet('pilihan');
+        $wajib  = max(1, min(10, (int) ($this->request->getGet('wajib') ?: 4)));
+        foreach ($rows as &$u) {
+            $tk               = Tingkat::of($u['kelas']);
+            $u['jml_pilihan'] = isset($pilihan[$tk]) ? count(array_intersect($pilihanSiswa[(int) $u['id']] ?? [], array_keys($pilihan[$tk]))) : null;
+        }
+        unset($u);
+        if (in_array($saring, ['kurang', 'lebih', 'pas'], true)) {
+            $rows = array_values(array_filter($rows, static fn ($u) => $u['jml_pilihan'] !== null && match ($saring) {
+                'kurang' => $u['jml_pilihan'] < $wajib,
+                'lebih'  => $u['jml_pilihan'] > $wajib,
+                'pas'    => $u['jml_pilihan'] === $wajib,
+            }));
+        } else {
+            $saring = '';
+        }
 
         return $this->render('peserta/moodle', [
+            'saringPilihan' => $saring,
+            'wajibPilihan'  => $wajib,
             'title'       => 'Daftar Peserta Moodle',
             'rows'        => $rows,
             'semua'       => $semua,
