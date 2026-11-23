@@ -146,6 +146,7 @@ class Guard implements FilterInterface
         'dokumen*', 'hasil_ujian*',
         'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',
         'tools/lainnya', 'tools/log_export', 'tools/jejak', // Tools → Panel: hanya kartu Log aktivitas (view tools/index)
+        'soal', 'soal/baca', 'soal/ubah', // Soal: hanya tab Edit Soal (Masukkan Soal = soal/periksa, soal/kirim tetap admin)
     ];
 
     /** Nama peran untuk ditampilkan. */

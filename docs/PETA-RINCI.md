@@ -139,8 +139,8 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Dibuat di Tools → Panel → Akun, pilihan Role "Proktor". Nama tampilan `Guard::namaPeran()`.
 - Boleh (`Guard::OPERATOR_PATHS`): Dashboard; Status Ujian → Setting Ujian (kategori/sesi) + Token (release, token_setting) + Hapus Attempt;
   Status Peserta (+ login ganda untuk semua ruang, tidak dialihkan ke Tools); Reset Login; Blokir Siswa; Laporan Kehadiran
-  pengawas (`kehadiran`); Daftar Peserta CBTAdmin/Moodle baca saja;  "Kembali" juga ke akun operator); Dokumen; Hasil Ujian; Tools → Moodle Tools (cron, cache, Anti Submit, Lock/Resume/Anti Newtab); Tools → Panel tampil sebagai "Log Aktivitas" (hanya kartu Log + Excel log + jejak siswa; kartu Akun/Pengaturan/Backup disembunyikan `$hanyaLog`).
-- Tidak boleh: Daftar Ruang (termasuk Cetak ID Login / Tukar Akses), Soal, Admin Tools (Kategori Mapel, Jadwal, Konvert, Sesi, Server Cadangan),
+  pengawas (`kehadiran`); Daftar Peserta CBTAdmin/Moodle baca saja;  "Kembali" juga ke akun operator); Dokumen; Hasil Ujian; Soal → hanya tab Edit Soal (`soal`, `soal/baca`, `soal/ubah`; `Soal::index` memaksa tab edit untuk non-admin, tab Masukkan Soal disembunyikan; 23 Nov 2026); Tools → Moodle Tools (cron, cache, Anti Submit, Lock/Resume/Anti Newtab); Tools → Panel tampil sebagai "Log Aktivitas" (hanya kartu Log + Excel log + jejak siswa; kartu Akun/Pengaturan/Backup disembunyikan `$hanyaLog`).
+- Tidak boleh: Daftar Ruang (termasuk Cetak ID Login / Tukar Akses), Masukkan Soal (`soal/periksa`, `soal/kirim`), Admin Tools (Kategori Mapel, Jadwal, Konvert, Sesi, Server Cadangan),
   Info Sekolah, akun/pengaturan panel/backup, impor/tambah/ubah/hapus/reset peserta, ubah/hapus/Generate Kode ruang.
 - Data: seperti admin (semua ruang) lewat `Guard::lihatSemua()` di BlokirSiswa, Dashboard, Kehadiran.
 - POST yang ditolak kembali ke halaman asal (referer satu situs) dengan pesan "hanya untuk administrator".

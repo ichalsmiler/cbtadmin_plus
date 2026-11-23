@@ -28,7 +28,9 @@ class Soal extends PanelController
             $error = true;
             log_message('error', 'Soal: ' . $e->getMessage());
         }
-        $tab     = $this->request->getGet('tab') === 'edit' ? 'edit' : 'masuk';
+        // Proktor hanya boleh Edit Soal (unggah soal baru khusus admin).
+        $admin   = session('admin_role') === 'admin';
+        $tab     = $this->request->getGet('tab') === 'edit' || ! $admin ? 'edit' : 'masuk';
         $dipilih = (int) $this->request->getGet('mapel');
         $daftar  = null;
         $gagal   = null;
@@ -43,6 +45,7 @@ class Soal extends PanelController
         return $this->render('soal/index', [
             'title'   => 'Soal',
             'tab'     => $tab,
+            'admin'   => $admin,
             'mapel'   => $mapel,
             'error'   => $error,
             'dipilih' => $dipilih,

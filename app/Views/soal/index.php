@@ -23,7 +23,7 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
 <?php endif ?>
 
 <ul class="nav nav-tabs mb-4">
-    <li class="nav-item"><a class="nav-link <?= $tab === 'masuk' ? 'active' : '' ?>" href="<?= site_url('soal') ?><?= $dipilih > 1 ? '?mapel=' . $dipilih : '' ?>"<?= $tab === 'masuk' ? ' aria-current="page"' : '' ?>>Masukkan Soal</a></li>
+    <?php if ($admin): ?><li class="nav-item"><a class="nav-link <?= $tab === 'masuk' ? 'active' : '' ?>" href="<?= site_url('soal') ?><?= $dipilih > 1 ? '?mapel=' . $dipilih : '' ?>"<?= $tab === 'masuk' ? ' aria-current="page"' : '' ?>>Masukkan Soal</a></li><?php endif ?>
     <li class="nav-item"><a class="nav-link <?= $tab === 'edit' ? 'active' : '' ?>" href="<?= site_url('soal') ?>?tab=edit<?= $dipilih > 1 ? '&mapel=' . $dipilih : '' ?>"<?= $tab === 'edit' ? ' aria-current="page"' : '' ?>>Edit Soal</a></li>
 </ul>
 
