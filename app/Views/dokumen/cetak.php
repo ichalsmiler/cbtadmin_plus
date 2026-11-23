@@ -137,13 +137,23 @@ $jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
                 btnZip.disabled = true;
                 btnZip.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyiapkan ZIP…';
             }, 0);
-            var mulai = Date.now();
+            // Selesai bila cookie tanda sampai, ATAU server menyatakan ZIP sudah dibuat (zip_status) — yang kedua
+            // tetap jalan bila unduhan diambil alih pengelola unduhan (IDM dsb.) sehingga cookie tidak sampai.
+            var mulai = Date.now(), selesai = false, cekServer = 0;
+            var pulih = function () {
+                if (selesai) { return; }
+                selesai = true;
+                clearInterval(cek);
+                btnZip.disabled = false;
+                btnZip.innerHTML = asli;
+            };
             var cek = setInterval(function () {
-                if (document.cookie.indexOf('kartu_zip=' + token) !== -1 || Date.now() - mulai > 300000) {
-                    clearInterval(cek);
-                    btnZip.disabled = false;
-                    btnZip.innerHTML = asli;
-                }
+                if (document.cookie.indexOf('kartu_zip=' + token) !== -1 || Date.now() - mulai > 300000) { pulih(); return; }
+                if (++cekServer % 2) { return; }   // tanya server tiap 2 detik
+                fetch('<?= site_url('dokumen/cetak_doc/zip_status') ?>?token=' + token, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (d) { if (d && d.selesai) { setTimeout(pulih, 1500); } })   // beri waktu berkas mulai terkirim
+                    .catch(function () {});
             }, 1000);
         });
     }

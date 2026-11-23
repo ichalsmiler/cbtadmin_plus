@@ -12,7 +12,7 @@ $menu = [
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
     ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat'], ['Server Cadangan', 'server_cadangan']]],
-    ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran']]],
+    ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran'], ['Rekap Simulasi', 'dokumen/rekap_simulasi']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', null, [['Moodle Tools', 'tools/moodle'], ['Info Sekolah', 'tools/cbtadmin'], ['Panel', 'tools/lainnya']]],
     ['Keluar', 'box-arrow-right', 'logout'],

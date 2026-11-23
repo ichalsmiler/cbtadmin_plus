@@ -112,6 +112,9 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('dokumen/cetak_doc', 'Dokumen::cetak');
     $routes->get('dokumen/cetak_doc/kartu', 'Dokumen::kartu');
     $routes->get('dokumen/cetak_doc/kartu_zip', 'Dokumen::kartuZip');
+    $routes->get('dokumen/cetak_doc/zip_status', 'Dokumen::zipStatus');
+    $routes->get('dokumen/rekap_simulasi', 'RekapSimulasi::index');
+    $routes->get('dokumen/rekap_simulasi/export', 'RekapSimulasi::export');
     $routes->get('dokumen/cetak_doc/daftar_hadir', 'Dokumen::daftarHadir');
     $routes->get('kehadiran', 'Kehadiran::index');
     $routes->post('kehadiran/simpan', 'Kehadiran::simpan');

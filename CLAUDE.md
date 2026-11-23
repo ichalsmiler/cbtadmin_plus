@@ -54,7 +54,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 | Laporan Kehadiran | Kehadiran (+ `Absensi`) |
 | Blokir Siswa | BlokirSiswa (+ `Blokir`) |
 | Daftar Ruang | Ruang (+ `Pengawas`) |
-| Dokumen | Dokumen |
+| Dokumen (+ Rekap Simulasi) | Dokumen / RekapSimulasi |
 | Hasil Ujian | HasilUjian (+ `AnalisisSoal`) |
 | Soal: Masukkan Soal / Edit Soal (tab) | Soal (+ `SoalRtf`) |
 | Admin Tools: Sesi / Jadwal / Kategori Mapel / Konvert User / Server Cadangan | SesiTingkat / Konvert / Tools::testManage / Konvert / ServerCadanganPanel (+ `ServerCadangan`) |

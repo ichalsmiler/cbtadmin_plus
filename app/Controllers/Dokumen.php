@@ -105,6 +105,13 @@ class Dokumen extends PanelController
         $zip->close();
         ActivityLog::add('cetak_kartu', count($rows) . ' kartu, ZIP per ' . ($perKelas ? 'kelas' : 'ruang') . ', ' . count($groups) . ' berkas');
 
+        // Tanda selesai di server (dibaca zipStatus): tetap terbaca walau unduhan diambil alih pengelola unduhan
+        // (mis. IDM) sehingga cookie di bawah tidak pernah sampai ke halaman.
+        $tanda = self::kunciZip((string) $this->request->getGet('token_unduh'));
+        if ($tanda !== null) {
+            cache()->save($tanda, 1, 600);
+        }
+
         $isi = (string) file_get_contents($tmp);
         @unlink($tmp);
 
@@ -114,7 +121,29 @@ class Dokumen extends PanelController
             header('Set-Cookie: kartu_zip=' . $token . '; Path=/; Max-Age=120; SameSite=Lax', false);
         }
 
-        return $this->response->download('kartu_peserta_per_' . ($perKelas ? 'kelas' : 'ruang') . '.zip', $isi);
+        // Nama berkas mengikuti tingkatan, mis. kartu_peserta_kelas_X_per_ruang.zip (semua tingkatan: semua_kelas).
+        $tingkat = Tingkat::dariRequest();
+        $bagian  = $tingkat !== '' ? 'kelas_' . $tingkat : 'semua_kelas';
+
+        return $this->response->download('kartu_peserta_' . $bagian . '_per_' . ($perKelas ? 'kelas' : 'ruang') . '.zip', $isi);
+    }
+
+    /** JSON: apakah ZIP dengan token ini (milik akun ini) sudah selesai dibuat. */
+    public function zipStatus()
+    {
+        $tanda = self::kunciZip((string) $this->request->getGet('token'));
+
+        return $this->response->setJSON(['selesai' => $tanda !== null && cache($tanda) !== null]);
+    }
+
+    /** Kunci cache tanda selesai ZIP: per akun + token angka dari halaman; null bila token tidak valid. */
+    private static function kunciZip(string $token): ?string
+    {
+        if (! ctype_digit($token) || strlen($token) > 20) {
+            return null;
+        }
+
+        return 'kartu_zip_' . (int) session('admin_id') . '_' . $token;
     }
 
     /** Jam ujian per tingkatan (Admin Tools → Sesi) untuk tiap kartu. */
