@@ -10,3 +10,8 @@ $string['min'] = 'menit';
 $string['mins'] = 'menit';
 // Daftar Ujian kosong (block_myoverview / core_course/no-courses)
 $string['nocourses'] = 'Belum ada ujian yang aktif, hubungi pengawas/proktor';
+// Pesan gagal login (bawaan paket id: "Galat saat log masuk, silakan ulang lagi").
+$string['invalidlogin'] = 'Login gagal: username atau password salah. Periksa kembali kartu login Anda.';
+// Kolom halaman login (bawaan paket id: "Nama pengguna" / "Kata sandi"), sama dengan istilah di kartu login.
+$string['username'] = 'Username';
+$string['password'] = 'Password';
