@@ -23,7 +23,7 @@ class RekapSimulasi extends PanelController
         return $this->render('dokumen/rekap_simulasi', ['title' => 'Rekap Simulasi'] + $data);
     }
 
-    /** Excel: lembar Ringkasan per kelas + lembar Belum ikut (nama per kelas). */
+    /** Excel: lembar Ringkasan per kelas + lembar Sudah ikut + lembar Belum ikut (nama per kelas). */
     public function export()
     {
         $d = $this->data();
@@ -40,6 +40,19 @@ class RekapSimulasi extends PanelController
         $t       = $d['total'];
         $baris[] = ['TOTAL', $t['total'], $t['selesai'], $t['proses'], $t['belum'], $t['persen'] . '%'];
         self::isiLembar($ringkas, $baris);
+
+        $sudah = $book->createSheet()->setTitle('Sudah ikut');
+        $baris = [['No', 'Kelas', 'No. Peserta', 'Nama', 'Username', 'Ruang', 'Selesai pada']];
+        $no    = 0;
+        foreach ($d['kelas'] as $k) {
+            foreach ($k['siswa'] as $s) {
+                if ($s['status'] === 'selesai') {
+                    $baris[] = [++$no, $k['kelas'], $s['nomor_peserta'], $s['nama'], $s['username'], $s['ruang'],
+                        $s['selesai_pada'] ? date('d/m/Y H:i', $s['selesai_pada']) : ''];
+                }
+            }
+        }
+        self::isiLembar($sudah, $baris);
 
         $belum = $book->createSheet()->setTitle('Belum ikut');
         $baris = [['No', 'Kelas', 'No. Peserta', 'Nama', 'Username', 'Ruang', 'Keterangan']];
@@ -164,6 +177,7 @@ class RekapSimulasi extends PanelController
         }
 
         $state = [];
+        $waktu = [];   // waktu kirim percobaan terakhir yang selesai, per userid
         if ($quizIds !== [] && $idMap !== []) {
             $q = $mdl->table(Moodle::t('quiz_attempts'))->select('userid, state, timefinish')
                 ->where('preview', 0)->whereIn('quiz', $quizIds);
@@ -173,6 +187,9 @@ class RekapSimulasi extends PanelController
                     $s   = $a['state'] === 'finished' ? 'selesai' : 'proses';
                     if (($state[$uid] ?? '') !== 'selesai') {
                         $state[$uid] = $s;
+                    }
+                    if ($s === 'selesai') {
+                        $waktu[$uid] = max($waktu[$uid] ?? 0, (int) $a['timefinish']);
                     }
                 }
             }
@@ -189,6 +206,7 @@ class RekapSimulasi extends PanelController
                 'username'      => (string) $s['username'],
                 'ruang'         => (string) ($s['ruang'] ?? ''),
                 'status'        => $status,
+                'selesai_pada'  => $uid !== null ? ($waktu[$uid] ?? 0) : 0,
                 'keterangan'    => $uid === null ? 'Akun Moodle belum ada' : ($status === 'proses' ? 'Belum selesai / tidak terkirim' : ($status === 'belum' ? 'Belum ikut' : '')),
             ];
         }

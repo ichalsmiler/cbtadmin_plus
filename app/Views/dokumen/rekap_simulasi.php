@@ -69,11 +69,12 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
             <table class="table align-middle mb-0">
                 <thead><tr>
                     <th>Kelas</th><th class="text-center">Jumlah</th><th class="text-center">Sudah ikut</th>
-                    <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><th>Yang belum</th>
+                    <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><th>Yang sudah</th><th>Yang belum</th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($kelas as $k): ?>
                     <?php $kurang = array_values(array_filter($k['siswa'], static fn ($s) => $s['status'] !== 'selesai')); ?>
+                    <?php $sudah = array_values(array_filter($k['siswa'], static fn ($s) => $s['status'] === 'selesai')); ?>
                     <tr>
                         <td class="fw-semibold"><?= esc($k['kelas']) ?></td>
                         <td class="text-center"><?= $k['total'] ?></td>
@@ -87,6 +88,20 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
                                 </div>
                                 <span class="small"><?= $k['persen'] ?>%</span>
                             </div>
+                        </td>
+                        <td class="small">
+                            <?php if ($sudah === []): ?>
+                                <span class="text-muted">–</span>
+                            <?php else: ?>
+                                <details>
+                                    <summary class="text-success"><?= count($sudah) ?> siswa</summary>
+                                    <ol class="mb-0 mt-1 ps-3">
+                                        <?php foreach ($sudah as $s): ?>
+                                            <li><?= esc($s['nama']) ?> <span class="text-muted">(<?= esc($s['nomor_peserta'] ?: $s['username']) ?><?= $s['ruang'] !== '' ? ', ' . esc($s['ruang']) : '' ?><?= $s['selesai_pada'] ? ', ' . date('d/m H:i', $s['selesai_pada']) : '' ?>)</span></li>
+                                        <?php endforeach ?>
+                                    </ol>
+                                </details>
+                            <?php endif ?>
                         </td>
                         <td class="small">
                             <?php if ($kurang === []): ?>
@@ -110,7 +125,7 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
                 </tbody>
                 <tfoot><tr class="fw-semibold">
                     <td>Total</td><td class="text-center"><?= $total['total'] ?></td><td class="text-center text-success"><?= $total['selesai'] ?></td>
-                    <td class="text-center"><?= $total['proses'] ?></td><td class="text-center"><?= $total['belum'] ?></td><td><?= $total['persen'] ?>%</td><td></td>
+                    <td class="text-center"><?= $total['proses'] ?></td><td class="text-center"><?= $total['belum'] ?></td><td><?= $total['persen'] ?>%</td><td></td><td></td>
                 </tr></tfoot>
             </table>
         </div>
