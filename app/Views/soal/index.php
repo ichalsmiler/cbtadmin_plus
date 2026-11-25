@@ -25,6 +25,7 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
 <ul class="nav nav-tabs mb-4">
     <?php if ($admin): ?><li class="nav-item"><a class="nav-link <?= $tab === 'masuk' ? 'active' : '' ?>" href="<?= site_url('soal') ?><?= $dipilih > 1 ? '?mapel=' . $dipilih : '' ?>"<?= $tab === 'masuk' ? ' aria-current="page"' : '' ?>>Masukkan Soal</a></li><?php endif ?>
     <li class="nav-item"><a class="nav-link <?= $tab === 'edit' ? 'active' : '' ?>" href="<?= site_url('soal') ?>?tab=edit<?= $dipilih > 1 ? '&mapel=' . $dipilih : '' ?>"<?= $tab === 'edit' ? ' aria-current="page"' : '' ?>>Edit Soal</a></li>
+    <li class="nav-item"><a class="nav-link <?= $tab === 'review' ? 'active' : '' ?>" href="<?= site_url('soal') ?>?tab=review<?= $dipilih > 1 ? '&mapel=' . $dipilih : '' ?>"<?= $tab === 'review' ? ' aria-current="page"' : '' ?>>Review Soal</a></li>
 </ul>
 
 <?php if ($tab === 'masuk'): ?>
@@ -60,7 +61,7 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
 </div>
 <?php else: ?>
 <form class="card mb-4" method="get" action="<?= site_url('soal') ?>">
-    <input type="hidden" name="tab" value="edit">
+    <input type="hidden" name="tab" value="<?= esc($tab) ?>">
     <div class="card-body d-flex flex-wrap gap-2 align-items-end">
         <div class="flex-grow-1" style="max-width: 36rem">
             <label class="form-label small mb-1" for="e_mapel">Mapel</label>
@@ -74,6 +75,40 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
     <div class="alert alert-danger" role="alert">Soal tidak bisa dibaca dari Moodle: <?= esc($gagal) ?></div>
 <?php elseif ($daftar !== null && $daftar['quiz'] === null): ?>
     <div class="alert alert-warning" role="status">Mapel ini belum punya quiz. Masukkan soalnya dulu di tab <a class="alert-link" href="<?= site_url('soal') ?>?mapel=<?= $dipilih ?>">Masukkan Soal</a></div>
+<?php elseif ($daftar !== null && $tab === 'review'): ?>
+    <?php // Review Soal: semua soal lengkap. HTML dari jembatan soal_semua (clean_text Moodle, gambar data URI). ?>
+    <div class="card">
+        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold me-auto"><?= esc($daftar['quiz']['nama']) ?></span>
+            <span class="small text-body-secondary"><?= count($daftar['soal']) ?> soal · kunci ditandai hijau · urutan opsi seperti di bank soal (siswa melihatnya diacak)</span>
+            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Cetak</button>
+        </div>
+        <div class="card-body review-soal">
+            <?php if ($daftar['soal'] === []): ?>
+                <p class="text-center text-muted py-4 mb-0">Quiz ini belum berisi soal.</p>
+            <?php endif ?>
+            <?php foreach ($daftar['soal'] as $s): ?>
+                <article class="review-soal-item" id="review-<?= (int) $s['slot'] ?>">
+                    <div class="d-flex gap-3">
+                        <div class="review-soal-no font-monospace"><?= (int) $s['slot'] ?>.</div>
+                        <div class="flex-grow-1 min-w-0 soal-pratinjau">
+                            <?= $s['teks'] !== '' ? $s['teks'] : '<p class="text-body-secondary">(tanpa teks)</p>' ?>
+                            <?php if ($s['opsi'] !== []): ?>
+                                <ol type="A" class="mb-0">
+                                    <?php foreach ($s['opsi'] as $o): ?>
+                                        <li class="<?= $o['kunci'] ? 'review-kunci' : '' ?>"><?= $o['teks'] ?><?= $o['kunci'] ? ' <i class="bi bi-check-circle-fill text-success" aria-label="kunci"></i>' : '' ?></li>
+                                    <?php endforeach ?>
+                                </ol>
+                            <?php elseif ($s['qtype'] !== 'multichoice'): ?>
+                                <p class="small text-body-secondary mb-0">Tipe soal: <?= esc($s['qtype']) ?></p>
+                            <?php endif ?>
+                        </div>
+                        <a class="btn btn-outline-primary btn-sm align-self-start text-nowrap d-print-none" href="<?= site_url('soal') ?>?tab=edit&mapel=<?= $dipilih ?>#soal-<?= (int) $s['slot'] ?>"><i class="bi bi-pencil me-1"></i>Edit</a>
+                    </div>
+                </article>
+            <?php endforeach ?>
+        </div>
+    </div>
 <?php elseif ($daftar !== null): ?>
     <?php if ((int) $daftar['sedang'] > 0): ?>
         <div class="alert alert-info d-flex gap-2" role="status">

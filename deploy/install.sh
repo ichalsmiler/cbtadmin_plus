@@ -33,7 +33,8 @@ SERVER_HOST="$(echo "$MOODLE_URL" | sed -E 's#^https?://([^/:]+).*#\1#')"
 # ----------------------------- 1. Paket ---------------------------------------
 log "1/7 Memasang Composer dan ekstensi PHP"
 export DEBIAN_FRONTEND=noninteractive
-apt-get install -y composer php-intl php-mbstring php-mysql php-xml php-curl php-gd php-zip unzip curl >/dev/null
+# libwmf-bin (wmf2gd): gambar WMF (rumus/diagram) di soal RTF diubah ke PNG saat Masukkan Soal (SoalRtf).
+apt-get install -y composer php-intl php-mbstring php-mysql php-xml php-curl php-gd php-zip unzip curl libwmf-bin >/dev/null
 
 # ----------------------------- 2. CodeIgniter 4 -------------------------------
 if [ ! -f "$APP_DIR/spark" ]; then

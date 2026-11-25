@@ -36,12 +36,19 @@ class SoalRtf
     /** Ringkasan pengecilan gambar selama urai() (byte asli, byte hasil, jumlah gambar yang diubah). */
     private static array $ukuran = ['asli' => 0, 'jadi' => 0, 'jumlah' => 0];
 
+    /** Gambar WMF (rumus/diagram dari Equation Editor atau ekspor bank soal) yang gagal diubah ke PNG selama urai(). */
+    private static int $wmfGagal = 0;
+
+    /** Pengubah WMF → PNG (paket Debian libwmf-bin). */
+    public const WMF2GD = '/usr/bin/wmf2gd';
+
     /**
      * @return array{soal: list<array{teks: string, opsi: list<string>, kunci: int, gambar: list<array{nama: string, data: string}>}>, peringatan: list<string>, gambar: array{asli: int, jadi: int, jumlah: int}}
      */
     public static function urai(string $rtf): array
     {
-        self::$ukuran = ['asli' => 0, 'jadi' => 0, 'jumlah' => 0];
+        self::$ukuran   = ['asli' => 0, 'jadi' => 0, 'jumlah' => 0];
+        self::$wmfGagal = 0;
         if (! str_starts_with(ltrim($rtf), '{\\rtf')) {
             throw new RuntimeException('Berkas bukan RTF. Simpan soal sebagai Rich Text Format (.rtf).');
         }
@@ -102,6 +109,11 @@ class SoalRtf
         if ($dilewati > 0) {
             $peringatan[] = "$dilewati soal bukan pilihan ganda (essay/benar-salah/dll.) dilewati; masukkan manual di Moodle.";
         }
+        if (self::$wmfGagal > 0) {
+            $peringatan[] = self::$wmfGagal . ' gambar WMF (rumus/diagram) tidak bisa dibaca'
+                . (is_executable(self::WMF2GD) ? '.' : ': pengubah WMF belum terpasang di server (apt install libwmf-bin, atau deploy ulang panel).')
+                . ' Periksa soal yang rumus/gambarnya hilang.';
+        }
         if ($soal === []) {
             throw new RuntimeException('Tidak ada soal pilihan ganda yang terbaca. Pastikan opsi berupa daftar a/b/c dan ada baris "ANS: X" di bawah setiap soal.');
         }
@@ -155,6 +167,86 @@ class SoalRtf
         return $hasil !== '' && strlen($hasil) < strlen($data) ? [$hasil, 'jpg'] : [$data, $ext];
     }
 
+    /**
+     * Gambar WMF dari RTF (\wmetafile, mis. rumus Equation Editor/MathType atau diagram hasil ekspor bank soal) → PNG
+     * lewat wmf2gd (libwmf-bin). WMF di RTF tidak membawa ukuran, jadi diberi header "placeable" dari SetWindowOrg/
+     * SetWindowExt metafile + \picwgoal (twips); tanpa itu libwmf menggambar persegi (gepeng). Dirender 2x lebih rapat
+     * (maks. LEBAR_MAKS px), lebar tampil = ukuran di dokumen (twips / 15 = px pada 96 dpi).
+     *
+     * @param array{picwgoal: int, pichgoal: int, picw: int, pich: int} $ukuran
+     *
+     * @return array{ext: string, data: string, lebar: int}|null
+     */
+    private static function wmfKePng(string $wmf, array $ukuran): ?array
+    {
+        $gw = $ukuran['picwgoal'] > 0 ? $ukuran['picwgoal'] : (int) round($ukuran['picw'] * 1440 / 2540);
+        $gh = $ukuran['pichgoal'] > 0 ? $ukuran['pichgoal'] : (int) round($ukuran['pich'] * 1440 / 2540);
+        if (! is_executable(self::WMF2GD) || strlen($wmf) < 18 || $gw <= 0 || $gh <= 0) {
+            self::$wmfGagal++;
+
+            return null;
+        }
+        $lebar = max(1, (int) round($gw / 15));
+        $w     = min(self::LEBAR_MAKS, $lebar * 2);
+        $h     = max(1, (int) round($w * $gh / $gw));
+        $masuk = tempnam(sys_get_temp_dir(), 'wmf');
+        $keluar = $masuk . '.png';
+        file_put_contents($masuk, self::wmfPlaceable($wmf, $gw));
+        exec(escapeshellarg(self::WMF2GD) . ' -t png --maxwidth=' . $w . ' --maxheight=' . $h . ' --maxpect -o '
+            . escapeshellarg($keluar) . ' ' . escapeshellarg($masuk) . ' >/dev/null 2>&1');
+        $png = is_file($keluar) ? (string) file_get_contents($keluar) : '';
+        @unlink($masuk);
+        @unlink($keluar);
+        if ($png === '' || ! @getimagesizefromstring($png)) {
+            self::$wmfGagal++;
+
+            return null;
+        }
+
+        return ['ext' => 'png', 'data' => $png, 'lebar' => $lebar];
+    }
+
+    /** Tambah header placeable (22 byte) dari SetWindowOrg/SetWindowExt; WMF tanpa SetWindowExt dikembalikan apa adanya. */
+    private static function wmfPlaceable(string $wmf, int $lebarTwips): string
+    {
+        if (substr($wmf, 0, 4) === "\xD7\xCD\xC6\x9A") {
+            return $wmf;  // sudah placeable
+        }
+        $pos = unpack('v', substr($wmf, 2, 2))[1] * 2;  // panjang header metafile (word)
+        $org = [0, 0];
+        $ext = null;
+        $n   = strlen($wmf);
+        for ($r = 0; $r < 200 && $pos + 6 <= $n; $r++) {
+            $size = unpack('V', substr($wmf, $pos, 4))[1];
+            $fn   = unpack('v', substr($wmf, $pos + 4, 2))[1];
+            if ($size < 3) {
+                break;
+            }
+            if (($fn === 0x020B || $fn === 0x020C) && $pos + 10 <= $n) {
+                $p  = unpack('s2', substr($wmf, $pos + 6, 4));  // parameter tersimpan terbalik: y, x
+                $xy = [$p[2], $p[1]];
+                if ($fn === 0x020B) {
+                    $org = $xy;
+                } else {
+                    $ext = $xy;
+                }
+            }
+            $pos += $size * 2;
+        }
+        if ($ext === null || $ext[0] === 0 || $ext[1] === 0) {
+            return $wmf;
+        }
+        $inch = max(1, min(65535, (int) round(abs($ext[0]) * 1440 / max(1, $lebarTwips))));
+        $kata = [0xCDD7, 0x9AC6, 0, $org[0] & 0xFFFF, $org[1] & 0xFFFF, ($org[0] + $ext[0]) & 0xFFFF, ($org[1] + $ext[1]) & 0xFFFF, $inch, 0, 0];
+        $cek  = 0;
+        foreach ($kata as $k) {
+            $cek ^= $k;
+        }
+        $kata[] = $cek;
+
+        return pack('v*', ...$kata) . $wmf;
+    }
+
     /** Moodle XML untuk jembatan import_soal. */
     public static function keXml(array $soal, string $awalanNama = 'Soal'): string
     {
@@ -163,21 +255,33 @@ class SoalRtf
             $nama  = $awalanNama . ' ' . ($i + 1);
             $x    .= '<question type="multichoice"><name><text>' . htmlspecialchars($nama, ENT_XML1) . '</text></name>'
                 . '<questiontext format="html"><text><![CDATA[' . self::cdata($s['teks']) . ']]></text>';
-            foreach ($s['gambar'] as $g) {
-                $x .= '<file name="' . htmlspecialchars($g['nama'], ENT_XML1) . '" path="/" encoding="base64">' . base64_encode($g['data']) . '</file>';
-            }
+            $x .= self::berkasXml($s['teks'], $s['gambar']);
             $x .= '</questiontext><generalfeedback format="html"><text></text></generalfeedback>'
                 . '<defaultgrade>1</defaultgrade><penalty>0</penalty><hidden>0</hidden>'
                 . '<single>true</single><shuffleanswers>true</shuffleanswers><answernumbering>ABCD</answernumbering>'
                 . '<showstandardinstruction>0</showstandardinstruction>';
             foreach ($s['opsi'] as $j => $o) {
                 $x .= '<answer fraction="' . ($j === $s['kunci'] ? '100' : '0') . '" format="html"><text><![CDATA[' . self::cdata($o) . ']]></text>'
+                    . self::berkasXml($o, $s['gambar'])
                     . '<feedback format="html"><text></text></feedback></answer>';
             }
             $x .= "</question>\n";
         }
 
         return $x . '</quiz>';
+    }
+
+    /** Elemen <file> untuk gambar yang dipakai $html (teks soal atau satu opsi). */
+    private static function berkasXml(string $html, array $gambar): string
+    {
+        $x = '';
+        foreach ($gambar as $g) {
+            if (str_contains($html, '@@PLUGINFILE@@/' . $g['nama'] . '"')) {
+                $x .= '<file name="' . htmlspecialchars($g['nama'], ENT_XML1) . '" path="/" encoding="base64">' . base64_encode($g['data']) . '</file>';
+            }
+        }
+
+        return $x;
     }
 
     // ------------------------------------------------------------------ penyusun soal
@@ -193,27 +297,46 @@ class SoalRtf
                 // Nomor soal yang diketik manual ("7.<tab>…") dibuang; Moodle memberi nomor sendiri.
                 $runs = self::buangAwalan($runs, '/^\s*\d{1,3}\s*[.)]\s*/');
             }
-            $isi = self::html($runs);
-            foreach ($p['gambar'] as $g) {
-                [$data, $ext] = self::kecilkan($g['data'], $g['ext']);
-                self::$ukuran['asli'] += strlen($g['data']);
-                self::$ukuran['jadi'] += strlen($data);
-                self::$ukuran['jumlah'] += $data !== $g['data'] ? 1 : 0;
-                $nama     = 'gambar-' . (count($gambar) + 1) . '.' . $ext;
-                $gambar[] = ['nama' => $nama, 'data' => $data];
-                $isi     .= ($isi !== '' ? '<br>' : '') . '<img src="@@PLUGINFILE@@/' . $nama . '" alt="" style="max-width:100%;height:auto">';
-            }
+            $isi = self::pasangGambar(self::html($runs), $p['gambar'], $gambar);
             if ($isi !== '') {
                 $html[] = '<p>' . $isi . '</p>';
             }
         }
         $teksOpsi = [];
         foreach ($opsi as $o) {
-            // Opsi diketik manual "A. …": hurufnya dibuang (Moodle menampilkan A/B/C sendiri).
-            $teksOpsi[] = self::html(self::buangAwalan($o['runs'], '/^\s*[A-Ea-e][.)]\s*/'));
+            // Opsi diketik manual "A. …": hurufnya dibuang (Moodle menampilkan A/B/C sendiri). Gambar opsi (mis. rumus)
+            // disimpan di daftar gambar soal; keXml() memasang berkasnya pada jawaban yang memakainya.
+            $teksOpsi[] = self::pasangGambar(self::html(self::buangAwalan($o['runs'], '/^\s*[A-Ea-e][.)]\s*/')), $o['gambar'], $gambar);
         }
 
         return ['teks' => implode('', $html), 'opsi' => $teksOpsi, 'kunci' => $kunci, 'gambar' => $gambar];
+    }
+
+    /**
+     * Ganti penanda gambar {{Gn}} (posisi gambar di paragraf) dengan <img>, berkasnya ditambahkan ke $gambar.
+     * Gambar dari WMF dibuat 2x lebih rapat; lebar tampil (atribut width) tetap ukuran aslinya di dokumen.
+     */
+    private static function pasangGambar(string $isi, array $gambarParagraf, array &$gambar): string
+    {
+        return (string) preg_replace_callback('/\{\{G(\d+)\}\}/', static function (array $m) use ($gambarParagraf, &$gambar): string {
+            $g = $gambarParagraf[(int) $m[1]] ?? null;
+            if ($g === null) {
+                return '';
+            }
+            [$data, $ext] = self::kecilkan($g['data'], $g['ext']);
+            self::$ukuran['asli'] += strlen($g['data']);
+            self::$ukuran['jadi'] += strlen($data);
+            self::$ukuran['jumlah'] += $data !== $g['data'] ? 1 : 0;
+            $nama     = 'gambar-' . (count($gambar) + 1) . '.' . $ext;
+            $gambar[] = ['nama' => $nama, 'data' => $data];
+            $lebar    = ! empty($g['lebar']) ? ' width="' . (int) $g['lebar'] . '"' : '';
+
+            // Sama dengan pratinjau konver-soal: lebar = picwgoal / 15 px; rumus diturunkan/dinaikkan sesuai \dn/\up,
+            // gambar lain di tengah baris (konver-soal: .edit img { vertical-align: middle }).
+            $geser = ';vertical-align:' . (! empty($g['turun']) ? -(int) round($g['turun'] * 10 / 15) . 'px' : 'middle');
+
+            return '<img src="@@PLUGINFILE@@/' . $nama . '" alt=""' . $lebar . ' style="max-width:100%;height:auto' . $geser . '">';
+        }, $isi);
     }
 
     private static function buangAwalan(array $runs, string $pola): array
@@ -238,6 +361,11 @@ class SoalRtf
     {
         $h = '';
         foreach ($runs as $r) {
+            if (isset($r['img'])) {
+                $h .= '{{G' . (int) $r['img'] . '}}';  // diganti <img> oleh pasangGambar()
+
+                continue;
+            }
             $t = str_replace(["\t", "\n"], [' ', '<br>'], htmlspecialchars($r['t'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
             foreach (['sub' => 'sub', 'sup' => 'sup', 'u' => 'u', 'i' => 'i', 'b' => 'b'] as $k => $tag) {
                 if (! empty($r[$k]) && trim($r['t']) !== '') {
@@ -268,8 +396,9 @@ class SoalRtf
         $n         = strlen($rtf);
         $i         = 0;
         $tumpukan  = [];
-        $st        = ['lewat' => false, 'pict' => false, 'b' => false, 'i' => false, 'u' => false, 'sup' => false, 'sub' => false, 'uc' => 1];
+        $st        = ['lewat' => false, 'pict' => false, 'b' => false, 'i' => false, 'u' => false, 'sup' => false, 'sub' => false, 'uc' => 1, 'dn' => 0];
         $pict      = null;  // ['ext' => …, 'hex' => …, 'kedalaman' => …]
+        $ukuranPict = ['picwgoal' => 0, 'pichgoal' => 0, 'picw' => 0, 'pich' => 0, 'picscalex' => 100, 'picscaley' => 100];  // twips / satuan metafile
         $hasil     = [];
         $cur       = ['ls' => null, 'runs' => [], 'gambar' => []];
         $lewatChar = 0;
@@ -308,9 +437,13 @@ class SoalRtf
                 if (preg_match('/\G\\\\(\*\\\\)?([a-zA-Z]+)/', $rtf, $m, 0, $i)) {
                     $kata = $m[2];
                     if ($kata === 'shppict' || $kata === 'pict') {
-                        // Gambar: diambil dari \pict (JPEG/PNG); cadangan WMF di \nonshppict dilewati.
+                        // Gambar: diambil dari \pict (JPEG/PNG, atau WMF yang diubah ke PNG); cadangan WMF di \nonshppict
+                        // dilewati karena gambar yang sama sudah ada di \shppict.
                         if (! $st['lewat']) {
                             $st['pict'] = $kata === 'pict';
+                            if ($kata === 'pict') {
+                                $ukuranPict = ['picwgoal' => 0, 'pichgoal' => 0, 'picw' => 0, 'pich' => 0, 'picscalex' => 100, 'picscaley' => 100];
+                            }
                         }
                     } elseif (in_array($kata, self::TUJUAN_LEWAT, true) || $m[1] !== '') {
                         $st['lewat'] = true;
@@ -322,7 +455,23 @@ class SoalRtf
             if ($c === '}') {
                 if ($pict !== null && $st['pict'] && ($tumpukan === [] || ! end($tumpukan)['pict'])) {
                     if ($pict['ext'] !== '' && $pict['hex'] !== '' && strlen($pict['hex']) % 2 === 0) {
-                        $cur['gambar'][] = ['ext' => $pict['ext'], 'data' => (string) hex2bin($pict['hex'])];
+                        // Lebar tampil = ukuran di dokumen (\picwgoal twips × \picscalex %, / 15 = px pada 96 dpi), bukan
+                        // ukuran piksel gambar: rumus dari Word/ekspor bank soal sering disimpan 2x lebih rapat.
+                        $skala = max(1, $ukuranPict['picscalex']) / 100;
+                        $g     = ['ext' => $pict['ext'], 'data' => (string) hex2bin($pict['hex']),
+                            'lebar' => $ukuranPict['picwgoal'] > 0 ? max(1, (int) round($ukuranPict['picwgoal'] * $skala / 15)) : null];
+                        if ($g['ext'] === 'wmf') {
+                            $ukuranPict['picwgoal'] = (int) round($ukuranPict['picwgoal'] * $skala);
+                            $ukuranPict['pichgoal'] = (int) round($ukuranPict['pichgoal'] * max(1, $ukuranPict['picscaley']) / 100);
+                            $g = self::wmfKePng($g['data'], $ukuranPict);
+                        }
+                        if ($g !== null) {
+                            // \dnN / \upN (setengah poin) di sekitar gambar = rumus diturunkan/dinaikkan dari garis dasar
+                            // (konver-soal menulisnya dari kedalaman rumus Word). 1 setengah poin = 10 twips = 2/3 px.
+                            $g['turun']      = (int) $st['dn'];
+                            $cur['runs'][]   = ['t' => '', 'img' => count($cur['gambar'])];
+                            $cur['gambar'][] = $g;
+                        }
                     }
                     $pict = null;
                 }
@@ -412,8 +561,13 @@ class SoalRtf
                     case 'nosupersub':
                         $st['sup'] = $st['sub'] = false;
                         break;
+                    case 'dn':
+                    case 'up':
+                        $setengahPoin = $arg === '' ? 6 : (int) $arg;  // bawaan RTF: 3 pt
+                        $st['dn']     = $kata === 'dn' ? $setengahPoin : -$setengahPoin;
+                        break;
                     case 'plain':
-                        $st = ['b' => false, 'i' => false, 'u' => false, 'sup' => false, 'sub' => false] + $st;
+                        $st = ['b' => false, 'i' => false, 'u' => false, 'sup' => false, 'sub' => false, 'dn' => 0] + $st;
                         break;
                     case 'pard':
                         if (! $st['lewat']) {
@@ -431,7 +585,21 @@ class SoalRtf
                             $pict = ['ext' => $kata === 'jpegblip' ? 'jpg' : 'png', 'hex' => ''];
                         }
                         break;
+                    case 'picwgoal':
+                    case 'pichgoal':
+                    case 'picw':
+                    case 'pich':
+                    case 'picscalex':
+                    case 'picscaley':
+                        if ($st['pict']) {
+                            $ukuranPict[$kata] = (int) $arg;
+                        }
+                        break;
                     case 'wmetafile':
+                        if ($st['pict'] && ! $st['lewat']) {
+                            $pict = ['ext' => 'wmf', 'hex' => ''];
+                        }
+                        break;
                     case 'emfblip':
                     case 'macpict':
                     case 'dibitmap':

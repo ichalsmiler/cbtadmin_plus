@@ -352,6 +352,22 @@ form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0;
 /* Pratinjau Masukkan Soal: gambar soal tidak melebihi lebar kartu */
 .soal-pratinjau img { max-width: 100%; height: auto; border-radius: var(--radius); }
 .soal-pratinjau p { margin-bottom: .5rem; }
+/* Rumus/diagram dari WMF berlatar transparan: latar putih supaya tetap terbaca di tema gelap. Posisi naik/turun rumus
+   dari gaya sebaris (\dn/\up RTF, sama dengan konver-soal); lainnya di tengah baris. */
+.soal-pratinjau img { background: #fff; vertical-align: middle; }
+
+/* Review Soal: semua soal lengkap, kunci hijau; bisa dicetak (sidebar, tab, pilihan mapel disembunyikan). */
+.review-soal-item { padding: 1rem 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.review-soal-item:first-child { padding-top: 0; }
+.review-soal-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.review-soal-no { min-width: 2.25rem; text-align: right; color: var(--bs-secondary-color); }
+.review-soal .review-kunci { color: var(--bs-success-text-emphasis); font-weight: 600; }
+.review-soal ol { padding-left: 1.5rem; }
+.review-soal li { margin-bottom: .25rem; }
+@media print {
+    .topbar, .sidebar, .footer, .nav-tabs, form.card, .alert { display: none !important; }
+    .review-soal .review-kunci { color: #146c43; }
+}
 
 /* Proktor (role operator): tombol ubah/hapus khusus administrator disembunyikan (server juga menolak). */
 .peran-operator [data-hanya-admin]:not(td) { display: none !important; }

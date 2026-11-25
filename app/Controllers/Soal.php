@@ -30,13 +30,15 @@ class Soal extends PanelController
         }
         // Proktor hanya boleh Edit Soal (unggah soal baru khusus admin).
         $admin   = session('admin_role') === 'admin';
-        $tab     = $this->request->getGet('tab') === 'edit' || ! $admin ? 'edit' : 'masuk';
+        $tab     = (string) $this->request->getGet('tab');
+        $tab     = in_array($tab, ['edit', 'review'], true) ? $tab : ($admin ? 'masuk' : 'edit');
         $dipilih = (int) $this->request->getGet('mapel');
         $daftar  = null;
         $gagal   = null;
-        if ($tab === 'edit' && $dipilih > 1) {
+        if ($tab !== 'masuk' && $dipilih > 1) {
+            // Review Soal: semua soal lengkap (opsi, kunci, gambar); Edit Soal: daftar ringkas.
             try {
-                $daftar = MoodleBridge::call('soal_daftar', ['courseid' => $dipilih])[0] ?? null;
+                $daftar = MoodleBridge::call($tab === 'review' ? 'soal_semua' : 'soal_daftar', ['courseid' => $dipilih])[0] ?? null;
             } catch (\Throwable $e) {
                 $gagal = $e->getMessage();
             }

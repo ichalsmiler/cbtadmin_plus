@@ -57,7 +57,7 @@ $adaAttempt = (int) $info['attempt'] > 0;
                     <?= $tampil($s['teks'], $s['gambar']) /* HTML hasil SoalRtf: teks sudah di-escape, hanya tag p/b/i/u/sup/sub/br/img */ ?>
                     <ol type="A" class="mb-0">
                         <?php foreach ($s['opsi'] as $j => $o): ?>
-                            <li class="<?= $j === $s['kunci'] ? 'fw-semibold text-success' : '' ?>"><?= $o ?><?= $j === $s['kunci'] ? ' <i class="bi bi-check-circle-fill" aria-label="kunci"></i>' : '' ?></li>
+                            <li class="<?= $j === $s['kunci'] ? 'fw-semibold text-success' : '' ?>"><?= $tampil($o, $s['gambar']) ?><?= $j === $s['kunci'] ? ' <i class="bi bi-check-circle-fill" aria-label="kunci"></i>' : '' ?></li>
                         <?php endforeach ?>
                     </ol>
                 </div>

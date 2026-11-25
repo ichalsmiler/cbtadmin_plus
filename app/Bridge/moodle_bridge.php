@@ -1072,6 +1072,40 @@ try {
             ];
             break;
 
+        case 'soal_semua':
+            // Review Soal: semua soal quiz mapel (urut slot) lengkap dengan opsi, kunci, dan gambar (data URI).
+            // Teks dibersihkan clean_text() dulu (tanpa skrip), baru gambar @@PLUGINFILE@@ diganti data URI.
+            [$quiz, , , $slots] = cbt_soal_quiz((int) $in['courseid']);
+            if (! $quiz) {
+                $result['items'][] = ['quiz' => null, 'soal' => []];
+                break;
+            }
+            $soal = [];
+            foreach ($slots as $sl) {
+                $qid = (int) $sl->questionid;
+                $ctx = (int) $DB->get_field_sql(
+                    'SELECT qc.contextid FROM {question_versions} qv JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                       JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid WHERE qv.questionid = ?',
+                    [$qid]
+                );
+                $opsi = [];
+                if ($sl->qtype === 'multichoice' || $sl->qtype === 'truefalse') {
+                    foreach ($DB->get_records('question_answers', ['question' => $qid], 'id') as $a) {
+                        $opsi[] = [
+                            'teks'  => cbt_soal_gambar_ke_data(clean_text((string) $a->answer, FORMAT_HTML), $ctx, 'answer', (int) $a->id),
+                            'kunci' => (float) $a->fraction > 0.999,
+                        ];
+                    }
+                }
+                $soal[] = [
+                    'slot' => (int) $sl->slot, 'id' => $qid, 'qtype' => (string) $sl->qtype,
+                    'teks' => cbt_soal_gambar_ke_data(clean_text((string) $sl->questiontext, FORMAT_HTML), $ctx, 'questiontext', $qid),
+                    'opsi' => $opsi,
+                ];
+            }
+            $result['items'][] = ['quiz' => ['id' => (int) $quiz->id, 'nama' => $quiz->name], 'soal' => $soal];
+            break;
+
         case 'soal_baca':
             // Edit Soal: isi satu soal (teks + opsi, gambar sebagai data URI) untuk editor panel.
             [$quiz, , , $slots] = cbt_soal_quiz((int) $in['courseid']);
