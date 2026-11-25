@@ -208,6 +208,10 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Kembalikan paksa (centang "Paksa walau ada yang mengerjakan"): POST `paksa=1` → cbt-ha-panel `kembalikan_paksa`
   (sudoers) → `PAKSA=1 ha-utama.sh kembalikan` → peran utama `kembali-paksa`; jaga cadangan `utama:kembali-paksa` →
   `bekukan paksa` (tidak menolak, dicatat "DIPAKSA"). Jaga utama menganggap `kembali*` sisa proses terputus.
+- Halaman 522 Cloudflare (jeda sebelum pindah) diganti Worker `cbt-tunggu` (`deploy/cloudflare/cbt-tunggu/`, route
+  `cbtsrv2026.sman2makassar.sch.id/*`, Request limit failure mode = Fail open; Error Pages bawaan hanya paket berbayar).
+  Galat 520–526/koneksi putus → 503 "Mohon tunggu" + refresh 30 dtk; lainnya diteruskan apa adanya. Deploy:
+  `cd deploy/cloudflare/cbt-tunggu && npx wrangler@4 deploy` (login OAuth `wrangler login`). Kuota gratis 100rb/hari.
 - Saat ini (25 Nov 2026): cbtsrv2026 → A 191.101.190.252 (proxied). IP publik itu dari tunnel L2TP `20261124120239` di
   MikroTik Lab_kom 192.168.110.6 (RB1200, ROS 6.49; SSH `smada`, kunci `~/.ssh/id_rsa_mikrotik`). dst-nat :80 → cbt100
   192.168.110.11. Balasan wajib lewat tunnel: mangle "IP publik: …" (mark-connection via-l2tp, mark-routing ke-l2tp di

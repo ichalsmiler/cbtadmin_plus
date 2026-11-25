@@ -1,0 +1,7 @@
+name = "cbt-tunggu"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+routes = [
+  { pattern = "cbtsrv2026.sman2makassar.sch.id/*", zone_name = "sman2makassar.sch.id" }
+]
