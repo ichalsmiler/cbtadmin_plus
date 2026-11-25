@@ -13,7 +13,8 @@ Baca bagian yang relevan saja (Grep judul menu/nama fitur di sana), bukan seluru
   Bila SSH gagal/timeout: JANGAN mencari-cari server lain, cukup minta pengguna memasukkan IP server utama yang baru,
   lalu coba user root/smiler dan tambahkan alias. Kunci publik untuk dipasang: `~/.ssh/id_ed25519_moodle.pub`.
 - Server standar (pasang-cbt.sh): Debian 13, MariaDB, Redis, WITA. Kredensial `/root/moodle-credentials.txt`, `/root/cbtadmin-credentials.txt`.
-- Server lama .154/.155: abaikan. Lainnya (detail di PETA-RINCI): `vps` (cadangan), `konver-soal` .150.
+- Server lama .154/.155: abaikan. Lainnya (detail di PETA-RINCI): `vps` (cadangan), `konver-soal` .150,
+  `cbtsim` 172.16.16.101 (proxy Dashboard Simulasi, `deploy/pasang-simulasi.sh`).
 - Panel `/var/www/cbtadmin` (URL `/cbtadmin/`), Moodle `/var/www/moodle` (web `public/`), data `/var/moodledata`.
 - PHP tidak ada di PC: lint `ssh <alias> 'php -l /var/www/cbtadmin/<file>'`. Node.js hanya di PC.
 - Deploy panel `bash deploy/deploy.sh <alias>`; setelan/plugin/CSS Moodle `bash deploy/setelan-moodle.sh <alias>`;
