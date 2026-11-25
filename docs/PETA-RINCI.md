@@ -214,6 +214,19 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Kembalikan paksa (centang "Paksa walau ada yang mengerjakan"): POST `paksa=1` → cbt-ha-panel `kembalikan_paksa`
   (sudoers) → `PAKSA=1 ha-utama.sh kembalikan` → peran utama `kembali-paksa`; jaga cadangan `utama:kembali-paksa` →
   `bekukan paksa` (tidak menolak, dicatat "DIPAKSA"). Jaga utama menganggap `kembali*` sisa proses terputus.
+- Kembali otomatis (setelan `ha_kembali_otomatis`, 25 Nov 2026): DIPUTUSKAN di server yang sedang melayani (cadangan
+  peran utama, datanya terbaru) — jaga cadangan kasus `utama:nonaktif` → `kembali_otomatis()`: pasangan nonaktif terhubung
+  terus ≥ 10 menit (`/var/lib/cbt-ha-pulih`, dihapus bila pasangan bukan nonaktif) dan 0 attempt inprogress/overdue
+  dengan timemodified 15 menit terakhir → `/etc/cbt-ha-kembali` = `ajak <ts>` (maks. 30 menit sekali, `/var/lib/cbt-ha-ajak`).
+  Jaga utama (peran nonaktif) membaca `/cbt-ha-kembali`; `ajak*` → `CBT_HA_KEMBALI_OTOMATIS=1 cbt-ha-panel kembalikan_paksa`
+  (paksa karena attempt basi tanpa aktivitas tidak boleh menahan; judul log "KEMBALI OTOMATIS"). Setelan dibaca dari DB
+  server yang melayani, jadi bisa diubah saat sedang pindah.
+- Pemberitahuan Telegram (`deploy/ha/cbt-ha-kabar`, install.sh → /usr/local/sbin): `cbt-ha-kabar "pesan"` kirim ke
+  `ha_tg_chat` dengan bot `ha_tg_token` (settings; token lewat stdin curl -K, 3x coba), tanpa setelan diam. Dipanggil:
+  `catat()` jaga cadangan (hilang/terhubung lagi/pindah otomatis/dibatalkan/kembali otomatis/kembalikan), akhir `pindah`,
+  akhir & `batal()` `kembalikan`, jaga utama saat menjadi nonaktif (fungsi `kabar`). Panel: isian token (password, kosong =
+  tetap, ganti token → chat dikosongkan) + tombol "Kirim pesan uji" (`server_cadangan/telegram`: getUpdates → chat terakhir
+  → `ha_tg_chat`, kirim pesan uji).
 - Halaman 522 Cloudflare (jeda sebelum pindah) diganti Worker `cbt-tunggu` (`deploy/cloudflare/cbt-tunggu/`, route
   `cbtsrv2026.sman2makassar.sch.id/*`, Request limit failure mode = Fail open; Error Pages bawaan hanya paket berbayar).
   Galat 520–526/koneksi putus → 503 "Mohon tunggu" + refresh 30 dtk; lainnya diteruskan apa adanya. Deploy:

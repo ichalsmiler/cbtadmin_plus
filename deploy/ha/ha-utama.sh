@@ -28,6 +28,8 @@ DB_CNF="/etc/mysql/mariadb.conf.d/90-cbt-ha.cnf"
 log()  { echo -e "\n\033[1;32m==> $*\033[0m"; }
 warn() { echo -e "\033[1;33m[PERINGATAN] $*\033[0m"; }
 die()  { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
+# Pemberitahuan Telegram ke admin (cbt-ha-kabar; tanpa setelan bot tidak mengirim apa-apa), di latar belakang.
+kabar() { [ -x /usr/local/sbin/cbt-ha-kabar ] && { setsid /usr/local/sbin/cbt-ha-kabar "$1" >/dev/null 2>&1 < /dev/null & }; return 0; }
 
 # IP jaringan lokal (RFC 1918): server di belakang NAT sekolah, tidak bisa dihubungi dari internet.
 ip_lokal() { [[ "$1" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.) ]]; }
@@ -249,6 +251,16 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 if [[ "\$(cat $ROLE_FILE 2>/dev/null)" == kembali* ]] && ! pgrep -f "ha-utama.sh kembalikan" >/dev/null; then
     echo nonaktif > $ROLE_FILE
 fi
+# Kembali otomatis: server cadangan (yang sedang dipakai ujian) mengajak lewat /cbt-ha-kembali = "ajak …" setelah server
+# ini stabil 10 menit dan tidak ada siswa mengerjakan → jalankan Kembalikan lewat jembatan panel (catatan tampil di panel).
+if [ "\$(cat $ROLE_FILE 2>/dev/null)" = nonaktif ] && ! pgrep -f "ha-utama.sh kembalikan" >/dev/null; then
+    ajak="\$(curl -fsS --max-time 5 http://$PEER_WG_IP/cbt-ha-kembali 2>/dev/null)"
+    if [[ "\$ajak" == ajak* ]] && [ -x /usr/local/sbin/cbt-ha-panel ]; then
+        logger -t cbt-ha "kembali otomatis: diajak server cadangan, Kembalikan dimulai"
+        CBT_HA_KEMBALI_OTOMATIS=1 /usr/local/sbin/cbt-ha-panel kembalikan_paksa >/dev/null 2>&1
+    fi
+    exit 0
+fi
 [ "\$(cat $ROLE_FILE 2>/dev/null)" = utama ] || exit 0
 coba=1; [ "\${1:-}" = tunggu ] && coba=12          # saat menyala: tunggu terowongan, sampai ±2 menit
 jawab=""
@@ -290,6 +302,7 @@ php_v="\$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
 systemctl reload "php\$php_v-fpm" 2>/dev/null
 pesan="server cadangan $URL_CADANGAN sudah aktif: server ini dinonaktifkan (siswa diarahkan ke cadangan)"
 logger -t cbt-ha "\$pesan"
+[ -x /usr/local/sbin/cbt-ha-kabar ] && { setsid /usr/local/sbin/cbt-ha-kabar "ℹ️ Server sekolah hidup lagi dan otomatis NONAKTIF (ujian tetap di server cadangan). Setelah ujian: panel server sekolah → Server Cadangan → KEMBALIKAN." >/dev/null 2>&1 < /dev/null & }
 echo "\$(date '+%Y-%m-%d %H:%M:%S') \$pesan" >> /var/log/cbt-ha-jaga.log
 EOJ
     install -m 700 "$tmp" /usr/local/sbin/cbt-ha-jaga.baru && mv /usr/local/sbin/cbt-ha-jaga.baru /usr/local/sbin/cbt-ha-jaga
@@ -420,6 +433,8 @@ kembalikan() {
     batal() {
         rm -f "${pass:-}"
         echo nonaktif > "$ROLE_FILE"
+        kabar "❌ KEMBALIKAN gagal: $1
+Server sekolah tetap nonaktif; server cadangan melayani ujian lagi dalam 1 menit."
         die "$1
   Server ini tetap nonaktif; server cadangan otomatis melayani ujian lagi dalam 1 menit."
     }
@@ -491,6 +506,7 @@ kembalikan() {
             || warn "Domain $DOMAIN_UTAMA belum kembali ke server ini; arahkan manual di Cloudflare."
     fi
 
+    kabar "✅ KEMBALIKAN selesai: ujian kembali di server sekolah ($URL_UTAMA). Server cadangan dipasang ulang sebagai cadangan."
     echo
     echo "============================================================"
     echo "  SERVER INI AKTIF LAGI SEBAGAI UTAMA: $URL_UTAMA"

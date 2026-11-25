@@ -79,6 +79,7 @@ class ServerCadanganPanel extends PanelController
             return redirect()->to($back)->with('error', 'Pindah otomatis butuh IP publik server utama, IP server cadangan, dan token API Cloudflare.');
         }
         $in['ha_pindah_otomatis'] = $otomatis ? 'ya' : 'tidak';
+        $in['ha_kembali_otomatis'] = $this->request->getPost('ha_kembali_otomatis') === '1' ? 'ya' : 'tidak';
         $in['ha_pindah_menit']    = (string) max(2, min(30, (int) $this->request->getPost('ha_pindah_menit') ?: 3));
         $in['ha_ip_publik_utama'] = $ipPublik;
         $in['ha_cf_zone']         = preg_match('/^[a-f0-9]{32}$/i', $zone) ? $zone : '';
@@ -86,6 +87,17 @@ class ServerCadanganPanel extends PanelController
             $in['ha_cf_token'] = $token;
         } elseif ($this->request->getPost('hapus_cf_token') === '1') {
             $in['ha_cf_token'] = '';
+        }
+        // Bot Telegram pemberitahuan (cbt-ha-kabar). Token baru → chat dicari ulang lewat tombol "Kirim pesan uji".
+        $tg = trim((string) $this->request->getPost('ha_tg_token'));
+        if ($tg !== '' && ! self::tokenTelegram($tg)) {
+            return redirect()->to($back)->with('error', 'Token bot Telegram tidak valid (bentuknya 123456789:ABC…, dari @BotFather).');
+        }
+        if ($tg !== '' && $tg !== Settings::get('ha_tg_token')) {
+            $in['ha_tg_token'] = $tg;
+            $in['ha_tg_chat']  = '';
+        } elseif ($this->request->getPost('hapus_tg_token') === '1') {
+            $in['ha_tg_token'] = $in['ha_tg_chat'] = '';
         }
         foreach ($in as $k => $v) {
             Settings::set($k, $v);
@@ -194,6 +206,75 @@ class ServerCadanganPanel extends PanelController
         }
 
         return redirect()->to($back)->with('success', 'DNS sekarang: ' . ($hasil !== '' ? str_replace("\n", '; ', $hasil) : '(tidak ada record)'));
+    }
+
+    /**
+     * Pemberitahuan Telegram: simpan token (bila diketik), cari chat tujuan dari pesan terakhir yang diterima bot
+     * (getUpdates; admin mengirim pesan dulu ke bot atau di grup yang berisi bot), lalu kirim pesan uji.
+     */
+    public function telegram()
+    {
+        $back  = site_url('server_cadangan') . '#pengaturan';
+        $token = trim((string) $this->request->getPost('ha_tg_token'));
+        if ($token !== '') {
+            if (! self::tokenTelegram($token)) {
+                return redirect()->to($back)->with('error', 'Token bot Telegram tidak valid (bentuknya 123456789:ABC…, dari @BotFather).');
+            }
+            if ($token !== Settings::get('ha_tg_token')) {
+                Settings::set('ha_tg_token', $token);
+                Settings::set('ha_tg_chat', '');
+            }
+        }
+        $token = Settings::get('ha_tg_token');
+        if ($token === '') {
+            return redirect()->to($back)->with('error', 'Isi token bot Telegram dulu.');
+        }
+        $chat = Settings::get('ha_tg_chat');
+        $nama = '';
+        if ($chat === '') {
+            $upd = self::telegramApi($token, 'getUpdates', ['limit' => 100]);
+            if (! ($upd['ok'] ?? false)) {
+                return redirect()->to($back)->with('error', 'Telegram menolak: ' . ($upd['description'] ?? 'tidak terhubung') . '. Periksa token bot.');
+            }
+            foreach (array_reverse((array) ($upd['result'] ?? [])) as $u) {
+                $c = $u['message']['chat'] ?? $u['channel_post']['chat'] ?? $u['my_chat_member']['chat'] ?? null;
+                if (is_array($c) && isset($c['id'])) {
+                    $chat = (string) $c['id'];
+                    $nama = (string) ($c['title'] ?? trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')));
+                    break;
+                }
+            }
+            if ($chat === '') {
+                return redirect()->to($back)->with('error', 'Bot belum menerima pesan. Buka bot Anda di Telegram, kirim pesan apa saja (atau masukkan bot ke grup admin lalu kirim pesan di grup), lalu klik "Kirim pesan uji" lagi.');
+            }
+            Settings::set('ha_tg_chat', $chat);
+        }
+        $kirim = self::telegramApi($token, 'sendMessage', [
+            'chat_id' => $chat,
+            'text'    => "✅ Pesan uji dari panel CBT Admin (" . (string) gethostname() . ").\nPemberitahuan server pindah/kembali akan dikirim ke sini.",
+        ]);
+        if (! ($kirim['ok'] ?? false)) {
+            return redirect()->to($back)->with('error', 'Pesan uji gagal: ' . ($kirim['description'] ?? 'tidak terhubung ke Telegram') . '.');
+        }
+        ActivityLog::add('server_cadangan', 'Telegram pemberitahuan diuji (chat ' . $chat . ')');
+
+        return redirect()->to($back)->with('success', 'Pesan uji terkirim' . ($nama !== '' ? ' ke ' . $nama : '') . '. Pemberitahuan server pindah/kembali akan dikirim ke chat ini.');
+    }
+
+    private static function tokenTelegram(string $t): bool
+    {
+        return (bool) preg_match('/^\d{5,}:[A-Za-z0-9_-]{30,}$/', $t);
+    }
+
+    /** @return array<string, mixed> */
+    private static function telegramApi(string $token, string $metode, array $isi): array
+    {
+        $ch = curl_init('https://api.telegram.org/bot' . $token . '/' . $metode);
+        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $isi, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+        $jawab = curl_exec($ch);
+        curl_close($ch);
+
+        return json_decode((string) $jawab, true) ?: [];
     }
 
     /** Catatan proses pindah (JSON, untuk diperbarui berkala di halaman). */

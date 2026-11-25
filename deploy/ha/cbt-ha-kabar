@@ -1,0 +1,25 @@
+#!/bin/bash
+# CBT HA: kirim pemberitahuan Telegram ke admin (server hilang, pindah, kembali). Pakai: cbt-ha-kabar "pesan"
+# Token bot dan chat dibaca dari cbtadmin.settings (ha_tg_token, ha_tg_chat; diisi di menu Server Cadangan, ikut
+# replikasi ke server cadangan). Tanpa setelan: tidak melakukan apa-apa. Dicoba 3x (internet bisa sedang terputus).
+set -u
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+pesan="${1:-}"
+[ -n "$pesan" ] || exit 0
+setelan() { mariadb -N -B -e "SELECT svalue FROM cbtadmin.settings WHERE skey = '$1'" 2>/dev/null | tr -d '\r\n'; }
+token="$(setelan ha_tg_token)"
+chat="$(setelan ha_tg_chat)"
+[ -n "$token" ] && [ -n "$chat" ] || exit 0
+[[ "$token" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || exit 1
+teks="CBT · $(hostname) ($(cat /etc/cbt-ha-peran 2>/dev/null || echo '?')) · $(date '+%d-%m %H:%M')
+$pesan"
+for i in 1 2 3; do
+    # URL berisi token lewat stdin (-K -), bukan argumen, supaya tidak tampil di daftar proses.
+    if printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$token" \
+        | curl -fsS -m 15 -o /dev/null -K - --data-urlencode "chat_id=$chat" --data-urlencode "text=$teks"; then
+        exit 0
+    fi
+    [ "$i" -lt 3 ] && sleep 10
+done
+logger -t cbt-ha "pemberitahuan Telegram gagal dikirim"
+exit 1

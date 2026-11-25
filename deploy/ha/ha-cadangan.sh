@@ -32,6 +32,8 @@ DATABASES="moodle cbtadmin"
 log()  { echo -e "\n\033[1;32m==> $*\033[0m"; }
 warn() { echo -e "\033[1;33m[PERINGATAN] $*\033[0m"; }
 die()  { echo -e "\033[1;31m[GAGAL] $*\033[0m" >&2; exit 1; }
+# Pemberitahuan Telegram ke admin (cbt-ha-kabar; tanpa setelan bot tidak mengirim apa-apa), di latar belakang.
+kabar() { [ -x /usr/local/sbin/cbt-ha-kabar ] && { setsid /usr/local/sbin/cbt-ha-kabar "$1" >/dev/null 2>&1 < /dev/null & }; return 0; }
 
 # IP jaringan lokal (RFC 1918): server di belakang NAT sekolah, tidak bisa dihubungi dari internet.
 ip_lokal() { [[ "$1" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.) ]]; }
@@ -324,7 +326,9 @@ tulis_jaga() {
 set -uo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 STATUS=/etc/cbt-ha-kembali; KIRIM=/var/lib/cbt-ha-kembali; LOG=/var/log/cbt-ha-kembali.log
-catat() { echo "\$(date '+%Y-%m-%d %H:%M:%S') \$*" >> \$LOG; logger -t cbt-ha "\$*"; }
+catat() { echo "\$(date '+%Y-%m-%d %H:%M:%S') \$*" >> \$LOG; logger -t cbt-ha "\$*"; kabar_jaga "\$*"; }
+# Setiap catatan pengaman ini (server utama hilang/terhubung lagi, pindah otomatis, kembalikan) juga ke Telegram admin.
+kabar_jaga() { [ -x /usr/local/sbin/cbt-ha-kabar ] && { setsid /usr/local/sbin/cbt-ha-kabar "\$1" >/dev/null 2>&1 < /dev/null & }; return 0; }
 peran="\$(cat $ROLE_FILE 2>/dev/null)"
 pasangan="\$(curl -fsS --max-time 5 http://$PEER_WG_IP/cbt-ha-peran 2>/dev/null | tr -d '[:space:]')"
 
@@ -474,6 +478,26 @@ if [ "\${1:-}" = batal ]; then
     exit 0
 fi
 baru_batal() { [ -f \$BATAL ] && [ \$(( \$(date +%s) - \$(stat -c %Y \$BATAL) )) -lt 900 ]; }
+# Kembali otomatis (panel: Server Cadangan → "Kembali otomatis"): server ini sedang dipakai ujian, server utama sudah
+# hidup lagi (peran nonaktif) dan terhubung terus >= 10 menit, dan tidak ada siswa mengerjakan 15 menit terakhir →
+# status "ajak" di /cbt-ha-kembali; server utama melihatnya lalu menjalankan Kembalikan sendiri. Diajak paling sering
+# 30 menit sekali (bila Kembalikan gagal tidak berulang tiap menit). Diputuskan di sini karena data ujian terbaru ada di sini.
+PULIH=/var/lib/cbt-ha-pulih; AJAK=/var/lib/cbt-ha-ajak
+kembali_otomatis() {
+    local aktif n sekarang
+    sekarang=\$(date +%s)
+    aktif="\$(mariadb -N -e "SELECT svalue FROM cbtadmin.settings WHERE skey = 'ha_kembali_otomatis'" 2>/dev/null | tr -d '[:space:]')"
+    if [ "\$aktif" != ya ]; then rm -f \$PULIH; return; fi
+    [ -f \$PULIH ] || { echo \$sekarang > \$PULIH; return; }
+    [ \$(( sekarang - \$(cat \$PULIH) )) -ge 600 ] || return
+    [ -f \$STATUS ] && grep -q '^ajak' \$STATUS && return
+    [ -f \$AJAK ] && [ \$(( sekarang - \$(cat \$AJAK) )) -lt 1800 ] && return
+    n="\$(mariadb -N -e "SELECT COUNT(*) FROM moodle.${prefix}quiz_attempts WHERE state IN ('inprogress', 'overdue') AND timemodified > \$(( sekarang - 900 ))" 2>/dev/null || echo 1)"
+    [ "\${n:-1}" -eq 0 ] || return
+    echo \$sekarang > \$AJAK
+    echo "ajak \$sekarang" > \$STATUS; chmod 644 \$STATUS
+    catat "KEMBALI OTOMATIS: server sekolah stabil 10 menit dan tidak ada siswa mengerjakan 15 menit terakhir; server sekolah mengambil alih ujian"
+}
 case "\$peran:\$pasangan" in
     utama:kembali)
         baru_batal && exit 0
@@ -481,7 +505,10 @@ case "\$peran:\$pasangan" in
     utama:kembali-paksa)
         baru_batal && exit 0
         bekukan paksa ;;
-    utama:*) [ -f \$STATUS ] && grep -q '^tolak' \$STATUS && rm -f \$STATUS ;;
+    utama:nonaktif) kembali_otomatis ;;
+    utama:*)
+        rm -f \$PULIH
+        [ -f \$STATUS ] && grep -qE '^(tolak|ajak)' \$STATUS && rm -f \$STATUS ;;
     nonaktif:utama)
         if [ -f \$STATUS ]; then
             catat "server utama aktif lagi: server ini dipasang ulang sebagai cadangan"
@@ -793,11 +820,13 @@ pindah() {
         fi
     fi
 
+    kabar "✅ Ujian sekarang di SERVER CADANGAN. Alamat siswa: $alamat
+Siswa cukup memuat ulang halaman (tanpa login ulang). Setelah ujian & server sekolah normal: KEMBALIKAN di panel server sekolah."
     echo
     echo "============================================================"
     echo "  SERVER INI SEKARANG UTAMA"
     echo "  Alamat ujian untuk siswa:  $alamat"
-    echo "  Siswa login lagi lalu melanjutkan quiz; jawaban tersimpan."
+    echo "  Siswa memuat ulang halaman lalu melanjutkan quiz (sesi ikut pindah); jawaban tersimpan."
     echo
     echo "  Server utama yang dinyalakan lagi otomatis nonaktif (tidak menerima siswa)."
     echo "  Setelah ujian selesai: di panel server utama → Server Cadangan → Kembalikan"

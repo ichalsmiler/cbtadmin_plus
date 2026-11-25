@@ -26,7 +26,7 @@ class ServerCadangan
     ];
 
     /** Setelan pindah otomatis dan DNS Cloudflare (tabel settings; dibaca cbt-ha-jaga dan cbt-ha-dns). */
-    public const OTOMATIS = ['ha_pindah_otomatis', 'ha_pindah_menit', 'ha_ip_publik_utama', 'ha_cf_token', 'ha_cf_zone'];
+    public const OTOMATIS = ['ha_pindah_otomatis', 'ha_pindah_menit', 'ha_ip_publik_utama', 'ha_cf_token', 'ha_cf_zone', 'ha_tg_token', 'ha_tg_chat', 'ha_kembali_otomatis'];
 
     /**
      * Server ini cadangan yang masih siaga (database hanya-baca, siswa belum boleh ujian di sini)?
@@ -97,6 +97,7 @@ class ServerCadangan
             $v[$k] = Settings::get($k);
         }
         $v['ha_pindah_otomatis'] = $v['ha_pindah_otomatis'] === 'ya' ? 'ya' : 'tidak';
+        $v['ha_kembali_otomatis'] = $v['ha_kembali_otomatis'] === 'ya' ? 'ya' : 'tidak';
         $v['ha_pindah_menit']    = $v['ha_pindah_menit'] !== '' ? $v['ha_pindah_menit'] : '3';
 
         return $v;

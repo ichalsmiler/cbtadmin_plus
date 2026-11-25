@@ -198,14 +198,20 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
         <h6 class="fw-semibold"><i class="bi bi-lightning-charge me-1"></i>Pindah otomatis</h6>
         <p class="small text-muted">Server cadangan memeriksa server utama tiap menit. Bila server utama tidak terhubung selama waktu di bawah
             (mis. mati lampu), server cadangan <strong>pindah sendiri</strong> menjadi utama, lalu domain <strong><?= esc($nilai['ha_domain_utama'] ?: 'alamat ujian utama') ?></strong>
-            diarahkan ke IP server cadangan lewat API Cloudflare. Siswa memakai alamat yang sama: muat ulang, login lagi, lanjutkan quiz.
-            Kembalikan ke server utama tetap lewat tombol <strong>Kembalikan</strong> (domain ikut kembali). Siswa harus membuka ujian lewat domain itu
-            (bukan IP lokal / DNS rewrite di jaringan sekolah), supaya semua siswa ikut pindah.</p>
+            diarahkan ke IP server cadangan lewat API Cloudflare. Siswa memakai alamat yang sama: muat ulang lalu lanjutkan quiz (sesi ikut pindah).
+            Kembali ke server utama lewat tombol <strong>Kembalikan</strong>, atau otomatis bila <strong>Kembali otomatis</strong> aktif (domain ikut kembali).
+            Siswa harus membuka ujian lewat domain itu (bukan IP lokal / DNS rewrite di jaringan sekolah), supaya semua siswa ikut pindah.</p>
         <div class="row g-3">
             <div class="col-md-6">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="ha_pindah_otomatis" name="ha_pindah_otomatis" value="1" <?= $nilai['ha_pindah_otomatis'] === 'ya' ? 'checked' : '' ?>>
                     <label class="form-check-label" for="ha_pindah_otomatis">Aktifkan pindah otomatis</label>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="ha_kembali_otomatis" name="ha_kembali_otomatis" value="1" <?= $nilai['ha_kembali_otomatis'] === 'ya' ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="ha_kembali_otomatis">Kembali otomatis</label>
+                    <div class="form-text">Setelah server utama hidup lagi dan stabil 10 menit, ujian dikembalikan sendiri ke server utama bila tidak ada siswa
+                        mengerjakan 15 menit terakhir (biasanya setelah ujian hari itu selesai).</div>
                 </div>
             </div>
             <div class="col-6 col-md-3"><label class="form-label" for="ha_pindah_menit">Setelah tidak terhubung (menit)</label>
@@ -222,10 +228,26 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                 <input class="form-control font-monospace" id="ha_cf_zone" name="ha_cf_zone" value="<?= esc($nilai['ha_cf_zone'], 'attr') ?>" placeholder="kosong = dicari otomatis">
                 <div class="form-text">Di halaman Overview domain, kolom kanan "Zone ID". Isi bila Cek DNS gagal menemukan zone.</div></div>
         </div>
+        <h6 class="fw-semibold mt-4"><i class="bi bi-telegram me-1"></i>Pemberitahuan Telegram</h6>
+        <p class="small text-body-secondary mb-2">Pesan ke HP admin saat server utama hilang, pindah ke cadangan, hidup lagi, dan saat Kembalikan selesai/gagal.</p>
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label" for="ha_tg_token">Token bot Telegram</label>
+                <input class="form-control font-monospace" type="password" id="ha_tg_token" name="ha_tg_token" value="" autocomplete="off" placeholder="<?= $nilai['ha_tg_token'] !== '' ? 'tersimpan — kosongkan untuk tetap memakai' : 'belum diisi' ?>">
+                <div class="form-text">Telegram → @BotFather → <code>/newbot</code>. Lalu buka bot itu dan kirim pesan apa saja (atau masukkan bot ke grup admin), baru klik <strong>Kirim pesan uji</strong>.
+                    <?php if ($nilai['ha_tg_token'] !== ''): ?><label class="ms-1"><input type="checkbox" name="hapus_tg_token" value="1"> hapus token</label><?php endif ?></div></div>
+            <div class="col-md-6"><span class="form-label d-block">Tujuan pesan</span>
+                <?php if ($nilai['ha_tg_chat'] !== ''): ?>
+                    <span class="badge text-bg-success fw-normal"><i class="bi bi-check-circle me-1"></i>terhubung (chat <?= esc($nilai['ha_tg_chat']) ?>)</span>
+                <?php else: ?>
+                    <span class="badge text-bg-secondary fw-normal">belum terhubung</span>
+                <?php endif ?>
+                <div class="form-text">Ditemukan otomatis dari pesan terakhir yang diterima bot saat Kirim pesan uji.</div></div>
+        </div>
     </div>
     <div class="card-footer d-flex flex-wrap gap-2">
         <button class="btn btn-success" type="submit"><i class="bi bi-save me-1"></i>Simpan</button>
         <a class="btn btn-outline-secondary" href="<?= site_url('server_cadangan/dns') ?>" title="Lihat ke mana domain ujian diarahkan sekarang (perlu token API Cloudflare)"><i class="bi bi-globe me-1"></i>Cek DNS</a>
+        <button class="btn btn-outline-secondary" type="submit" formaction="<?= site_url('server_cadangan/telegram') ?>" title="Simpan token bot (bila diketik), cari chat tujuan, lalu kirim pesan uji"><i class="bi bi-telegram me-1"></i>Kirim pesan uji</button>
         <a class="btn btn-outline-primary ms-auto" href="<?= site_url('server_cadangan/unduh') ?>"><i class="bi bi-download me-1"></i>Unduh ha.conf</a>
     </div>
 </form>

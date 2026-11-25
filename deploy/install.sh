@@ -210,6 +210,7 @@ if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
     install -m 755 "$SRC/deploy/ha/cbt-ha-panel" /usr/local/sbin/cbt-ha-panel
     [ -f "$SRC/deploy/ha/cbt-ha" ] && install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
     [ -f "$SRC/deploy/ha/cbt-ha-dns" ] && install -m 755 "$SRC/deploy/ha/cbt-ha-dns" /usr/local/sbin/cbt-ha-dns
+    [ -f "$SRC/deploy/ha/cbt-ha-kabar" ] && install -m 755 "$SRC/deploy/ha/cbt-ha-kabar" /usr/local/sbin/cbt-ha-kabar
     # Sesi Moodle (Redis) disalin ke server pasangan lewat WireGuard; tanpa wg-cbt skrip ini tidak berbuat apa-apa.
     if [ -f "$SRC/deploy/ha/cbt-ha-redis" ]; then
         install -m 755 "$SRC/deploy/ha/cbt-ha-redis" /usr/local/sbin/cbt-ha-redis

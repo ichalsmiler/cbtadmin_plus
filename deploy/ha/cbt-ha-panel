@@ -276,7 +276,11 @@ if ($aksi === 'kembalikan') {
         keluar(['ok' => false, 'error' => 'Server cadangan tidak sedang dipakai ujian atau tidak terjangkau (peran: ' . ($peran ?: 'tidak terjangkau')
             . '). Pastikan server cadangan hidup dan sudah cbt-perbarui.'], 1);
     }
-    mulaiLatar('kembalikan', 'Mulai kembalikan dari panel CBT Admin' . ($paksa ? ' (DIPAKSA walau ujian berjalan)' : ''),
+    // CBT_HA_KEMBALI_OTOMATIS: dijalankan cbt-ha-jaga karena diajak server cadangan (Kembali otomatis di panel).
+    $judul = getenv('CBT_HA_KEMBALI_OTOMATIS') !== false
+        ? 'KEMBALI OTOMATIS: server sekolah stabil dan tidak ada ujian berjalan di server cadangan'
+        : 'Mulai kembalikan dari panel CBT Admin' . ($paksa ? ' (DIPAKSA walau ujian berjalan)' : '');
+    mulaiLatar('kembalikan', $judul,
         ($paksa ? 'PAKSA=1 ' : '') . 'bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan');
 }
 
