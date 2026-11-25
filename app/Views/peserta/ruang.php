@@ -24,7 +24,7 @@
         <?php if (! $ruang): ?>
             <p class="text-muted mb-0">Pilih ruang untuk melihat pesertanya.</p>
         <?php else: ?>
-            <table class="table table-hover align-middle w-100 datatable" data-order-col="0" data-toolbar="#pesertaToolbar">
+            <table class="table table-hover align-middle w-100 datatable tabel-hp" data-order-col="0" data-toolbar="#pesertaToolbar">
                 <thead><tr><th style="width:3rem">No</th><th>No. Peserta</th><th>Nama</th><th>Kelas</th><th>Username</th><th>Password</th><th>Sesi</th></tr></thead>
                 <tbody>
                 <?php foreach ($rows as $i => $p): ?>

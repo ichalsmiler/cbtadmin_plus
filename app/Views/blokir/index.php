@@ -35,7 +35,7 @@
         <span class="badge text-bg-danger ms-auto"><?= (int) $jumlahAktif ?> diblokir</span>
     </div>
     <div class="card-body">
-        <table class="table table-hover align-middle w-100 datatable" data-order-col="0">
+        <table class="table table-hover align-middle w-100 datatable tabel-hp" data-order-col="0">
             <thead>
             <tr>
                 <th>No. Peserta</th><th>Nama</th><th>Kelas</th><?php if ($isAdmin): ?><th>Ruang</th><?php endif ?>

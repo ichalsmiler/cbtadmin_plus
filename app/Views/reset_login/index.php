@@ -62,7 +62,7 @@
             </button>
         </div>
         <div class="card-body">
-            <table class="table table-hover align-middle w-100 datatable" data-order-col="1">
+            <table class="table table-hover align-middle w-100 datatable tabel-hp" data-order-col="1">
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>

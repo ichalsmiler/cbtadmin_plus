@@ -103,7 +103,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
             </div>
         </div>
         <div class="card-body">
-            <table class="table table-hover align-middle w-100 datatable" data-order-col="1" data-live="<?= (int) $refresh ?>">
+            <table class="table table-hover align-middle w-100 datatable tabel-hp" data-order-col="1" data-live="<?= (int) $refresh ?>">
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>

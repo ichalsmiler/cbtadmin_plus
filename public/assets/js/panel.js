@@ -177,6 +177,17 @@
 
     // ---------------------------------------------------------------- Tabel
     var tables = [];
+    // table.tabel-hp: di HP tiap baris tampil sebagai kartu; label kolom diambil dari judul tabel (panel.css).
+    function labelHp(el) {
+        if (!el.classList.contains('tabel-hp')) { return; }
+        var judul = Array.prototype.map.call(el.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
+        el.querySelectorAll('tbody tr').forEach(function (tr) {
+            Array.prototype.forEach.call(tr.children, function (td, i) {
+                if (!td.hasAttribute('data-label')) { td.setAttribute('data-label', judul[i] || ''); }
+            });
+        });
+    }
+    document.querySelectorAll('table.tabel-hp').forEach(labelHp);
     document.querySelectorAll('table.datatable').forEach(function (el) {
         // Isi tabel tampil lagi setelah disusun (atau langsung bila DataTables tidak termuat).
         if (typeof DataTable === 'undefined') { el.classList.add('dt-siap'); return; }
@@ -208,6 +219,7 @@
             var top = wrap.querySelector('.dt-layout-row');
             if (top && !top.querySelector('.dt-length, .dt-search, .dt-info, .dt-paging, table')) { top.classList.add('d-none'); }
         }
+        if (el.classList.contains('tabel-hp')) { tables[tables.length - 1].on('draw', function () { labelHp(el); }); }
         el.classList.add('dt-siap');
     });
 

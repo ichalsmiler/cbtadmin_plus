@@ -48,7 +48,7 @@ $sudah = count(array_filter($rows, static fn ($r) => $r['status'] !== null));
                     <span class="small text-muted align-self-center" id="ringkas"></span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table align-middle mb-0 datatable" id="absenTable" data-toolbar="#absenFilter" data-order-col="0">
+                    <table class="table align-middle mb-0 datatable tabel-hp" id="absenTable" data-toolbar="#absenFilter" data-order-col="0">
                         <thead><tr><th>No. Peserta</th><th>Nama</th><th>Kelas</th><th class="text-center">Kehadiran</th><th></th></tr></thead>
                         <tbody>
                         <?php foreach ($rows as $r): ?>
