@@ -137,6 +137,12 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   mode campuran utama LAN + cadangan VPS: peer ber-IP lokal tanpa Endpoint (`ip_lokal`), skema http/https per server; `/etc/cbt-ha-peran`).
 - Pasang tanpa laptop: `pasang-cbt.sh` di akar repo (repo publik; `curl … | bash` di konsol server → /opt/cbtadmin_plus, install-moodle bila belum ada, pasang.sh, install.sh, memasang `cbt-perbarui` + `cbt-ha` + `cbt-alamat` (sejak cekpoin-67 wwwroot Moodle SELALU IP server (http); domain Cloudflare hanya didaftarkan `cbt-alamat <domain>` / `cbt-alamat hapus <domain>` → blok `// CBT ALAMAT MULAI…SELESAI` di config.php (SELALU dipasang sejak 21 Nov 2026, walau tanpa domain: `cbt-alamat pasang`, dipanggil pasang-cbt.sh/cbt-perbarui; mencegah IP publik VPS di balik NAT dialihkan ke IP privat): host = domain terdaftar atau IP mana pun → wwwroot = skema (X-Forwarded-Proto) + host, https → sslproxy, localcachedir per alamat (CSS tema berisi URL absolut); sslproxy statis dibuang; snippet Nginx `cbt-https.conf` mengalihkan X-Forwarded-Proto http → https; cbt-perbarui memigrasi wwwroot domain lama ke IP + daftar domain; installer menanya "Domain Cloudflare" (env `DOMAIN_CBT`), bukan alamat; set_wwwroot ha-*.sh hanya mendaftarkan DOMAIN_UTAMA+DOMAIN_CADANGAN lewat cbt-alamat; Registrar panel juga menimpa `moodle.url` per permintaan; sumber `deploy/cbt-alamat`); pertanyaan alamat menerima domain); `deploy/ha/cbt-ha` utama (ha.conf dari settings ha_* lewat mariadb) / cadangan KODE (base64 ha.conf, `ServerCadangan::kodeCadangan()` di panel) / status. Tutorial `docs/INSTALASI-SERVER.md` (PDF di docs, diabaikan git).
 - README.md berisi panduan lengkap untuk manusia.
+- Batas salah password login panel (`Auth::attempt`, 25 Nov 2026, semua role): per username 5x salah → dikunci 5 menit
+  (`MAKS_SALAH`, `KUNCI_MENIT`; jendela bergeser), per IP 30x salah (semua username) → 15 menit. Cache CI
+  `login_gagal_u_<md5 username kecil>` / `login_gagal_ip_<md5 IP>`; dicek sebelum password; pesan "Sisa percobaan: N";
+  log `login_gagal` (+IP) dan `login_dikunci`. Login berhasil menghapus hitungan username. `Auth::bukaKunci($username)`
+  dipanggil saat admin mengatur ulang password (Tools → Akun, `Pengawas::resetPassword/resetPasswords`).
+  Throttler lama (5 percobaan/menit per IP, termasuk yang benar) dihapus.
 
 ## Peran Proktor (role `operator`, 21 Nov 2026)
 - Dibuat di Tools → Panel → Akun, pilihan Role "Proktor". Nama tampilan `Guard::namaPeran()`.

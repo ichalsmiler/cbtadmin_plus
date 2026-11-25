@@ -122,6 +122,7 @@ class Pengawas
             'password_hash'  => password_hash($password, PASSWORD_DEFAULT),
             'password_plain' => $password,
         ]);
+        \App\Controllers\Auth::bukaKunci($username);
 
         return ['username' => $username, 'password' => $password];
     }
@@ -130,7 +131,7 @@ class Pengawas
     public static function resetPasswords(array $ids = []): int
     {
         $db      = db_connect();
-        $builder = $db->table('admins')->select('id')->where('role', 'proktor')->where('ruang_id IS NOT NULL');
+        $builder = $db->table('admins')->select('id, username')->where('role', 'proktor')->where('ruang_id IS NOT NULL');
         if ($ids !== []) {
             $builder->whereIn('id', $ids);
         }
@@ -141,6 +142,7 @@ class Pengawas
                 'password_hash'  => password_hash($password, PASSWORD_DEFAULT),
                 'password_plain' => $password,
             ]);
+            \App\Controllers\Auth::bukaKunci((string) $row['username']);
             $count++;
         }
 

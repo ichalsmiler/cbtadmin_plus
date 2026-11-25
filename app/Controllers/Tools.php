@@ -1108,6 +1108,7 @@ class Tools extends PanelController
             $data['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
             // Password yang diketik admin tidak ditampilkan lagi di Daftar Ruang.
             $data['password_plain'] = null;
+            Auth::bukaKunci($username);
         }
 
         if ($id > 0) {

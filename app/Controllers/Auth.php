@@ -15,24 +15,54 @@ class Auth extends PanelController
         return view('auth/login', ['version' => self::VERSION]);
     }
 
+    /** Salah password berturut-turut per username sebelum dikunci sementara. */
+    private const MAKS_SALAH = 5;
+
+    /** Lama kunci (menit) per username; per IP (banyak username dicoba dari satu perangkat) memakai 3x nilai ini. */
+    private const KUNCI_MENIT = 5;
+
+    /** Salah password dari satu IP (semua username) sebelum IP itu dikunci; satu sekolah bisa satu IP publik. */
+    private const MAKS_SALAH_IP = 30;
+
     public function attempt()
     {
-        $ip = $this->request->getIPAddress();
-        if (! service('throttler')->check('login-' . md5($ip), 5, MINUTE)) {
-            return redirect()->back()->with('error', 'Terlalu banyak percobaan login. Coba lagi satu menit lagi.');
-        }
-
+        $ip       = $this->request->getIPAddress();
         $username = trim((string) $this->request->getPost('username'));
         $password = (string) $this->request->getPost('password');
+        $kunciUser = 'login_gagal_u_' . md5(strtolower($username));
+        $kunciIp   = 'login_gagal_ip_' . md5($ip);
+        $cache     = cache();
+
+        // Kunci sementara: dicek sebelum password, jadi tebakan saat terkunci tidak pernah diperiksa.
+        foreach ([[$kunciUser, self::MAKS_SALAH, 'Akun ini'], [$kunciIp, self::MAKS_SALAH_IP, 'Perangkat ini']] as [$kunci, $maks, $siapa]) {
+            $catat = $cache->get($kunci);
+            if (is_array($catat) && $catat['n'] >= $maks && $catat['sampai'] > time()) {
+                $menit = (int) ceil(($catat['sampai'] - time()) / 60);
+
+                return redirect()->back()->withInput()->with('error', $siapa . ' dikunci sementara karena terlalu sering salah password. '
+                    . 'Coba lagi dalam ' . $menit . ' menit, atau minta admin mengatur ulang password.');
+            }
+        }
 
         $db    = db_connect();
         $admin = $db->table('admins')->where('username', $username)->where('aktif', 1)->get()->getRowArray();
 
         if (! $admin || ! password_verify($password, $admin['password_hash'])) {
-            ActivityLog::add('login_gagal', 'username: ' . $username, $username);
+            ActivityLog::add('login_gagal', 'username: ' . $username . ', IP ' . $ip, $username);
+            $n = $this->catatGagal($kunciUser, self::KUNCI_MENIT);
+            $this->catatGagal($kunciIp, self::KUNCI_MENIT * 3);
+            if ($n >= self::MAKS_SALAH) {
+                ActivityLog::add('login_dikunci', 'username: ' . $username . ' dikunci ' . self::KUNCI_MENIT . ' menit (' . $n . 'x salah password, IP ' . $ip . ')', $username);
 
-            return redirect()->back()->withInput()->with('error', 'Username atau password salah.');
+                return redirect()->back()->withInput()->with('error', 'Password salah ' . $n . ' kali. Akun ini dikunci ' . self::KUNCI_MENIT
+                    . ' menit. Tunggu, atau minta admin mengatur ulang password.');
+            }
+            $sisa = self::MAKS_SALAH - $n;
+
+            return redirect()->back()->withInput()->with('error', 'Username atau password salah. Sisa percobaan: ' . $sisa
+                . ($sisa <= 2 ? ' (setelah itu akun dikunci ' . self::KUNCI_MENIT . ' menit).' : '.'));
         }
+        $cache->delete($kunciUser);
 
         $session = session();
         $session->regenerate(true);
@@ -71,6 +101,24 @@ class Auth extends PanelController
         }
 
         return redirect()->to(site_url(\App\Libraries\ServerCadangan::siaga() ? 'server_cadangan' : '/'));
+    }
+
+    /** Buka kunci salah password untuk username ini (dipanggil saat admin mengatur ulang password). */
+    public static function bukaKunci(string $username): void
+    {
+        cache()->delete('login_gagal_u_' . md5(strtolower(trim($username))));
+    }
+
+    /**
+     * Tambah hitungan salah password (jendela bergeser: tiap salah memperpanjang batas waktu). Kembalikan jumlahnya.
+     */
+    private function catatGagal(string $kunci, int $menit): int
+    {
+        $catat = cache($kunci);
+        $n     = is_array($catat) && $catat['sampai'] > time() ? $catat['n'] + 1 : 1;
+        cache()->save($kunci, ['n' => $n, 'sampai' => time() + $menit * 60], $menit * 60);
+
+        return $n;
     }
 
     public function logout()
