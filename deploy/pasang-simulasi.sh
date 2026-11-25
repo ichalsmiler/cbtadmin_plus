@@ -4,12 +4,17 @@
 # Semua /cbtadmin/ diteruskan dengan header X-CBT-Perantara: 1; panel (Guard::bolehPerantara) hanya melayani dashboard
 # simulasi, login, dan menu pengawas (PROKTOR_PATHS) untuk permintaan itu, selain itu 404. Daftar menu cukup di Guard.
 # Moodle dan alamat lain di luar /cbtadmin/ ditolak 404 di server perantara.
-# Pakai (Git Bash, dari folder cbtadmin):  bash deploy/pasang-simulasi.sh <host-ssh-perantara> <host-ssh-utama>
-# Contoh: bash deploy/pasang-simulasi.sh cbtsim cbt100
+# Pakai (Git Bash, dari folder cbtadmin):  bash deploy/pasang-simulasi.sh <host-ssh-perantara> <host-ssh-utama> [ip-cloudflared,...]
+# Contoh: bash deploy/pasang-simulasi.sh cbtsim cbt100 172.16.32.100
+# Cloudflare Tunnel: arahkan domain ke http://<ip-perantara>. Domain berawalan "pengawas" (mis. pengawasujian.…) membuka
+# login pengawas, domain lain membuka dashboard simulasi. IP mesin cloudflared (argumen ke-3) dipercaya mengirim IP asli
+# pengunjung (CF-Connecting-IP); tanpa argumen ke-3 setelan sebelumnya dibiarkan.
 set -euo pipefail
 
 HOST="${1:?host ssh server perantara}"
 UTAMA_SSH="${2:?host ssh server utama}"
+TUNNEL="${3:-}"
+[[ "$TUNNEL" =~ ^[0-9.,/]*$ ]] || { echo "IP cloudflared tidak valid" >&2; exit 1; }
 
 UTAMA="$(ssh -o BatchMode=yes "$UTAMA_SSH" "hostname -I | awk '{print \$1}'")"
 PERANTARA="$(ssh -o BatchMode=yes "$HOST" "hostname -I | awk '{print \$1}'")"
@@ -32,20 +37,28 @@ echo "Server utama: mempercayai IP asli dari perantara ${PERANTARA}"
 SKRIP
 
 # 2. Server perantara.
-ssh -o BatchMode=yes "$HOST" "UTAMA='$UTAMA' bash -s" <<'SKRIP'
+ssh -o BatchMode=yes "$HOST" "UTAMA='$UTAMA' TUNNEL='$TUNNEL' bash -s" <<'SKRIP'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 command -v nginx >/dev/null || { apt-get update -qq; apt-get install -y -qq nginx >/dev/null; }
 timedatectl set-timezone Asia/Makassar 2>/dev/null || true
 mkdir -p /var/cache/nginx/simulasi
 
+# IP asli pengunjung Cloudflare Tunnel: percayai CF-Connecting-IP hanya dari mesin cloudflared.
+if [ -n "$TUNNEL" ]; then
+    { echo "# Mesin cloudflared (deploy/pasang-simulasi.sh)"
+      for ip in ${TUNNEL//,/ }; do echo "set_real_ip_from $ip;"; done
+      echo "real_ip_header CF-Connecting-IP;"; } > /etc/nginx/conf.d/cbt-tunnel-realip.conf
+fi
+
 cat > /etc/nginx/snippets/cbt-perantara.conf <<EOF
 proxy_pass http://${UTAMA};
 proxy_set_header Host \$http_host;
 proxy_set_header CF-Connecting-IP \$remote_addr;
 proxy_set_header X-Forwarded-For \$remote_addr;
-# X-Forwarded-Proto TIDAK dikirim: server utama (cbt-https.conf) mengalihkan "http" ke https (aturan Cloudflare).
-proxy_set_header X-Forwarded-Proto "";
+# Hanya "https" (dari Cloudflare Tunnel) yang diteruskan, supaya tautan panel memakai https; "http" TIDAK dikirim
+# karena server utama (cbt-https.conf) mengalihkan "http" ke https.
+proxy_set_header X-Forwarded-Proto \$cbt_proto;
 proxy_set_header X-CBT-Perantara 1;
 proxy_connect_timeout 5s;
 proxy_read_timeout 60s;
@@ -53,6 +66,9 @@ EOF
 
 cat > /etc/nginx/sites-available/simulasi <<EOF
 # Dibuat deploy/pasang-simulasi.sh (cbtadmin_plus). Server utama: ${UTAMA}
+map \$host \$cbt_awal { ~*^pengawas /cbtadmin/; default /cbtadmin/simulasi; }
+map \$http_x_forwarded_proto \$cbt_proto { ~*^https\$ https; default ""; }
+log_format cbt '\$remote_addr \$host [\$time_local] "\$request" \$status \$body_bytes_sent "\$http_referer" "\$http_user_agent"';
 proxy_cache_path /var/cache/nginx/simulasi levels=1 keys_zone=simulasi:10m max_size=100m inactive=1d;
 
 server {
@@ -61,8 +77,10 @@ server {
     server_name _;
     server_tokens off;
     client_max_body_size 1m;
+    access_log /var/log/nginx/access.log cbt;
+    absolute_redirect off;   # pengalihan relatif: tetap https bila dibuka lewat Cloudflare Tunnel
 
-    location = / { return 302 /cbtadmin/simulasi; }
+    location = / { return 302 \$cbt_awal; }
     location = /simulasi { return 302 /cbtadmin/simulasi\$is_args\$args; }
     location = /pengawas { return 302 /cbtadmin/; }
 
@@ -74,7 +92,7 @@ server {
         proxy_hide_header Set-Cookie;
         proxy_ignore_headers Set-Cookie Cache-Control Expires;
         proxy_cache simulasi;
-        proxy_cache_key \$request_uri;
+        proxy_cache_key \$scheme\$cbt_proto\$host\$request_uri;
         proxy_cache_valid 200 404 15s;
         proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
         proxy_cache_lock on;
@@ -107,6 +125,7 @@ rm -rf /var/cache/nginx/simulasi/*
 nginx -t -q
 systemctl enable -q nginx
 systemctl reload nginx 2>/dev/null || systemctl restart nginx
+sleep 1
 ip=$(hostname -I | awk '{print $1}')
 echo "Perantara siap -> ${UTAMA}:  simulasi http://${ip}/   pengawas http://${ip}/pengawas"
 SKRIP
