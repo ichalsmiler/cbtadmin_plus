@@ -8,3 +8,4 @@ writable/
 
 # Konfigurasi HA berisi rahasia (HA_SECRET)
 deploy/ha/ha.conf
+.wrangler/
