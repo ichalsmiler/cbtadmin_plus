@@ -35,24 +35,38 @@
     $quizId = $quiz !== null ? (int) $quiz['id'] : 0;
     ?>
     <form class="card card-body mb-3 d-flex flex-row flex-wrap gap-2 align-items-end" method="get" action="<?= site_url('simulasi') ?>">
-        <div style="min-width: 200px">
-            <label class="form-label small mb-1" for="fKat">Kategori ujian</label>
-            <select class="form-select form-select-sm" id="fKat" name="kat" onchange="this.form.quiz.value='';this.form.submit()">
-                <?php if ($kategori === null): ?><option value="">Pilih kategori</option><?php endif ?>
-                <?php foreach ($kategoriList as $c): ?>
-                    <option value="<?= $c['id'] ?>" <?= $c['id'] === $katId ? 'selected' : '' ?>><?= esc($c['name']) ?></option>
-                <?php endforeach ?>
-            </select>
-        </div>
-        <div class="flex-grow-1" style="min-width: 220px">
-            <label class="form-label small mb-1" for="fQuiz">Mapel</label>
-            <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
-                <option value="">Semua mapel</option>
-                <?php foreach ($quizList as $q): ?>
-                    <option value="<?= $q['id'] ?>" <?= $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
-                <?php endforeach ?>
-            </select>
-        </div>
+        <?php if ($kunciKat): ?>
+            <div style="min-width: 200px">
+                <div class="form-label small mb-1">Kategori ujian</div>
+                <div class="fw-semibold py-1"><i class="bi bi-lock me-1 text-muted" aria-hidden="true"></i><?= esc($kategori['name'] ?? '-') ?></div>
+            </div>
+        <?php else: ?>
+            <div style="min-width: 200px">
+                <label class="form-label small mb-1" for="fKat">Kategori ujian</label>
+                <select class="form-select form-select-sm" id="fKat" name="kat" onchange="if(this.form.quiz)this.form.quiz.value='';this.form.submit()">
+                    <?php if ($kategori === null): ?><option value="">Pilih kategori</option><?php endif ?>
+                    <?php foreach ($kategoriList as $c): ?>
+                        <option value="<?= $c['id'] ?>" <?= $c['id'] === $katId ? 'selected' : '' ?>><?= esc($c['name']) ?></option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+        <?php endif ?>
+        <?php if ($kunciQuiz): ?>
+            <div class="flex-grow-1" style="min-width: 220px">
+                <div class="form-label small mb-1">Mapel</div>
+                <div class="fw-semibold py-1"><i class="bi bi-lock me-1 text-muted" aria-hidden="true"></i><?= esc($quiz !== null ? $quiz['name'] : 'Semua mapel') ?></div>
+            </div>
+        <?php else: ?>
+            <div class="flex-grow-1" style="min-width: 220px">
+                <label class="form-label small mb-1" for="fQuiz">Mapel</label>
+                <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
+                    <option value="">Semua mapel</option>
+                    <?php foreach ($quizList as $q): ?>
+                        <option value="<?= $q['id'] ?>" <?= $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+        <?php endif ?>
         <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
     </form>
 
@@ -82,7 +96,7 @@
                 <table class="table align-middle mb-0">
                     <thead><tr>
                         <th>Kelas</th><th class="text-center">Jumlah</th><th class="text-center">Sudah ikut</th>
-                        <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><th>Yang belum</th>
+                        <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><?php if ($tampilSudah): ?><th>Yang sudah</th><?php endif ?><th>Yang belum</th>
                     </tr></thead>
                     <tbody>
                     <?php foreach ($kelas as $k): ?>
@@ -100,6 +114,20 @@
                                     <span class="small"><?= $k['persen'] ?>%</span>
                                 </div>
                             </td>
+                            <?php if ($tampilSudah): ?><td class="small">
+                                <?php if ($k['sudah'] === []): ?>
+                                    <span class="text-muted">–</span>
+                                <?php else: ?>
+                                    <details>
+                                        <summary class="text-success"><?= count($k['sudah']) ?> siswa</summary>
+                                        <ol class="mb-0 mt-1 ps-3">
+                                            <?php foreach ($k['sudah'] as $s): ?>
+                                                <li><?= esc($s['nama']) ?><?php if ($s['waktu']): ?> <span class="text-muted">(<?= date('d/m H:i', $s['waktu']) ?>)</span><?php endif ?></li>
+                                            <?php endforeach ?>
+                                        </ol>
+                                    </details>
+                                <?php endif ?>
+                            </td><?php endif ?>
                             <td class="small">
                                 <?php if ($k['kurang'] === []): ?>
                                     <span class="text-success"><i class="bi bi-check2-all me-1"></i>Semua sudah ikut</span>
@@ -119,7 +147,7 @@
                     </tbody>
                     <tfoot><tr class="fw-semibold">
                         <td>Total</td><td class="text-center"><?= $total['total'] ?></td><td class="text-center text-success"><?= $total['selesai'] ?></td>
-                        <td class="text-center"><?= $total['proses'] ?></td><td class="text-center"><?= $total['belum'] ?></td><td><?= $total['persen'] ?>%</td><td></td>
+                        <td class="text-center"><?= $total['proses'] ?></td><td class="text-center"><?= $total['belum'] ?></td><td><?= $total['persen'] ?>%</td><?php if ($tampilSudah): ?><td></td><?php endif ?><td></td>
                     </tr></tfoot>
                 </table>
             </div>

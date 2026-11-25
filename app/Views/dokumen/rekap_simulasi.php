@@ -40,20 +40,65 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
         <p class="small text-muted mb-0 mt-2">Siswa diambil dari Data CBTAdmin. <strong>Sudah ikut</strong> = ada percobaan yang terkirim;
             <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim; <strong>Belum ikut</strong> = belum mulai sama sekali
             (termasuk siswa yang akun Moodle-nya belum ada). Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel di kategori ini.</p>
-        <?php $publik = \App\Controllers\SimulasiPublik::aktif(); ?>
-        <div class="d-flex flex-wrap align-items-center gap-2 mt-2 pt-2 border-top small">
-            <i class="bi bi-globe2" aria-hidden="true"></i>
-            <span>Dashboard publik (tanpa login, hanya nama siswa):</span>
-            <?php if ($publik): ?>
-                <a href="<?= site_url('simulasi') ?>" target="_blank" rel="noopener"><?= esc(site_url('simulasi')) ?></a>
-                <span class="badge text-bg-success">aktif</span>
-            <?php else: ?>
-                <span class="badge text-bg-secondary">nonaktif</span>
-            <?php endif ?>
-            <button class="btn btn-outline-secondary btn-sm py-0" type="button" data-hanya-admin data-post="<?= site_url('tools/simulasi_publik') ?>"
-                    data-fields='{"aktif":"<?= $publik ? '0' : '1' ?>"}'
-                    data-confirm-text="<?= $publik ? 'Matikan dashboard simulasi publik?' : 'Buka dashboard simulasi untuk umum (tanpa login)? Nama siswa yang belum ikut akan terlihat.' ?>"><?= $publik ? 'Matikan' : 'Aktifkan' ?></button>
-        </div>
+    </div>
+</div>
+
+<?php
+$sp        = \App\Controllers\SimulasiPublik::setelan();
+$namaKat   = static function (int $id) use ($kategoriList): string {
+    foreach ($kategoriList as $c) {
+        if ((int) $c['id'] === $id) {
+            return (string) $c['name'];
+        }
+    }
+
+    return '(kategori #' . $id . ' tidak ada)';
+};
+$labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 'Semua mapel';
+?>
+<div class="card mb-3" data-hanya-admin>
+    <div class="card-header fw-semibold"><i class="bi bi-globe2 me-1" aria-hidden="true"></i>Dashboard Simulasi publik (tanpa login)
+        <?php if ($sp['aktif']): ?>
+            <span class="badge text-bg-success ms-1">tampil</span>
+            <a class="small fw-normal ms-2" href="<?= site_url('simulasi') ?>" target="_blank" rel="noopener"><?= esc(site_url('simulasi')) ?></a>
+        <?php else: ?>
+            <span class="badge text-bg-secondary ms-1">tidak tampil</span>
+        <?php endif ?>
+    </div>
+    <div class="card-body">
+        <form method="post" action="<?= site_url('tools/simulasi_publik') ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="kat" value="<?= $katId ?>">
+            <input type="hidden" name="quiz" value="<?= $quizId ?>">
+            <input type="hidden" name="kembali" value="<?= esc($query, 'attr') ?>">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="spAktif" name="aktif" value="1" <?= $sp['aktif'] ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="spAktif">Tampilkan dashboard publik</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="spSudah" name="sembunyi_sudah" value="1" <?= $sp['sembunyiSudah'] ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="spSudah">Sembunyikan siswa yang sudah ikut</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="spKunciKat" name="kunci_kat" value="1" <?= $sp['kat'] > 0 ? 'checked' : '' ?> <?= $katId ? '' : 'disabled' ?>>
+                        <label class="form-check-label" for="spKunciKat">Kunci kategori ke <strong><?= esc($kategori['name'] ?? '-') ?></strong>
+                            <?php if ($sp['kat'] > 0 && $sp['kat'] !== $katId): ?><span class="small text-muted">(sekarang: <?= esc($namaKat($sp['kat'])) ?>)</span><?php endif ?></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="spKunciQuiz" name="kunci_quiz" value="1" <?= $sp['quiz'] !== null ? 'checked' : '' ?> <?= $katId ? '' : 'disabled' ?>>
+                        <label class="form-check-label" for="spKunciQuiz">Kunci mapel ke <strong><?= esc($labelMapel) ?></strong>
+                            <?php if ($sp['quiz'] !== null && $sp['quiz'] !== $quizId): ?><span class="small text-muted">(sekarang terkunci ke mapel lain)</span><?php endif ?></label>
+                    </div>
+                    <div class="form-text">Pilih kategori dan mapel di atas (Tampilkan) dulu, lalu centang kunci. Kunci mapel ikut mengunci kategori.
+                        Pengunjung tidak bisa mengganti yang terkunci.</div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm mt-2" type="submit"><i class="bi bi-save me-1"></i>Simpan setelan</button>
+        </form>
     </div>
 </div>
 
