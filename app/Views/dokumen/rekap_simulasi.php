@@ -40,6 +40,20 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
         <p class="small text-muted mb-0 mt-2">Siswa diambil dari Data CBTAdmin. <strong>Sudah ikut</strong> = ada percobaan yang terkirim;
             <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim; <strong>Belum ikut</strong> = belum mulai sama sekali
             (termasuk siswa yang akun Moodle-nya belum ada). Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel di kategori ini.</p>
+        <?php $publik = \App\Controllers\SimulasiPublik::aktif(); ?>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-2 pt-2 border-top small">
+            <i class="bi bi-globe2" aria-hidden="true"></i>
+            <span>Dashboard publik (tanpa login, hanya nama siswa):</span>
+            <?php if ($publik): ?>
+                <a href="<?= site_url('simulasi') ?>" target="_blank" rel="noopener"><?= esc(site_url('simulasi')) ?></a>
+                <span class="badge text-bg-success">aktif</span>
+            <?php else: ?>
+                <span class="badge text-bg-secondary">nonaktif</span>
+            <?php endif ?>
+            <button class="btn btn-outline-secondary btn-sm py-0" type="button" data-hanya-admin data-post="<?= site_url('tools/simulasi_publik') ?>"
+                    data-fields='{"aktif":"<?= $publik ? '0' : '1' ?>"}'
+                    data-confirm-text="<?= $publik ? 'Matikan dashboard simulasi publik?' : 'Buka dashboard simulasi untuk umum (tanpa login)? Nama siswa yang belum ikut akan terlihat.' ?>"><?= $publik ? 'Matikan' : 'Aktifkan' ?></button>
+        </div>
     </div>
 </div>
 

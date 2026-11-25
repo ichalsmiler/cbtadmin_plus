@@ -277,6 +277,7 @@ code { color: var(--brand); }
 .login-brand .nama { font-weight: 600; font-size: 1.375rem; color: var(--navy); }
 [data-bs-theme="dark"] .login-brand .nama { color: var(--ink); }
 .login-brand .sekolah { color: var(--muted); font-size: .9rem; }
+.publik-page { min-height: 100vh; background: var(--page-bg); color: var(--ink); }
 
 /* ------------------------------------------------------------------ Token
    Satu-satunya tempat emas dipakai sebagai latar: token adalah informasi paling penting bagi pengawas. */

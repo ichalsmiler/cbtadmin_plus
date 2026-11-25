@@ -11,6 +11,8 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('dashboard/stats', 'Dashboard::stats');
 
     $routes->get('login', 'Auth::login');
+    $routes->get('simulasi', 'SimulasiPublik::index');
+    $routes->post('tools/simulasi_publik', 'SimulasiPublik::setel');
     $routes->post('login', 'Auth::attempt');
     $routes->get('logout', 'Auth::logout');
 

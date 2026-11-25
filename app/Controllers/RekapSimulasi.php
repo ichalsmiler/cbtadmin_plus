@@ -98,7 +98,15 @@ class RekapSimulasi extends PanelController
     /** Pilihan dari permintaan + rekap per kelas. */
     private function data(): array
     {
-        $tingkat  = Tingkat::dariRequest();
+        return self::kumpulkan((int) $this->request->getGet('kat'), (int) $this->request->getGet('quiz'), Tingkat::dariRequest());
+    }
+
+    /**
+     * Rekap untuk kategori/mapel/tingkatan tertentu (kat 0 = kategori bernama SIMULASI, lalu tes aktif; quiz 0 = semua mapel).
+     * Dipakai juga oleh dashboard publik (SimulasiPublik).
+     */
+    public static function kumpulkan(int $katId, int $quizId, string $tingkat): array
+    {
         $hasil    = ['tingkat' => $tingkat, 'kategoriList' => [], 'quizList' => [], 'kategori' => null, 'quiz' => null,
                      'kelas' => [], 'total' => self::hitung([]), 'error' => ''];
 
@@ -108,7 +116,6 @@ class RekapSimulasi extends PanelController
                 static fn ($c) => (int) $c['parent'] === 0 && ! ActiveTest::isNonaktif($c['name'])));
             $hasil['kategoriList'] = $kategori;
 
-            $katId = (int) $this->request->getGet('kat');
             if ($katId === 0) {
                 foreach ($kategori as $c) {
                     if (stripos((string) $c['name'], 'simulasi') !== false) {
@@ -130,7 +137,6 @@ class RekapSimulasi extends PanelController
             $quizzes = Moodle::quizzes($katId);
             usort($quizzes, static fn ($a, $b) => strnatcasecmp((string) $a['course_short'], (string) $b['course_short']));
             $hasil['quizList'] = $quizzes;
-            $quizId            = (int) $this->request->getGet('quiz');
             foreach ($quizzes as $q) {
                 if ((int) $q['id'] === $quizId) {
                     $hasil['quiz'] = $q;
