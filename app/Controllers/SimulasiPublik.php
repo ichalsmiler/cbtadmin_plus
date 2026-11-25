@@ -51,10 +51,11 @@ class SimulasiPublik extends BaseController
         $tingkat = (string) $this->request->getGet('tingkat');
         $tingkat = in_array($tingkat, Tingkat::LIST, true) ? $tingkat : '';
 
-        $kunci = 'simpub2_' . $kat . '_' . $quiz . '_' . $tingkat;
+        // Data selalu semua tingkatan (untuk kotak rekap per angkatan), lalu disaring ke tingkatan terpilih.
+        $kunci = 'simpub3_' . $kat . '_' . $quiz;
         $data  = cache($kunci);
         if (! is_array($data)) {
-            $d    = RekapSimulasi::kumpulkan($kat, $quiz, $tingkat);
+            $d    = RekapSimulasi::kumpulkan($kat, $quiz, '');
             $data = [
                 'kategoriList' => array_map(static fn ($c) => ['id' => (int) $c['id'], 'name' => (string) $c['name']], $d['kategoriList']),
                 'quizList'     => array_map(static fn ($q) => ['id' => (int) $q['id'], 'name' => (string) $q['name'], 'course_short' => (string) $q['course_short']], $d['quizList']),
@@ -77,10 +78,44 @@ class SimulasiPublik extends BaseController
             }
         }
 
+        $data['angkatan'] = self::perAngkatan($data['kelas']);
+        $data['semua']    = self::jumlahkan($data['kelas']) + ['kelas' => count($data['kelas'])];
+        if ($tingkat !== '') {
+            $data['kelas'] = array_values(array_filter($data['kelas'], static fn ($k) => Tingkat::of($k['kelas']) === $tingkat));
+            $data['total'] = $data['angkatan'][$tingkat] ?? self::jumlahkan([]);
+        }
+
         return view('simulasi/publik', $data + [
             'nonaktif' => false, 'sekolah' => $sekolah, 'tingkat' => $tingkat, 'version' => PanelController::VERSION,
             'kunciKat' => $sp['kat'] > 0, 'kunciQuiz' => $sp['quiz'] !== null, 'tampilSudah' => ! $sp['sembunyiSudah'],
         ]);
+    }
+
+    /** Jumlah per angkatan X/XI/XII (urut) dari baris per kelas; angkatan tanpa siswa dilewati. */
+    private static function perAngkatan(array $kelas): array
+    {
+        $hasil = [];
+        foreach (Tingkat::LIST as $t) {
+            $baris = array_filter($kelas, static fn ($k) => Tingkat::of($k['kelas']) === $t);
+            if ($baris !== []) {
+                $hasil[$t] = self::jumlahkan($baris) + ['kelas' => count($baris)];
+            }
+        }
+
+        return $hasil;
+    }
+
+    private static function jumlahkan(array $baris): array
+    {
+        $n = ['total' => 0, 'selesai' => 0, 'proses' => 0, 'belum' => 0];
+        foreach ($baris as $k) {
+            foreach ($n as $f => $_) {
+                $n[$f] += (int) $k[$f];
+            }
+        }
+        $n['persen'] = $n['total'] > 0 ? (int) round($n['selesai'] * 100 / $n['total']) : 0;
+
+        return $n;
     }
 
     /** Admin: simpan setelan dashboard publik (dari Dokumen → Rekap Simulasi). */

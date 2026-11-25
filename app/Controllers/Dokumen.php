@@ -227,16 +227,16 @@ class Dokumen extends PanelController
         return $builder->get()->getResultArray();
     }
 
-    // ------------------------------------------------------------------ Laporan Kehadiran
+    // ------------------------------------------------------------------ Rekap Kehadiran (Dokumen)
 
     /**
-     * Laporan Kehadiran, dua tab: "pengawas" (absensi yang diisi pengawas tiap ruang, per tanggal)
+     * Rekap Kehadiran (Dokumen), dua tab: "pengawas" (absensi yang diisi pengawas tiap ruang, per tanggal)
      * dan "ujian" (hadir = punya attempt di quiz, dengan Berita Acara).
      */
     public function kehadiran(): string
     {
         if ($this->request->getGet('tab') === 'ujian') {
-            return $this->render('dokumen/kehadiran', $this->rekap() + ['title' => 'Laporan Kehadiran', 'tab' => 'ujian']);
+            return $this->render('dokumen/kehadiran', $this->rekap() + ['title' => 'Rekap Kehadiran', 'tab' => 'ujian']);
         }
 
         $tanggal = (string) $this->request->getGet('tanggal');
@@ -246,7 +246,7 @@ class Dokumen extends PanelController
         $tingkat = Tingkat::dariRequest();
 
         return $this->render('dokumen/absensi', [
-            'title'   => 'Laporan Kehadiran',
+            'title'   => 'Rekap Kehadiran',
             'tab'     => 'pengawas',
             'tanggal' => $tanggal,
             'tingkat' => $tingkat,

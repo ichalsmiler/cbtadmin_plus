@@ -12,7 +12,7 @@ $menu = [
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
     ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat'], ['Server Cadangan', 'server_cadangan']]],
-    ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Laporan Kehadiran', 'dokumen/laporan_kehadiran'], ['Rekap Simulasi', 'dokumen/rekap_simulasi']]],
+    ['Dokumen', 'file-text', null, [['Kartu / Daftar Hadir', 'dokumen/cetak_doc'], ['Rekap Kehadiran', 'dokumen/laporan_kehadiran'], ['Rekap Simulasi', 'dokumen/rekap_simulasi']]],
     ['Hasil Ujian', 'award', 'hasil_ujian'],
     ['Tools', 'gear', null, [['Moodle Tools', 'tools/moodle'], ['Info Sekolah', 'tools/cbtadmin'], ['Panel', 'tools/lainnya']]],
     ['Keluar', 'box-arrow-right', 'logout'],
@@ -24,6 +24,12 @@ if ($adminRole === 'proktor' || $adminRole === 'demo') {
 // Lock login aktif (Tools): peserta yang masih tercatat login perlu di-reset pengawas.
 if (\App\Libraries\Settings::get('lock_login', '0') === '1') {
     array_splice($menu, 5, 0, [['Reset Login Peserta', 'person-x', 'reset_login']]);
+}
+// Laporan Siswa (Proktor + admin, bukan pengawas ruang): disembunyikan selama LaporanSiswa::TAMPIL = false.
+if (\App\Libraries\LaporanSiswa::TAMPIL && in_array($adminRole, ['admin', 'operator'], true)) {
+    $nBaru = \App\Libraries\LaporanSiswa::jumlahBaru();
+    array_splice($menu, array_search('blokir_siswa', array_column($menu, 2), true) + 1, 0,
+        [['Laporan Siswa' . ($nBaru > 0 ? ' (' . $nBaru . ')' : ''), 'flag', 'laporan_siswa']]);
 }
 // Kategori Mapel (tools/test_manage) punya menunya sendiri, jadi menu Tools tidak ikut disorot di sana.
 $isActive = static fn (string $path): bool => $path === '' ? $current === ''
@@ -75,7 +81,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
         <?php foreach ($menu as $i => $item): ?>
             <?php
             // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Laporan Kehadiran
-            // (rekapnya di Dokumen -> Absensi Ruang). Pengawas: hanya menu yang boleh dibukanya.
+            // (rekapnya di Dokumen → Rekap Kehadiran). Pengawas: hanya menu yang boleh dibukanya.
             // Proktor (operator): menu/submenu yang diizinkan Guard; Token cukup lewat Status Ujian → Token.
             if ($adminRole === 'operator') {
                 if (isset($item[3])) {

@@ -17,17 +17,17 @@ $hadir = array_sum(array_column($ruang, 'hadir'));
             <input type="hidden" name="tab" value="ujian">
             <div class="flex-grow-1" style="min-width: 240px">
                 <label class="form-label small mb-1" for="fQuiz">Mata pelajaran (quiz)</label>
-                <select class="form-select form-select-sm" id="fQuiz" name="quiz" required>
+                <select class="form-select form-select-sm" id="fQuiz" name="quiz" required onchange="this.form.submit()">
                     <option value="">Pilih quiz</option>
                     <?php foreach ($quizzes as $q): ?>
                         <option value="<?= (int) $q['id'] ?>" <?= (int) $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
                     <?php endforeach ?>
                 </select>
             </div>
-            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat, 'autoSubmit' => false]) ?>
+            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
             <div>
                 <label class="form-label small mb-1" for="fRuang">Ruang</label>
-                <select class="form-select form-select-sm" id="fRuang" name="ruang">
+                <select class="form-select form-select-sm" id="fRuang" name="ruang" onchange="this.form.submit()">
                     <option value="">Semua ruang</option>
                     <option value="0" <?= $ruangId === '0' ? 'selected' : '' ?>>(tanpa ruang)</option>
                     <?php foreach ($ruangList as $r): ?>
@@ -35,7 +35,6 @@ $hadir = array_sum(array_column($ruang, 'hadir'));
                     <?php endforeach ?>
                 </select>
             </div>
-            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search me-1"></i>Tampilkan</button>
         </form>
     </div>
 </div>

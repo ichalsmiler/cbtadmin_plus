@@ -292,6 +292,39 @@ class callbacks {
         }
     }
 
+    // ------------------------------------------------------------------ Tombol Laporkan (Laporan Siswa panel)
+
+    /**
+     * Tombol "Laporkan" melayang di kiri bawah untuk siswa: ke form panel (laporurl) dengan tautan bertanda tangan
+     * HMAC(username|waktu, laporkunci). Hanya bila diaktifkan panel (lapor = fitur aktif + ada sesi aktif), dan
+     * DISEMBUNYIKAN selama siswa masih punya attempt yang berjalan (sebelum dan sesudah ujian saja).
+     */
+    private static function tombol_lapor(): string {
+        global $DB, $PAGE, $USER;
+
+        $url   = (string) get_config('local_cbtujian', 'laporurl');
+        $kunci = (string) get_config('local_cbtujian', 'laporkunci');
+        if (!get_config('local_cbtujian', 'lapor') || $url === '' || $kunci === '' || !isloggedin() || isguestuser()
+                || is_siteadmin() || in_array($PAGE->pagetype, ['mod-quiz-attempt', 'mod-quiz-summary', 'login-index'], true)) {
+            return '';
+        }
+        $dicourse = !empty($PAGE->course->id) && (int) $PAGE->course->id !== SITEID;
+        if (has_capability('moodle/course:update', $dicourse ? \context_course::instance($PAGE->course->id) : \context_system::instance())) {
+            return '';  // guru/manajer
+        }
+        if ($DB->record_exists('quiz_attempts', ['userid' => $USER->id, 'state' => 'inprogress', 'preview' => 0])) {
+            return '';
+        }
+        $t    = time();
+        $link = $url . '?' . http_build_query(['u' => $USER->username, 't' => $t,
+            's' => hash_hmac('sha256', $USER->username . '|' . $t, $kunci)]);
+
+        return \html_writer::tag('style', '.cbt-lapor{position:fixed;left:12px;bottom:12px;z-index:1030;border-radius:999px;'
+                . 'box-shadow:0 2px 8px rgba(0,0,0,.25)}@media print{.cbt-lapor{display:none}}')
+            . \html_writer::link($link, '&#9873; ' . get_string('laporkan', 'local_cbtujian'),
+                ['class' => 'btn btn-danger btn-sm cbt-lapor', 'title' => get_string('laporkan_info', 'local_cbtujian')]);
+    }
+
     // ------------------------------------------------------------------ Awal halaman
 
     public static function awal_halaman(before_standard_top_of_body_html_generation $hook): void {
@@ -407,6 +440,8 @@ class callbacks {
                 . "ul.parentNode.replaceChild(t,ul);});"
             ));
         }
+
+        $hook->add_html(self::tombol_lapor());
 
         // Anti Newtab: hanya saat mengerjakan quiz.
         if (!get_config('local_cbtujian', 'antinewtab') || !in_array($PAGE->pagetype, ['mod-quiz-attempt', 'mod-quiz-summary'], true)

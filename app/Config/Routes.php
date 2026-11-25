@@ -39,7 +39,6 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('tools/test_manage/mapel_json', 'Tools::mapelJson');
     $routes->post('tools/akun/simpan', 'Tools::simpanAkun');
     $routes->post('tools/akun/hapus/(:num)', 'Tools::hapusAkun/$1');
-    $routes->get('tools/backup', 'Tools::backup');
     $routes->get('tools/jejak', 'Tools::jejak');
     $routes->get('tools/log_export', 'Tools::logExport');
 
@@ -119,12 +118,21 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('dokumen/cetak_doc/zip_status', 'Dokumen::zipStatus');
     $routes->get('dokumen/rekap_simulasi', 'RekapSimulasi::index');
     $routes->get('dokumen/rekap_simulasi/export', 'RekapSimulasi::export');
+    $routes->get('dokumen/rekap_simulasi/belum', 'RekapSimulasi::belum');
     $routes->get('dokumen/cetak_doc/daftar_hadir', 'Dokumen::daftarHadir');
     $routes->get('kehadiran', 'Kehadiran::index');
     $routes->post('kehadiran/simpan', 'Kehadiran::simpan');
     $routes->get('blokir_siswa', 'BlokirSiswa::index');
     $routes->post('blokir_siswa/blokir', 'BlokirSiswa::blokir');
     $routes->post('blokir_siswa/buka', 'BlokirSiswa::buka');
+    // Laporan Siswa: form siswa /lapor (tanpa login, tautan bertanda tangan dari Moodle) + menu Proktor.
+    $routes->get('lapor', 'Lapor::index');
+    $routes->post('lapor/kirim', 'Lapor::kirim');
+    $routes->get('laporan_siswa', 'LaporanSiswaPanel::index');
+    $routes->get('laporan_siswa/jumlah', 'LaporanSiswaPanel::jumlah');
+    $routes->get('laporan_siswa/foto/(:num)', 'LaporanSiswaPanel::foto/$1');
+    $routes->post('laporan_siswa/status', 'LaporanSiswaPanel::status');
+    $routes->post('laporan_siswa/setelan', 'LaporanSiswaPanel::setelan');
     $routes->get('dokumen/absensi', 'Kehadiran::rekap');
     $routes->post('dokumen/absensi/buka', 'Kehadiran::buka');
     $routes->get('dokumen/absensi/export', 'Kehadiran::export');

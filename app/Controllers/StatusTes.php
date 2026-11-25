@@ -211,6 +211,19 @@ class StatusTes extends PanelController
      * Tes aktif pindah ke SESI NONAKTIF: semua mapel tersembunyi, jadi siswa yang sedang mengerjakan langsung terhenti
      * (jawaban tersimpan tetap ada; attempt dikirim otomatis oleh cron Moodle saat waktunya habis).
      */
+    /** Tombol Laporkan di Moodle ikut sesi aktif (LaporanSiswa); gagal diam-diam supaya aktivasi sesi tetap jalan. */
+    private static function sinkronLapor(): void
+    {
+        if (! \App\Libraries\LaporanSiswa::aktif()) {
+            return;  // fitur mati: tombol sudah dimatikan saat sakelar diubah
+        }
+        try {
+            \App\Libraries\LaporanSiswa::sinkronMoodle();
+        } catch (\Throwable $e) {
+            log_message('error', 'Laporan Siswa sinkron Moodle: ' . $e->getMessage());
+        }
+    }
+
     public function sesi()
     {
         $aksi = (string) $this->request->getPost('aksi');
@@ -235,6 +248,7 @@ class StatusTes extends PanelController
                 $message .= ' Tetapi penguncian quiz gagal: ' . $e->getMessage();
             }
             ActivityLog::add('sesi_nonaktif', $lama['label'] ?? '-');
+            self::sinkronLapor();
 
             return redirect()->to(site_url('status_tes'))->with('success', $message . ' Siswa yang sedang mengerjakan langsung terhenti; jawaban yang sudah tersimpan tetap ada dan dikirim otomatis saat waktunya habis.');
         }
@@ -272,6 +286,7 @@ class StatusTes extends PanelController
             $message .= ' Tetapi token gagal dipasang: ' . $e->getMessage();
         }
         ActivityLog::add('sesi_aktif', $sesi['label']);
+        self::sinkronLapor();
 
         return redirect()->to(site_url('status_tes'))->with('success', $message);
     }

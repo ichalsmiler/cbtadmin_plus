@@ -1,5 +1,5 @@
 <?php
-/** Tab Laporan Kehadiran. Variabel: $tab ('pengawas' | 'ujian'). */
+/** Tab Rekap Kehadiran (Dokumen). Variabel: $tab ('pengawas' | 'ujian'). */
 $base = site_url('dokumen/laporan_kehadiran');
 ?>
 <ul class="nav nav-tabs mb-3">

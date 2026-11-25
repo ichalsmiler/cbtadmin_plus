@@ -11,12 +11,12 @@
         <form class="d-flex flex-wrap gap-2 align-items-end" method="get" action="<?= site_url('reset_login') ?>">
             <div>
                 <label class="form-label small mb-1" for="fCari">Cari peserta</label>
-                <input class="form-control form-control-sm" id="fCari" name="cari" value="<?= esc($cari) ?>" placeholder="username atau nama">
+                <input class="form-control form-control-sm" id="fCari" name="cari" value="<?= esc($cari) ?>" placeholder="username atau nama, lalu Enter">
             </div>
-            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat, 'autoSubmit' => false]) ?>
+            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
             <div>
                 <label class="form-label small mb-1" for="fRuang">Ruang</label>
-                <select class="form-select form-select-sm" id="fRuang" name="ruang" <?= $lockRuang ? 'disabled' : '' ?>>
+                <select class="form-select form-select-sm" id="fRuang" name="ruang" onchange="this.form.submit()" <?= $lockRuang ? 'disabled' : '' ?>>
                     <?php if (! $lockRuang): ?>
                         <option value="">Semua ruang</option>
                         <option value="0" <?= $ruangId === '0' ? 'selected' : '' ?>>(tanpa ruang)</option>
@@ -26,7 +26,7 @@
                     <?php endforeach ?>
                 </select>
             </div>
-            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search me-1"></i>Tampilkan</button>
+            <button class="visually-hidden" type="submit" tabindex="-1">Cari</button>
             <?php if ($cari !== '' || $tingkat !== '' || ($ruangId !== '' && ! $lockRuang)): ?>
                 <a class="btn btn-link btn-sm" href="<?= site_url('reset_login') ?>">Hapus filter</a>
             <?php endif ?>

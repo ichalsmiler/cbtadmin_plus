@@ -15,3 +15,5 @@ $string['cari_kolom'] = 'Cari berdasarkan';
 $string['cari_placeholder'] = 'Cari pengguna…';
 $string['cari_username'] = 'Username';
 $string['sudahmengerjakan'] = 'Anda sudah mengerjakan ujian ini. Silakan klik tombol Daftar Ujian untuk melihat ujian selanjutnya.';
+$string['laporkan'] = 'Laporkan';
+$string['laporkan_info'] = 'Laporkan kecurangan atau kendala teknis ke Proktor (identitas Anda dirahasiakan).';

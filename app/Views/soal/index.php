@@ -67,7 +67,6 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
             <label class="form-label small mb-1" for="e_mapel">Mapel</label>
             <select class="form-select" id="e_mapel" name="mapel" required onchange="this.form.submit()"><?= $pilihMapel($mapel, $dipilih) ?></select>
         </div>
-        <button class="btn btn-outline-secondary" type="submit">Tampilkan</button>
     </div>
 </form>
 

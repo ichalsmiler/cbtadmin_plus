@@ -47,8 +47,9 @@ class Guard implements FilterInterface
             }
         }
 
-        // Halaman login, favicon (dipakai juga di halaman login), dan dashboard simulasi publik terbuka tanpa sesi.
-        if ($path === 'login' || $path === 'tools/gambar/favicon' || ($path === 'simulasi' && $request->is('get'))) {
+        // Halaman login, favicon (dipakai juga di halaman login), dashboard simulasi publik, dan form laporan siswa
+        // (identitas dari tautan bertanda tangan Moodle, lihat Controllers/Lapor) terbuka tanpa sesi.
+        if ($path === 'login' || $path === 'tools/gambar/favicon' || ($path === 'simulasi' && $request->is('get')) || $path === 'lapor' || $path === 'lapor/kirim') {
             return null;
         }
 
@@ -155,7 +156,7 @@ class Guard implements FilterInterface
     private const OPERATOR_PATHS = [
         '', 'logout', 'dashboard/stats', 'tools/gambar/logo',
         'status_tes', 'status_tes/kategori', 'status_tes/sesi', 'status_tes/release', 'status_tes/token', 'status_tes/token_setting', 'token_ujian', 'hapus_attempt*',
-        'status_peserta*', 'reset_login*', 'blokir_siswa*', 'kehadiran*',
+        'status_peserta*', 'reset_login*', 'blokir_siswa*', 'kehadiran*', 'laporan_siswa*',
         'daftar_peserta/cbtadmin', 'daftar_peserta/moodle', 'daftar_peserta/moodle/mapel_pilihan',
         'dokumen*', 'hasil_ujian*',
         'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',

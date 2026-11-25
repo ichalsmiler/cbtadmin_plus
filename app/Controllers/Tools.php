@@ -1139,33 +1139,4 @@ class Tools extends PanelController
         return redirect()->to(self::halaman('akun'))->with('success', 'Akun ' . $row['username'] . ' dihapus.');
     }
 
-    // ------------------------------------------------------------------ Utilitas
-
-    /** Unduh salinan database panel (.sql). Berisi password peserta apa adanya. */
-    public function backup()
-    {
-        $db  = db_connect();
-        $sql = "-- Backup database panel CBT Admin\n-- Dibuat " . date('Y-m-d H:i:s') . "\n\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
-
-        foreach ($db->listTables() as $table) {
-            $create = $db->query('SHOW CREATE TABLE `' . $table . '`')->getRowArray();
-            $sql   .= "DROP TABLE IF EXISTS `{$table}`;\n" . $create['Create Table'] . ";\n\n";
-
-            $rows = $db->table($table)->get()->getResultArray();
-            foreach (array_chunk($rows, 200) as $chunk) {
-                $cols   = '`' . implode('`, `', array_keys($chunk[0])) . '`';
-                $values = array_map(static fn ($row) => '(' . implode(', ', array_map(
-                    static fn ($v) => $v === null ? 'NULL' : $db->escape((string) $v),
-                    $row
-                )) . ')', $chunk);
-                $sql .= "INSERT INTO `{$table}` ({$cols}) VALUES\n" . implode(",\n", $values) . ";\n";
-            }
-            $sql .= "\n";
-        }
-        $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
-        ActivityLog::add('backup_database', strlen($sql) . ' byte');
-
-        return $this->response->download('cbtadmin_backup_' . date('Ymd_His') . '.sql', $sql);
-    }
-
 }

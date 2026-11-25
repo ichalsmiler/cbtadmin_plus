@@ -64,7 +64,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 Library penting: `Moodle` (baca DB Moodle), `MoodleBridge::call(action, payload)` (tulis lewat API Moodle, CLI),
 `QuizStatus`, `Settings` (skey/svalue), `School::info()`, `Pengawas`, `ActivityLog::add()`, `Pdf::respond()` (dompdf), `Excel`.
 
-Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, quiz_times, finish_attempts, delete_attempts,
+Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, finish_attempts, delete_attempts,
 add_time, list_sessions, kill_sessions, quiz_password, course_visibility, category_visibility, suspend_users,
 cbtujian_config, purge_caches, create_category, create_categories, rename_categories, update_category, delete_category,
 delete_course, move_courses, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, soal_daftar, soal_baca, soal_ubah, quiz_timelimit,

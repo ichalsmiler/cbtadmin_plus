@@ -35,14 +35,15 @@
     $quizId = $quiz !== null ? (int) $quiz['id'] : 0;
     ?>
     <form class="card card-body mb-3" method="get" action="<?= site_url('simulasi') ?>">
+        <?php if ($tingkat !== ''): ?><input type="hidden" name="tingkat" value="<?= esc($tingkat, 'attr') ?>"><?php endif ?>
         <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-4">
+            <div class="col-12">
                 <?php if ($kunciKat): ?>
                     <div class="form-label small mb-1">Kategori ujian</div>
                     <div class="fw-semibold py-1"><i class="bi bi-lock me-1 text-muted" aria-hidden="true"></i><?= esc($kategori['name'] ?? '-') ?></div>
                 <?php else: ?>
                     <label class="form-label small mb-1" for="fKat">Kategori ujian</label>
-                    <select class="form-select form-select-sm" id="fKat" name="kat" onchange="if(this.form.quiz)this.form.quiz.value='';this.form.submit()">
+                    <select class="form-select form-select-sm" id="fKat" name="kat" onchange="this.form.submit()">
                         <?php if ($kategori === null): ?><option value="">Pilih kategori</option><?php endif ?>
                         <?php foreach ($kategoriList as $c): ?>
                             <option value="<?= $c['id'] ?>" <?= $c['id'] === $katId ? 'selected' : '' ?>><?= esc($c['name']) ?></option>
@@ -50,24 +51,31 @@
                     </select>
                 <?php endif ?>
             </div>
-            <div class="col-12 col-md-5">
-                <?php if ($kunciQuiz): ?>
-                    <div class="form-label small mb-1">Mapel</div>
-                    <div class="fw-semibold py-1"><i class="bi bi-lock me-1 text-muted" aria-hidden="true"></i><?= esc($quiz !== null ? $quiz['name'] : 'Semua mapel') ?></div>
-                <?php else: ?>
-                    <label class="form-label small mb-1" for="fQuiz">Mapel</label>
-                    <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
-                        <option value="">Semua mapel</option>
-                        <?php foreach ($quizList as $q): ?>
-                            <option value="<?= $q['id'] ?>" <?= $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
-                        <?php endforeach ?>
-                    </select>
-                <?php endif ?>
-            </div>
-            <div class="col-12 col-md-3">
-                <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
-            </div>
+            <?php // Pilihan Mapel disembunyikan (25 Nov 2026): bawaan semua mapel, atau mapel yang dikunci admin (judul tabel). ?>
         </div>
+        <?php if ($angkatan !== []): ?>
+            <?php // Kotak per angkatan menggantikan pilihan Tingkatan: klik = saring tabel ke angkatan itu, klik lagi = semua. ?>
+            <div class="row g-2 mt-1">
+                <?php // Kotak pertama "Semua angkatan" (tingkat kosong), lalu X/XI/XII. ?>
+                <?php foreach (['' => $semua] + $angkatan as $t => $a): ?>
+                    <?php $t = (string) $t; $dipilih = $tingkat === $t; ?>
+                    <div class="col-6 col-md-3">
+                        <a class="angkatan-kotak d-block h-100 rounded border p-2 text-reset text-decoration-none<?= $dipilih ? ' border-primary border-2 bg-primary-subtle' : '' ?>"
+                           <?= $dipilih ? 'aria-current="true"' : '' ?> title="<?= $t === '' ? 'Tampilkan semua angkatan' : ($dipilih ? 'Tampilkan semua angkatan' : 'Tampilkan kelas angkatan ini') ?>"
+                           href="<?= site_url('simulasi') . '?' . http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizId ?: '', 'tingkat' => $dipilih ? '' : $t], static fn ($v) => $v !== '')) ?>">
+                            <div class="d-flex justify-content-between align-items-baseline gap-1">
+                                <span class="fw-semibold"><?= $t === '' ? 'Semua angkatan' : 'Kelas ' . esc($t) ?></span>
+                                <span class="fw-semibold <?= $a['persen'] === 100 ? 'text-success' : '' ?>"><?= $a['persen'] ?>%</span>
+                            </div>
+                            <div class="progress my-1" style="height:.4rem" role="progressbar" aria-label="Sudah ikut <?= $t === '' ? 'semua angkatan' : 'Kelas ' . esc($t, 'attr') ?>" aria-valuenow="<?= $a['persen'] ?>" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar <?= $a['persen'] >= 100 ? 'ok' : ($a['persen'] >= 70 ? 'warn' : 'crit') ?>" style="width: <?= $a['persen'] ?>%"></div>
+                            </div>
+                            <div class="small text-muted"><?= $a['selesai'] ?>/<?= $a['total'] ?> sudah<span class="d-none d-sm-inline"> · <?= $a['belum'] ?> belum ikut</span></div>
+                        </a>
+                    </div>
+                <?php endforeach ?>
+            </div>
+        <?php endif ?>
     </form>
 
     <?php if ($kategori === null): ?>
@@ -96,7 +104,7 @@
             }
             $li = '';
             foreach ($k['kurang'] as $s) {
-                $tanda = $s['proses'] ? ' <span class="badge text-bg-warning ms-1">belum selesai</span>' : '';
+                $tanda = $s['proses'] ? ' <span class="badge text-bg-warning ms-1">mengerjakan</span>' : '';
                 $li   .= '<li>' . esc($s['nama']) . $tanda . '</li>';
             }
 
@@ -106,7 +114,7 @@
         ?>
         <div class="row g-2 g-md-3 mb-3">
             <?php foreach ([['Jumlah siswa', $total['total'], 'stat-netral'], ['Sudah ikut', $total['selesai'] . ' (' . $total['persen'] . '%)', 'stat-ok'],
-                            ['Belum selesai', $total['proses'], 'stat-proses'], ['Belum ikut', $total['belum'], 'stat-awas']] as [$lbl, $nilai, $kls]): ?>
+                            ['Mengerjakan', $total['proses'], 'stat-proses'], ['Belum ikut', $total['belum'], 'stat-awas']] as [$lbl, $nilai, $kls]): ?>
                 <div class="col-6 col-lg-3">
                     <div class="stat-card <?= $kls ?>">
                         <div class="stat-label"><?= $lbl ?></div>
@@ -127,7 +135,7 @@
                 <table class="table align-middle mb-0">
                     <thead><tr>
                         <th>Kelas</th><th class="text-center">Jumlah</th><th class="text-center">Sudah ikut</th>
-                        <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><?php if ($tampilSudah): ?><th>Yang sudah</th><?php endif ?><th>Yang belum</th>
+                        <th class="text-center">Mengerjakan</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><?php if ($tampilSudah): ?><th>Yang sudah</th><?php endif ?><th>Yang belum</th>
                     </tr></thead>
                     <tbody>
                     <?php foreach ($kelas as $k): ?>
@@ -170,7 +178,7 @@
                         </div>
                         <div class="small d-flex flex-wrap column-gap-3">
                             <span class="text-success">Sudah <strong><?= $k['selesai'] ?></strong></span>
-                            <?php if ($k['proses']): ?><span>Belum selesai <strong><?= $k['proses'] ?></strong></span><?php endif ?>
+                            <?php if ($k['proses']): ?><span>Mengerjakan <strong><?= $k['proses'] ?></strong></span><?php endif ?>
                             <span class="<?= $k['belum'] ? 'text-danger' : 'text-muted' ?>">Belum <strong><?= $k['belum'] ?></strong></span>
                             <span class="text-muted ms-auto">dari <?= $k['total'] ?></span>
                         </div>
@@ -183,7 +191,7 @@
                 </li>
             </ul>
         </div>
-        <p class="small text-muted mt-2 mb-0"><strong>Sudah ikut</strong> = ada percobaan yang terkirim; <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim;
+        <p class="small text-muted mt-2 mb-0"><strong>Sudah ikut</strong> = ada percobaan yang terkirim; <strong>Mengerjakan</strong> = mulai tetapi belum/tidak terkirim;
             <strong>Belum ikut</strong> = belum mulai. Bilah: merah di bawah 70%, oranye 70–99%, hijau 100%. Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel.</p>
     <?php endif ?>
 <?php endif ?>

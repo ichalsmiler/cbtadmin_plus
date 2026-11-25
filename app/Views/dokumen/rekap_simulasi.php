@@ -24,21 +24,20 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
             </div>
             <div class="flex-grow-1" style="min-width: 220px">
                 <label class="form-label small mb-1" for="fQuiz">Mapel</label>
-                <select class="form-select form-select-sm" id="fQuiz" name="quiz">
+                <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
                     <option value="">Semua mapel di kategori ini</option>
                     <?php foreach ($quizList as $q): ?>
                         <option value="<?= (int) $q['id'] ?>" <?= (int) $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
                     <?php endforeach ?>
                 </select>
             </div>
-            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat, 'autoSubmit' => false]) ?>
-            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search me-1"></i>Tampilkan</button>
+            <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
             <?php if ($kategori !== null && $kelas !== []): ?>
                 <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('dokumen/rekap_simulasi/export') . '?' . $query ?>"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Export Excel</a>
             <?php endif ?>
         </form>
         <p class="small text-muted mb-0 mt-2">Siswa diambil dari Data CBTAdmin. <strong>Sudah ikut</strong> = ada percobaan yang terkirim;
-            <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim; <strong>Belum ikut</strong> = belum mulai sama sekali
+            <strong>Mengerjakan</strong> = mulai tetapi belum/tidak terkirim; <strong>Belum ikut</strong> = belum mulai sama sekali
             (termasuk siswa yang akun Moodle-nya belum ada). Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel di kategori ini.
             Bilah: merah di bawah 70%, oranye 70–99%, hijau 100%.</p>
     </div>
@@ -94,7 +93,7 @@ $labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 
                         <label class="form-check-label" for="spKunciQuiz">Kunci mapel ke <strong><?= esc($labelMapel) ?></strong>
                             <?php if ($sp['quiz'] !== null && $sp['quiz'] !== $quizId): ?><span class="small text-muted">(sekarang terkunci ke mapel lain)</span><?php endif ?></label>
                     </div>
-                    <div class="form-text">Pilih kategori dan mapel di atas (Tampilkan) dulu, lalu centang kunci. Kunci mapel ikut mengunci kategori.
+                    <div class="form-text">Pilih kategori dan mapel di atas dulu, lalu centang kunci. Kunci mapel ikut mengunci kategori.
                         Pengunjung tidak bisa mengganti yang terkunci.</div>
                 </div>
             </div>
@@ -110,11 +109,16 @@ $labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 
 <?php else: ?>
     <div class="row g-3 mb-3">
         <?php foreach ([['Jumlah siswa', $total['total'], 'stat-netral'], ['Sudah ikut', $total['selesai'] . ' (' . $total['persen'] . '%)', 'stat-ok'],
-                        ['Belum selesai', $total['proses'], 'stat-proses'], ['Belum ikut', $total['belum'], 'stat-awas']] as [$lbl, $nilai, $kls]): ?>
+                        ['Mengerjakan', $total['proses'], 'stat-proses'], ['Belum ikut', $total['belum'], 'stat-awas']] as [$lbl, $nilai, $kls]): ?>
             <div class="col-6 col-lg-3">
                 <div class="stat-card <?= $kls ?>">
                     <div class="stat-label"><?= $lbl ?></div>
                     <div class="stat-value"><?= esc((string) $nilai) ?></div>
+                    <?php if ($lbl === 'Belum ikut'): ?>
+                        <?php // Cetak siswa belum simulasi (belum ikut + mengerjakan): satu PDF, dipisah per angkatan X, XI, XII. ?>
+                        <a class="stat-link" data-pdf title="Cetak siswa belum simulasi (semua angkatan, dipisah per angkatan)" aria-label="Cetak siswa belum simulasi"
+                           href="<?= site_url('dokumen/rekap_simulasi/belum') . '?' . http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizId ?: ''])) ?>"><i class="bi bi-printer fs-5"></i></a>
+                    <?php endif ?>
                 </div>
             </div>
         <?php endforeach ?>
@@ -129,7 +133,7 @@ $labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 
             <table class="table align-middle mb-0">
                 <thead><tr>
                     <th>Kelas</th><th class="text-center">Jumlah</th><th class="text-center">Sudah ikut</th>
-                    <th class="text-center">Belum selesai</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><th>Yang sudah</th><th>Yang belum</th>
+                    <th class="text-center">Mengerjakan</th><th class="text-center">Belum ikut</th><th style="min-width:9rem">Persentase</th><th>Yang sudah</th><th>Yang belum</th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($kelas as $k): ?>
@@ -172,7 +176,7 @@ $labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 
                                     <ol class="mb-0 mt-1 ps-3">
                                         <?php foreach ($kurang as $s): ?>
                                             <li><?= esc($s['nama']) ?> <span class="text-muted">(<?= esc($s['nomor_peserta'] ?: $s['username']) ?><?= $s['ruang'] !== '' ? ', ' . esc($s['ruang']) : '' ?>)</span>
-                                                <?php if ($s['status'] === 'proses'): ?><span class="badge text-bg-warning ms-1">belum selesai</span><?php endif ?>
+                                                <?php if ($s['status'] === 'proses'): ?><span class="badge text-bg-warning ms-1">mengerjakan</span><?php endif ?>
                                                 <?php if ($s['keterangan'] === 'Akun Moodle belum ada'): ?><span class="badge text-bg-secondary ms-1">akun Moodle belum ada</span><?php endif ?>
                                             </li>
                                         <?php endforeach ?>

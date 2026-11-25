@@ -11,7 +11,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
- * Dokumen → Rekap Simulasi: per kelas, berapa siswa (Data CBTAdmin) yang sudah ikut simulasi, belum selesai,
+ * Dokumen → Rekap Simulasi: per kelas, berapa siswa (Data CBTAdmin) yang sudah ikut simulasi, mengerjakan,
  * dan belum ikut sama sekali, untuk satu kategori ujian Moodle (mis. SIMULASI) atau satu mapel di dalamnya.
  */
 class RekapSimulasi extends PanelController
@@ -33,7 +33,7 @@ class RekapSimulasi extends PanelController
         $book = new Spreadsheet();
 
         $ringkas = $book->getActiveSheet()->setTitle('Ringkasan');
-        $baris   = [['Kelas', 'Jumlah siswa', 'Sudah ikut', 'Belum selesai', 'Belum ikut', '% sudah ikut']];
+        $baris   = [['Kelas', 'Jumlah siswa', 'Sudah ikut', 'Mengerjakan', 'Belum ikut', '% sudah ikut']];
         foreach ($d['kelas'] as $k) {
             $baris[] = [$k['kelas'], $k['total'], $k['selesai'], $k['proses'], $k['belum'], $k['persen'] . '%'];
         }
@@ -74,6 +74,49 @@ class RekapSimulasi extends PanelController
         ActivityLog::add('rekap_simulasi', ($d['quiz']['name'] ?? $d['kategori']['name']) . ': ' . $t['selesai'] . '/' . $t['total'] . ' sudah ikut');
 
         return $this->response->download('rekap_simulasi_' . trim($nama, '_') . '_' . ($d['tingkat'] !== '' ? 'kelas_' . $d['tingkat'] : 'semua_kelas') . '.xlsx', $isi);
+    }
+
+    /**
+     * PDF siswa yang belum simulasi (belum ikut + mengerjakan), SATU berkas untuk semua angkatan (dipisah per angkatan X, XI, XII;
+     * ?tingkat=X|XI|XII opsional). Tingkatan dari GET
+     * (tidak mengubah filter tersimpan).
+     */
+    public function belum()
+    {
+        $tingkat = (string) $this->request->getGet('tingkat');
+        $tingkat = in_array($tingkat, Tingkat::LIST, true) ? $tingkat : '';
+        $d = self::kumpulkan((int) $this->request->getGet('kat'), (int) $this->request->getGet('quiz'), $tingkat);
+        if ($d['kategori'] === null) {
+            return redirect()->to(site_url('dokumen/rekap_simulasi'))->with('error', $d['error'] ?: 'Pilih kategori ujian dulu.');
+        }
+        $kelas = [];
+        foreach ($d['kelas'] as $k) {
+            $belum = array_values(array_filter($k['siswa'], static fn ($s) => $s['status'] !== 'selesai'));
+            // Dikelompokkan per angkatan (bukan per kelas): satu tabel per angkatan, berkolom Kelas.
+            $t = Tingkat::of($k['kelas']) ?: 'Lainnya';
+            $kelas[$t] ??= ['kelas' => $t, 'total' => 0, 'siswa' => []];
+            $kelas[$t]['total'] += $k['total'];
+            foreach ($belum as $s) {
+                $kelas[$t]['siswa'][] = ['kelas' => $k['kelas']] + $s;
+            }
+        }
+        $urut  = array_flip(Tingkat::LIST);
+        $kelas = array_filter($kelas, static fn ($a) => $a['siswa'] !== []);
+        uksort($kelas, static fn ($a, $b) => ($urut[$a] ?? 9) <=> ($urut[$b] ?? 9));
+        foreach ($kelas as &$a) {
+            usort($a['siswa'], static fn ($x, $y) => strnatcasecmp((string) $x['kelas'], (string) $y['kelas']) ?: strnatcasecmp((string) $x['nama'], (string) $y['nama']));
+        }
+        unset($a);
+        $kelas = array_values($kelas);
+        $judul = $d['quiz']['name'] ?? $d['kategori']['name'];
+        ActivityLog::add('rekap_simulasi_belum', $judul . ($tingkat !== '' ? ' kelas ' . $tingkat : ' semua angkatan') . ': ' . array_sum(array_map(static fn ($k) => count($k['siswa']), $kelas)) . ' siswa belum');
+
+        return \App\Libraries\Pdf::respond('pdf/simulasi_belum', [
+            'kelas'   => $kelas,
+            'tingkat' => $tingkat,
+            'judul'   => $judul . ($d['quiz'] === null ? ' (semua mapel)' : ''),
+            'total'   => $d['total'],
+        ], 'belum_simulasi_' . ($tingkat !== '' ? 'kelas_' . $tingkat : 'semua_angkatan') . '.pdf');
     }
 
     /** @param list<list<scalar|null>> $baris */
@@ -213,7 +256,7 @@ class RekapSimulasi extends PanelController
                 'ruang'         => (string) ($s['ruang'] ?? ''),
                 'status'        => $status,
                 'selesai_pada'  => $uid !== null ? ($waktu[$uid] ?? 0) : 0,
-                'keterangan'    => $uid === null ? 'Akun Moodle belum ada' : ($status === 'proses' ? 'Belum selesai / tidak terkirim' : ($status === 'belum' ? 'Belum ikut' : '')),
+                'keterangan'    => $uid === null ? 'Akun Moodle belum ada' : ($status === 'proses' ? 'Mengerjakan / belum terkirim' : ($status === 'belum' ? 'Belum ikut' : '')),
             ];
         }
         uksort($kelas, 'strnatcasecmp');

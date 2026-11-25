@@ -269,22 +269,6 @@ try {
             }
             break;
 
-        case 'quiz_times':
-            // Ubah waktu buka/tutup quiz, lalu perbarui kalender, cache kursus, dan attempt yang sedang berjalan.
-            $quiz            = $DB->get_record('quiz', ['id' => (int) $in['quizid']], '*', MUST_EXIST);
-            $quiz->timeopen  = max(0, (int) $in['timeopen']);
-            $quiz->timeclose = max(0, (int) $in['timeclose']);
-            if ($quiz->timeopen && $quiz->timeclose && $quiz->timeclose <= $quiz->timeopen) {
-                throw new RuntimeException('Waktu tutup harus setelah waktu buka.');
-            }
-            $quiz->timemodified = time();
-            $DB->update_record('quiz', $quiz);
-            quiz_update_events($quiz);
-            rebuild_course_cache((int) $quiz->course, true);
-            quiz_update_open_attempts(['quizid' => (int) $quiz->id]);
-            $result['items'][] = ['id' => (int) $quiz->id, 'status' => 'diubah'];
-            break;
-
         case 'quiz_timelimit':
             // Durasi pengerjaan (detik, 0 = tanpa batas) untuk semua quiz mapel, atau hanya mapel di satu kategori ujian
             // (kategori = id kategori tingkat atas). Quiz yang sedang dikerjakan siswa dilewati supaya waktu siswa tidak
@@ -583,7 +567,15 @@ try {
                     set_config($key, max(0, (int) $in[$key]), 'local_cbtujian');
                 }
             }
-            set_config('limitconcurrentlogins', empty($in['locklogin']) ? 1 : 0);
+            if (array_key_exists('locklogin', $in)) {
+                set_config('limitconcurrentlogins', empty($in['locklogin']) ? 1 : 0);
+            }
+            // Tombol Laporkan (Laporan Siswa panel): tampil/tidak, alamat form di panel, kunci HMAC tautan.
+            if (array_key_exists('lapor', $in)) {
+                set_config('lapor', empty($in['lapor']) ? 0 : 1, 'local_cbtujian');
+                set_config('laporurl', clean_param((string) ($in['laporurl'] ?? ''), PARAM_LOCALURL), 'local_cbtujian');
+                set_config('laporkunci', clean_param((string) ($in['laporkunci'] ?? ''), PARAM_ALPHANUM), 'local_cbtujian');
+            }
             $result['items'][] = ['status' => 'disimpan', 'plugin' => (bool) core_plugin_manager::instance()->get_plugin_info('local_cbtujian')];
             break;
 

@@ -7,10 +7,10 @@
         <span class="fw-semibold"><i class="bi bi-signpost-split me-1"></i>Jejak Siswa</span>
         <form method="get" action="<?= site_url('tools/jejak') ?>" class="d-flex flex-wrap align-items-center gap-2 ms-auto">
             <label class="visually-hidden" for="jUser">Username</label>
-            <input class="form-control form-control-sm" style="width:11rem" id="jUser" name="u" value="<?= esc($username, 'attr') ?>" placeholder="Username siswa" required>
+            <input class="form-control form-control-sm" style="width:14rem" id="jUser" name="u" value="<?= esc($username, 'attr') ?>" placeholder="Username siswa, lalu Enter" required>
             <label class="visually-hidden" for="jTgl">Tanggal</label>
-            <input class="form-control form-control-sm w-auto" type="date" id="jTgl" name="log_tgl" value="<?= esc($tanggal, 'attr') ?>">
-            <button class="btn btn-primary btn-sm" type="submit">Tampilkan</button>
+            <input class="form-control form-control-sm w-auto" type="date" id="jTgl" name="log_tgl" value="<?= esc($tanggal, 'attr') ?>" onchange="if(this.form.u.value)this.form.submit()">
+            <button class="visually-hidden" type="submit" tabindex="-1">Cari</button>
         </form>
     </div>
     <div class="card-body">
