@@ -206,14 +206,9 @@ class Tools extends PanelController
                     return redirect()->to(self::halaman('sekolah'))->with('error', 'Info sekolah disimpan, tetapi ' . strtolower($label) . ' ditolak: harus '
                         . ($jenis === 'favicon' ? 'PNG, ICO, atau JPG' : 'PNG atau JPG') . ', maksimal 1 MB.');
                 }
-                // Favicon dipasang juga ke Moodle (Appearance → Logos → Favicon) lewat jembatan.
+                // Favicon hanya untuk panel CBT Admin; Moodle tetap memakai ikon bawaan Moodle (25 Nov 2026).
                 if ($jenis === 'favicon' && $hasil !== null) {
-                    try {
-                        MoodleBridge::call('favicon', $hasil === 'dihapus' ? ['hapus' => true] : ['path' => (string) School::faviconPath()]);
-                        $pesan .= $hasil === 'dihapus' ? ' Favicon dihapus (panel dan Moodle kembali ke ikon bawaan).' : ' Favicon dipasang di panel dan Moodle.';
-                    } catch (\Throwable $e) {
-                        return redirect()->to(self::halaman('sekolah'))->with('error', 'Favicon tersimpan di panel, tetapi gagal dipasang di Moodle: ' . $e->getMessage());
-                    }
+                    $pesan .= $hasil === 'dihapus' ? ' Favicon panel dihapus (kembali ke ikon bawaan).' : ' Favicon panel dipasang (Moodle tetap memakai ikon Moodle).';
                     continue;
                 }
                 if ($hasil !== null) {

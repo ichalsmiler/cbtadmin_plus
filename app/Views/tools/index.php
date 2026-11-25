@@ -76,7 +76,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . '<div class="col-md-6"><label class="form-label" for="f_logologin">Logo halaman login ujian</label><div class="d-flex align-items-center">' . $loginPrev
             . '<input class="form-control form-control-sm" type="file" id="f_logologin" name="logologin" accept="image/png,image/jpeg"></div>' . $hapus('logologin', $hasLogoLogin)
             . '<div class="form-text">Tampil di halaman login Moodle (dipasang ke Site administration → Appearance → Logos).</div></div>'
-            . '<div class="col-md-6"><label class="form-label" for="f_favicon">Favicon (ikon tab browser)</label><div class="d-flex align-items-center">'
+            . '<div class="col-md-6"><label class="form-label" for="f_favicon">Favicon panel (ikon tab browser; Moodle tetap ikon Moodle)</label><div class="d-flex align-items-center">'
             . ($hasFavicon ? '<img src="' . site_url('tools/gambar/favicon') . '?t=' . time() . '" alt="Favicon" class="border rounded p-1 bg-white me-2" style="height:40px;width:40px;object-fit:contain">' : '')
             . '<input class="form-control form-control-sm" type="file" id="f_favicon" name="favicon" accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico,image/jpeg"></div>' . $hapus('favicon', $hasFavicon)
             . '<div class="form-text">Ikon kecil di tab browser untuk panel CBT Admin dan Moodle. PNG persegi 64×64 atau 32×32 piksel, atau berkas .ico.</div></div>'
