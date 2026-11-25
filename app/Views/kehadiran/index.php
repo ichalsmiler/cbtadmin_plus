@@ -28,7 +28,7 @@ $sudah = count(array_filter($rows, static fn ($r) => $r['status'] !== null));
             <?= view('partials/filter_tingkat', ['tingkat' => $tingkat]) ?>
         </form>
         <?php if ($sesi === null && ! $isAdmin): ?>
-            <div class="alert alert-warning mb-0">Sesi belum diaktifkan oleh proktor. Daftar siswa muncul setelah sesi ujian diaktifkan.</div>
+            <div class="alert alert-warning mb-0">Sesi belum diaktifkan oleh Proktor. Daftar siswa muncul setelah sesi ujian diaktifkan.</div>
         <?php elseif ($rows === []): ?>
             <p class="text-muted mb-0">Tidak ada siswa<?= $sesi !== null ? ' ' . esc($sesi['label']) : '' ?><?= $tingkat !== '' ? ' kelas ' . esc($tingkat) : '' ?> di ruang ini.</p>
         <?php else: ?>

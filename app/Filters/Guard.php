@@ -54,7 +54,7 @@ class Guard implements FilterInterface
         }
 
         if (! $session->get('admin_id')) {
-            return $this->deny($request, 'Silakan login terlebih dahulu.');
+            return $this->deny($request, 'Silakan login dulu.');
         }
 
         // Akun bisa dihapus, dinonaktifkan, atau diganti rolenya saat sesinya masih berjalan.

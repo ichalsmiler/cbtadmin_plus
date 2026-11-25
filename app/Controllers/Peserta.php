@@ -73,7 +73,7 @@ class Peserta extends PanelController
         $password = trim((string) $this->request->getPost('password'));
 
         if ($nama === '' || ! preg_match(self::USERNAME_RE, $username)) {
-            return redirect()->back()->with('error', 'Nama wajib diisi, dan username hanya boleh huruf kecil, angka, titik, strip, garis bawah, atau @.');
+            return redirect()->back()->with('error', 'Nama wajib diisi. Username hanya boleh berisi huruf kecil, angka, titik, strip, garis bawah, atau @.');
         }
         if ($db->table('peserta')->where('username', $username)->where('id !=', $id)->countAllResults() > 0) {
             return redirect()->back()->with('error', 'Username "' . $username . '" sudah dipakai peserta lain.');
@@ -247,7 +247,7 @@ class Peserta extends PanelController
             try {
                 $dihapus = $this->hapusSemua();
             } catch (\Throwable $e) {
-                return redirect()->back()->with('error', 'Import dibatalkan, data lama tetap ada: ' . $e->getMessage());
+                return redirect()->back()->with('error', 'Impor dibatalkan, data lama tetap ada: ' . $e->getMessage());
             }
             ActivityLog::add('reset_peserta', "$dihapus peserta dihapus sebelum import");
         }
@@ -609,7 +609,7 @@ class Peserta extends PanelController
         $email    = mb_substr(trim((string) $this->request->getPost('email')), 0, 100);
         $mapel    = array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) $this->request->getPost('mapel'))))));
         if ($nama === '' || ! preg_match(self::USERNAME_RE, $username)) {
-            return redirect()->to($back)->withInput()->with('error', 'Nama wajib diisi; username 2–100 karakter huruf kecil, angka, titik, strip, @ atau garis bawah.');
+            return redirect()->to($back)->withInput()->with('error', 'Nama wajib diisi. Username 2–100 karakter, hanya boleh berisi huruf kecil, angka, titik, strip, garis bawah, atau @.');
         }
         if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return redirect()->to($back)->withInput()->with('error', 'Format email tidak valid.');

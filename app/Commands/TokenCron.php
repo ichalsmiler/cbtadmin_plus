@@ -40,7 +40,7 @@ class TokenCron extends BaseCommand
             if (ActiveTest::due()) {
                 $token = ActiveTest::release();
                 ActivityLog::add('release_token', 'otomatis: ' . $token);
-                CLI::write('Token direlease: ' . $token);
+                CLI::write('Token dirilis: ' . $token);
 
                 return EXIT_SUCCESS;
             }

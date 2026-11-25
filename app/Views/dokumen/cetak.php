@@ -86,7 +86,7 @@ $jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
                         <button class="btn btn-primary" type="submit" name="cetak" value="1" data-no-pdf formaction="<?= site_url('dokumen/cetak_doc/kartu') ?>"><i class="bi bi-printer me-1"></i>Cetak Kartu Peserta</button>
                         <button class="btn btn-outline-secondary" type="submit" formaction="<?= site_url('dokumen/cetak_doc/kartu') ?>"><i class="bi bi-file-earmark-pdf me-1"></i>Kartu PDF</button>
                         <input type="hidden" name="token_unduh" id="tokenUnduh" value="" disabled>
-                        <button class="btn btn-outline-secondary" type="submit" id="btnZip" data-no-pdf formtarget="_self" formaction="<?= site_url('dokumen/cetak_doc/kartu_zip') ?>" title="Satu PDF per kelas (Per Kelas) atau per ruang (Per Ruang), dalam satu ZIP"><i class="bi bi-file-earmark-zip me-1"></i>Kartu per File (ZIP)</button>
+                        <button class="btn btn-outline-secondary" type="submit" id="btnZip" data-no-pdf formtarget="_self" formaction="<?= site_url('dokumen/cetak_doc/kartu_zip') ?>" title="Satu PDF per kelas (Per Kelas) atau per ruang (Per Ruang), dalam satu ZIP"><i class="bi bi-file-earmark-zip me-1"></i>Kartu per Berkas (ZIP)</button>
                         <button class="btn btn-outline-primary" type="submit" formaction="<?= site_url('dokumen/cetak_doc/daftar_hadir') ?>"><i class="bi bi-list-check me-1"></i>Cetak Daftar Hadir</button>
                     </div>
                 </form>
@@ -99,7 +99,7 @@ $jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
                 <p class="mb-2"><strong>Kartu peserta</strong>: 8 kartu per halaman A4, berisi nama, nomor peserta, username, password, ruang, sesi, nama kegiatan, logo, dan tanda tangan kepala sekolah.</p>
                 <p class="mb-2"><strong>Per Ruang / Per Kelas</strong>: kartu dikelompokkan menurut ruang atau kelas; tiap ruang/kelas mulai di halaman baru dengan namanya tertulis di atas, jadi mudah dipotong dan dibagikan. Pilih "Semua" untuk mencetak semuanya sekaligus.</p>
                 <p class="mb-2"><strong>Daftar hadir</strong>: satu halaman per ruang dan sesi, dengan kolom tanda tangan dan tempat tanda tangan pengawas.</p>
-                <p class="mb-0">Nama kegiatan, identitas sekolah, logo, dan kepala sekolah diatur di <a href="<?= site_url('tools/cbtadmin') ?>">Tools → Info Sekolah</a>. <strong>Cetak Kartu Peserta</strong> membuka halaman siap cetak di tab baru lalu langsung memunculkan dialog print browser (pilih A4, skala 100%); <strong>Kartu PDF</strong> membuka pratinjau PDF; <strong>Kartu per File (ZIP)</strong> mengunduh satu PDF per kelas/ruang (sesuai Per Kelas/Per Ruang dan Tingkatan).</p>
+                <p class="mb-0">Nama kegiatan, identitas sekolah, logo, dan kepala sekolah diatur di <a href="<?= site_url('tools/cbtadmin') ?>">Tools → Info Sekolah</a>. <strong>Cetak Kartu Peserta</strong> membuka halaman siap cetak di tab baru lalu langsung memunculkan dialog print browser (pilih A4, skala 100%); <strong>Kartu PDF</strong> membuka pratinjau PDF; <strong>Kartu per Berkas (ZIP)</strong> mengunduh satu PDF per kelas/ruang (sesuai Per Kelas/Per Ruang dan Tingkatan).</p>
             </div>
         </div>
     </div>
@@ -122,7 +122,7 @@ $jamKosong = array_keys(array_filter($jamTingkat, static fn ($j) => $j === ''));
     document.querySelectorAll('input[name=per]').forEach(function (r) { r.addEventListener('change', sync); });
     sync();
 
-    // Kartu per File (ZIP): diunduh di tab ini; tombol menunjukkan proses sampai server mengirim
+    // Kartu per Berkas (ZIP): diunduh di tab ini; tombol menunjukkan proses sampai server mengirim
     // cookie kartu_zip=<token> bersama berkasnya (pembuatan ±1 detik per kelas/ruang).
     var btnZip = document.getElementById('btnZip');
     var tokenInput = document.getElementById('tokenUnduh');

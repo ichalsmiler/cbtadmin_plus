@@ -73,7 +73,7 @@ class Kehadiran extends PanelController
         if ($this->myRuang() !== null) {
             $boleh = $this->siswaSesi() ?? [];
             if ($boleh === []) {
-                return redirect()->to($back)->with('error', 'Sesi belum diaktifkan oleh proktor. Absensi belum bisa disimpan.');
+                return redirect()->to($back)->with('error', 'Sesi belum diaktifkan oleh Proktor. Absensi belum bisa disimpan.');
             }
             $idBoleh  = array_flip(array_map('intval', array_column(db_connect()->table('peserta')->select('id')
                 ->where('ruang_id', $ruangId)->whereIn('username', $boleh)->get()->getResultArray(), 'id')));

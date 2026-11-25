@@ -125,7 +125,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
     <h1 class="page-title"><?= esc($title) ?></h1>
 
     <?php if (! empty($sesiBelumPengawas) && ! in_array($current, ['', 'dashboard', 'kehadiran'], true)): ?>
-        <div class="alert alert-warning" role="status">Sesi belum diaktifkan oleh proktor. Daftar siswa muncul setelah sesi ujian diaktifkan.</div>
+        <div class="alert alert-warning" role="status">Sesi belum diaktifkan oleh Proktor. Daftar siswa muncul setelah sesi ujian diaktifkan.</div>
     <?php endif ?>
     <?php foreach (['success' => 'success', 'error' => 'danger'] as $key => $class): ?>
         <?php if (session()->getFlashdata($key)): ?>
@@ -150,8 +150,8 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
             <div class="modal-header"><h5 class="modal-title">CBT Admin</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
             <div class="modal-body">
                 <p class="mb-2">Versi <strong><?= esc($version) ?></strong></p>
-                <button type="button" class="btn btn-outline-primary btn-sm" id="btnCekUpdate">Cek Update</button>
-                <p class="small text-muted mt-2 mb-0 d-none" id="updateInfo">Pengecekan update otomatis belum tersedia di versi ini.</p>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btnCekUpdate">Cek Pembaruan</button>
+                <p class="small text-muted mt-2 mb-0 d-none" id="updateInfo">Pengecekan pembaruan otomatis belum tersedia di versi ini.</p>
             </div>
         </div>
     </div>

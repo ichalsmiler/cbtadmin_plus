@@ -123,7 +123,7 @@ class StatusTes extends PanelController
             }
         }
         if ($sesi === null) {
-            return redirect()->to($back)->with('error', 'Pilih sesi terlebih dahulu sebelum mengaktifkan ujian.');
+            return redirect()->to($back)->with('error', 'Pilih sesi sebelum mengaktifkan ujian.');
         }
         try {
             foreach (Moodle::categories() as $c) {
@@ -135,7 +135,7 @@ class StatusTes extends PanelController
             return redirect()->to(site_url('status_tes'))->with('error', 'Database Moodle tidak bisa dibaca.');
         }
         if ($name === null) {
-            return redirect()->to(site_url('status_tes'))->with('error', 'Pilih tes (kategori) terlebih dahulu.');
+            return redirect()->to(site_url('status_tes'))->with('error', 'Pilih tes (kategori) dulu.');
         }
         if (ActiveTest::isNonaktif($name)) {
             return redirect()->to($back)->with('error', ActiveTest::NAMA_NONAKTIF . ' tidak berisi ujian dan dipilih otomatis saat sesi dinonaktifkan. Pilih tes (hari ujian) lain.');
@@ -298,19 +298,19 @@ class StatusTes extends PanelController
             return redirect()->to(site_url('token_ujian'))->with('error', 'Token sedang dinonaktifkan. Aktifkan lewat tombol Setting Token.');
         }
         if (ActiveTest::categoryId() === 0) {
-            return redirect()->to(site_url('token_ujian'))->with('error', 'Pilih dan simpan tes terlebih dahulu.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Pilih dan simpan tes dulu.');
         }
         if (ActiveTest::sesiId() === 0) {
-            return redirect()->to(site_url('token_ujian'))->with('error', 'Sesi nonaktif: token tidak bisa direlease. Aktifkan sesi dulu.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Sesi nonaktif: token tidak bisa dirilis. Aktifkan sesi dulu.');
         }
         try {
             $token = ActiveTest::release();
         } catch (\Throwable $e) {
-            return redirect()->to(site_url('token_ujian'))->with('error', 'Token gagal direlease: ' . $e->getMessage());
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Token gagal dirilis: ' . $e->getMessage());
         }
         ActivityLog::add('release_token', $token);
 
-        return redirect()->to(site_url('token_ujian'))->with('success', 'Token direlease: ' . $token);
+        return redirect()->to(site_url('token_ujian'))->with('success', 'Token dirilis: ' . $token);
     }
 
     /** Pengaturan token: aktif/nonaktif dan jarak release otomatis. */
@@ -320,7 +320,7 @@ class StatusTes extends PanelController
         $enabled    = (bool) $this->request->getPost('aktif');
         $minutes    = (int) $this->request->getPost('menit');
         if ($minutes < 1 || $minutes > 1440) {
-            return redirect()->to(site_url('token_ujian'))->with('error', 'Timer token harus 1–1440 menit.');
+            return redirect()->to(site_url('token_ujian'))->with('error', 'Selang waktu token harus 1–1440 menit.');
         }
 
         Settings::set('token_menit', (string) $minutes);

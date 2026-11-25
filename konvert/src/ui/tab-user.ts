@@ -501,7 +501,7 @@ export function pasangTabUser(akar: HTMLElement): void {
       ),
       el('div', { class: 'baris-kontrol' }, tombolPassword, ulang),
       adaYangDibuat
-        ? el('p', { class: 'bantu' }, 'Password dibuat acak saat file di-upload. Simpan file hasil unduhan: password yang sama tidak bisa dibuat lagi.')
+        ? el('p', { class: 'bantu' }, 'Password dibuat acak saat berkas diunggah. Simpan berkas hasil unduhan: password yang sama tidak bisa dibuat lagi.')
         : null,
       wadahTabel,
       el('div', { id: 'peringatan-sesi', hidden: !sesiBelum }, daftarPesan([{ tingkat: 'peringatan', pesan: 'Pengaturan sesi belum disimpan. Klik Simpan di Pengaturan sesi dulu sebelum mengunduh.' }])),

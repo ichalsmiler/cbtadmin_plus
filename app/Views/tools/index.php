@@ -22,10 +22,10 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
         <?= $item('moodleTools', 'cron', 'gear', 'Cron Task',
             '<p class="small text-muted">Menjalankan cron task Moodle sekarang (mis. menutup attempt yang lewat waktu, mengirim pekerjaan tertunda). Cron juga berjalan otomatis tiap menit.</p>'
             . '<button class="btn btn-info btn-sm" type="button" data-post="' . site_url('tools/cron') . '" data-confirm-text="Jalankan cron task Moodle sekarang? Bisa memakan waktu hingga beberapa menit."><i class="bi bi-rocket-takeoff me-1"></i>Cron</button>') ?>
-        <?= $item('moodleTools', 'cache', 'layers', 'Purge / Delete Caches',
-            '<p class="small text-muted">Membersihkan berkas cache Moodle di server. <strong>Purge</strong> = cara biasa; <strong>Delete</strong> = hapus seluruh folder cache lalu dibangun ulang (dipakai bila tampilan Moodle bermasalah). Halaman pertama sesudahnya akan lebih lambat.</p>'
-            . '<button class="btn btn-warning btn-sm me-1" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"purge"}\' data-confirm-text="Purge cache Moodle sekarang?"><i class="bi bi-arrow-repeat me-1"></i>Purge</button>'
-            . '<button class="btn btn-danger btn-sm" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"delete"}\' data-confirm-text="Hapus semua cache Moodle? Jangan dilakukan saat ujian berlangsung."><i class="bi bi-trash3 me-1"></i>Delete</button>') ?>
+        <?= $item('moodleTools', 'cache', 'layers', 'Bersihkan / Hapus Cache',
+            '<p class="small text-muted">Membersihkan berkas cache Moodle di server. <strong>Bersihkan</strong> = cara biasa (Purge Moodle); <strong>Hapus</strong> = hapus seluruh folder cache lalu dibangun ulang (dipakai bila tampilan Moodle bermasalah). Halaman pertama sesudahnya akan lebih lambat.</p>'
+            . '<button class="btn btn-warning btn-sm me-1" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"purge"}\' data-confirm-text="Bersihkan cache Moodle sekarang?"><i class="bi bi-arrow-repeat me-1"></i>Bersihkan</button>'
+            . '<button class="btn btn-danger btn-sm" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"delete"}\' data-confirm-text="Hapus semua cache Moodle? Jangan dilakukan saat ujian berlangsung."><i class="bi bi-trash3 me-1"></i>Hapus</button>') ?>
         <?= $item('moodleTools', 'antisubmit', 'hourglass-split', 'Anti Submit',
             '<p class="small text-muted">Mencegah peserta menyelesaikan ujian sebelum waktunya. Contoh: anti submit 10 menit dan durasi ujian 120 menit, peserta baru bisa submit setelah mengerjakan 110 menit. Isi <strong>0</strong> untuk menonaktifkan.</p>'
             . '<form method="post" action="' . site_url('tools/ujian') . '" class="d-flex flex-wrap align-items-center gap-2">' . $csrf
@@ -174,9 +174,9 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
         </ul>
         <div class="tab-content">
         <div class="tab-pane fade<?= $logTab === 'pengawas' ? ' show active' : '' ?>" id="log_pengawas" role="tabpanel">
-            <?= $filterLog('pengawas', count(array_filter($logPengawas, static fn ($r) => $r['pertama'] !== null)) . ' dari ' . count($logPengawas) . ' ruang sudah absen', ['pengawas' => 'Excel']) ?>
+            <?= $filterLog('pengawas', count(array_filter($logPengawas, static fn ($r) => $r['pertama'] !== null)) . ' dari ' . count($logPengawas) . ' ruang sudah mengisi absensi', ['pengawas' => 'Excel']) ?>
             <table class="table table-sm align-middle w-100 datatable" data-order-col="3">
-                <thead><tr><th>Ruang</th><th>Pengawas</th><th>Login panel</th><th>Jam absen</th><th>Terakhir diubah</th><th>Hasil</th></tr></thead>
+                <thead><tr><th>Ruang</th><th>Pengawas</th><th>Login panel</th><th>Jam absensi</th><th>Terakhir diubah</th><th>Hasil</th></tr></thead>
                 <tbody>
                 <?php foreach ($logPengawas as $r): ?>
                     <tr>
@@ -185,7 +185,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                         <td data-order="<?= $r['login'] ? esc(substr($r['login']['jam'], 11), 'attr') : '99' ?>" class="text-nowrap small">
                             <?= $r['login'] ? esc(substr($r['login']['jam'], 11)) . '<br><span class="text-muted">' . esc($r['login']['ip']) . ($r['login']['kali'] > 1 ? ' · ' . $r['login']['kali'] . '×' : '') . '</span>' : '<span class="text-muted">Belum login</span>' ?></td>
                         <td data-order="<?= $r['pertama'] ? esc(substr($r['pertama'], 11), 'attr') : '99' ?>" class="text-nowrap">
-                            <?= $r['pertama'] ? '<strong>' . esc(substr($r['pertama'], 11)) . '</strong>' : '<span class="badge text-bg-warning">Belum absen</span>' ?></td>
+                            <?= $r['pertama'] ? '<strong>' . esc(substr($r['pertama'], 11)) . '</strong>' : '<span class="badge text-bg-warning">Belum mengisi absensi</span>' ?></td>
                         <td class="text-nowrap small"><?= $r['kali'] > 1 ? esc(substr((string) $r['terakhir'], 11)) . ' <span class="text-muted">(' . $r['kali'] . '×)</span>' : '–' ?></td>
                         <td class="small"><?= esc($r['detail']) ?></td>
                     </tr>

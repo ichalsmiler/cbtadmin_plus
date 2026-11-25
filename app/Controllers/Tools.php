@@ -12,7 +12,7 @@ use App\Libraries\Settings;
 
 /**
  * Tools (seperti AIOCBT):
- *  - Moodle Tools  : Daftar Test / Mapel, Cron Task, Purge / Delete Caches, Anti Submit
+ *  - Moodle Tools  : Daftar Test / Mapel, Cron Task, Bersihkan / Hapus Cache, Anti Submit
  *  - Info Sekolah (tools/cbtadmin): Info Sekolah, Info Kegiatan, Ganti Password (Lock login dkk. di Moodle Tools)
  *  - Panel (tools/lainnya): akun panel, pengaturan panel, backup, sesi, log aktivitas
  */
@@ -147,10 +147,10 @@ class Tools extends PanelController
 
         switch ($jenis) {
             case 'pengawas':
-                $headers = ['ruang', 'pengawas', 'akun', 'login_panel', 'ip_login', 'jam_absen', 'terakhir_diubah', 'jumlah_simpan', 'hasil'];
+                $headers = ['ruang', 'pengawas', 'akun', 'login_panel', 'ip_login', 'jam_absensi', 'terakhir_diubah', 'jumlah_simpan', 'hasil'];
                 $rows    = array_map(static fn ($r) => [
                     $r['ruang'], $r['pengawas'], $r['oleh'] !== '' ? $r['oleh'] : $r['akun'], $jam($r['login']['jam'] ?? null), $r['login']['ip'] ?? '',
-                    $r['pertama'] ? $jam($r['pertama']) : 'Belum absen', $r['kali'] > 1 ? $jam($r['terakhir']) : '', $r['kali'], $r['detail'],
+                    $r['pertama'] ? $jam($r['pertama']) : 'Belum mengisi absensi', $r['kali'] > 1 ? $jam($r['terakhir']) : '', $r['kali'], $r['detail'],
                 ], LogUjian::pengawas($tgl));
                 break;
             case 'tindakan':
@@ -359,7 +359,7 @@ class Tools extends PanelController
         }
         ActivityLog::add('cache_moodle', $hapus ? 'delete' : 'purge');
 
-        return redirect()->to(self::halaman('cache'))->with('success', $hapus ? 'Cache Moodle dihapus dan dibangun ulang.' : 'Cache Moodle dibersihkan (purge).');
+        return redirect()->to(self::halaman('cache'))->with('success', $hapus ? 'Cache Moodle dihapus dan dibangun ulang.' : 'Cache Moodle dibersihkan.');
     }
 
     // ------------------------------------------------------------------ Daftar Test / Mapel
@@ -714,11 +714,11 @@ class Tools extends PanelController
         try {
             MoodleBridge::call('create_course', ['category' => $kat, 'fullname' => mb_substr($fullname, 0, 254), 'shortname' => mb_substr($shortname, 0, 100), 'timelimit' => self::durasiDetik()]);
         } catch (\Throwable $e) {
-            return redirect()->to($back)->with('error', 'Gagal menambah pelajaran: ' . $e->getMessage());
+            return redirect()->to($back)->with('error', 'Gagal menambah mapel: ' . $e->getMessage());
         }
         ActivityLog::add('tambah_mapel', $shortname . ' (' . $fullname . ')');
 
-        return redirect()->to($back)->with('success', 'Pelajaran "' . $fullname . '" ditambahkan (tersembunyi sampai diaktifkan di Setting Ujian). Isi soalnya di Moodle.');
+        return redirect()->to($back)->with('success', 'Mapel "' . $fullname . '" ditambahkan (tersembunyi sampai diaktifkan di Setting Ujian). Isi soalnya di Moodle.');
     }
 
     /**
@@ -1078,7 +1078,7 @@ class Tools extends PanelController
         $password = (string) $this->request->getPost('password');
 
         if (! preg_match(self::USERNAME_RE, $username) || $nama === '') {
-            return redirect()->to(self::halaman('akun'))->with('error', 'Nama wajib diisi, username 3–60 karakter huruf, angka, titik, strip, atau garis bawah.');
+            return redirect()->to(self::halaman('akun'))->with('error', 'Nama wajib diisi. Username 3–60 karakter, hanya boleh berisi huruf, angka, titik, strip, atau garis bawah.');
         }
         if ($db->table('admins')->where('username', $username)->where('id !=', $id)->countAllResults() > 0) {
             return redirect()->to(self::halaman('akun'))->with('error', 'Username "' . $username . '" sudah dipakai.');

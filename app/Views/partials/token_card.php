@@ -25,7 +25,7 @@
     <div class="card-body text-center py-4">
         <?php if (! empty($token['sesiBelum'])): ?>
             <?php // Sesi nonaktif: nama tes disembunyikan; pesan di atas ikon, ukuran sama dengan baris nama tes (tebal). ?>
-            <div class="mb-2 fw-semibold text-warning-emphasis">Sesi belum diaktifkan oleh proktor</div>
+            <div class="mb-2 fw-semibold text-warning-emphasis">Sesi belum diaktifkan oleh Proktor</div>
             <div class="token-display text-muted"><i class="bi bi-hourglass-split"></i></div>
             <p class="small text-muted mt-2 mb-0">Token akan muncul setelah proktor mengaktifkan sesi ujian. Halaman ini diperbarui otomatis.</p>
         <?php else: ?>

@@ -52,7 +52,7 @@ $q     = http_build_query(array_filter(['tanggal' => $tanggal, 'tingkat' => $tin
                         <td class="text-center text-danger"><?= (int) $r['tidak_hadir'] ?></td>
                         <td class="text-center"><?= $belum > 0 ? '<span class="badge text-bg-warning">' . $belum . '</span>' : '0' ?></td>
                         <td class="text-center"><?= (int) $r['diblokir'] ?></td>
-                        <td class="small"><?= $r['diisi_oleh'] ? esc($r['diisi_oleh']) : '<span class="badge text-bg-secondary">Belum absen</span>' ?></td>
+                        <td class="small"><?= $r['diisi_oleh'] ? esc($r['diisi_oleh']) : '<span class="badge text-bg-secondary">Belum mengisi absensi</span>' ?></td>
                         <td><?= $r['terakhir'] ? esc(date('H:i', strtotime($r['terakhir']))) : '–' ?></td>
                         <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="<?= site_url('kehadiran') . '?' . esc(http_build_query(array_filter(['ruang' => $r['id'], 'tanggal' => $tanggal, 'tingkat' => $tingkat])), 'attr') ?>">Detail</a></td>
                     </tr>

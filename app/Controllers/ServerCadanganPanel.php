@@ -162,7 +162,7 @@ class ServerCadanganPanel extends PanelController
         $back = site_url('server_cadangan');
         $kode = ServerCadangan::kodeCadangan();
         if ($kode === null) {
-            return redirect()->to($back . '#pengaturan')->with('error', 'Lengkapi dan Simpan pengaturan dulu (IP server utama, IP server cadangan).');
+            return redirect()->to($back . '#pengaturan')->with('error', 'Lengkapi dan simpan pengaturan dulu (IP server utama, IP server cadangan).');
         }
         try {
             ServerCadangan::jalankan('utama');
