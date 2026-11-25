@@ -208,8 +208,9 @@ if [ -f "$SRC/deploy/ha/cbt-ha-panel" ]; then
     install -m 644 "$SRC/deploy/ha/ha.conf.contoh" /usr/local/share/cbt-ha/
     install -m 755 "$SRC/deploy/ha/cbt-ha-panel" /usr/local/sbin/cbt-ha-panel
     [ -f "$SRC/deploy/ha/cbt-ha" ] && install -m 755 "$SRC/deploy/ha/cbt-ha" /usr/local/sbin/cbt-ha
+    [ -f "$SRC/deploy/ha/cbt-ha-dns" ] && install -m 755 "$SRC/deploy/ha/cbt-ha-dns" /usr/local/sbin/cbt-ha-dns
     printf '%s\n' '# Panel CBT Admin: menu Server Cadangan (dibuat oleh install.sh)' \
-        'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel kembalikan, /usr/local/sbin/cbt-ha-panel utama, /usr/local/sbin/cbt-ha-panel cadangan, /usr/local/sbin/cbt-ha-panel log' \
+        'www-data ALL=(root) NOPASSWD: /usr/local/sbin/cbt-ha-panel status, /usr/local/sbin/cbt-ha-panel pindah, /usr/local/sbin/cbt-ha-panel kembalikan, /usr/local/sbin/cbt-ha-panel utama, /usr/local/sbin/cbt-ha-panel cadangan, /usr/local/sbin/cbt-ha-panel log, /usr/local/sbin/cbt-ha-panel dns' \
         > /etc/sudoers.d/cbtadmin-ha
     chmod 440 /etc/sudoers.d/cbtadmin-ha
     visudo -cf /etc/sudoers.d/cbtadmin-ha >/dev/null || { rm -f /etc/sudoers.d/cbtadmin-ha; echo "[PERINGATAN] sudoers Server Cadangan tidak valid, dilewati."; }

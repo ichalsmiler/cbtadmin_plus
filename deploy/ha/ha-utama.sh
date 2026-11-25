@@ -474,6 +474,11 @@ kembalikan() {
     set_site_mode aktif
     runuser -u www-data -- php "$MOODLE_DIR/admin/cli/purge_caches.php"
     systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
+    # Domain ujian dikembalikan ke IP publik server ini (API Cloudflare, bila tokennya diatur di panel).
+    if [ -x /usr/local/sbin/cbt-ha-dns ]; then
+        /usr/local/sbin/cbt-ha-dns utama \
+            || warn "Domain $DOMAIN_UTAMA belum kembali ke server ini; arahkan manual di Cloudflare."
+    fi
 
     echo
     echo "============================================================"

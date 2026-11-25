@@ -235,7 +235,19 @@ if ($aksi === 'pindah') {
         keluar(['ok' => false, 'error' => 'Server utama masih terhubung, jadi pindah ditolak supaya jawaban siswa tidak bercabang. '
             . 'Matikan server utama atau putuskan jaringannya dulu, lalu ulangi.'], 1);
     }
-    mulaiLatar('pindah', 'Mulai pindah dari panel CBT Admin', 'bash ' . escapeshellarg(SKRIP) . ' pindah');
+    // CBT_HA_OTOMATIS = menit server utama hilang (dijalankan cbt-ha-jaga, "Pindah otomatis" di panel).
+    $otomatis = getenv('CBT_HA_OTOMATIS');
+    mulaiLatar('pindah', $otomatis !== false ? 'PINDAH OTOMATIS: server utama tidak terhubung ' . (int) $otomatis . ' menit' : 'Mulai pindah dari panel CBT Admin',
+        'bash ' . escapeshellarg(SKRIP) . ' pindah');
+}
+
+// Cek record DNS domain ujian di Cloudflare (tombol "Cek DNS" di panel).
+if ($aksi === 'dns') {
+    if (! is_executable('/usr/local/sbin/cbt-ha-dns')) {
+        keluar(['ok' => false, 'error' => 'cbt-ha-dns belum terpasang. Jalankan deploy ulang.'], 1);
+    }
+    exec('/usr/local/sbin/cbt-ha-dns cek 2>&1', $baris, $kode);
+    keluar(['ok' => $kode === 0, 'error' => implode(' ', $baris), 'hasil' => implode("\n", $baris)], $kode === 0 ? 0 : 1);
 }
 
 if ($aksi === 'kembalikan') {
@@ -331,4 +343,4 @@ if ($aksi === 'log') {
     keluar(['ok' => true, 'berjalan' => berjalan(), 'hasil' => hasilTerakhir(), 'log' => mb_substr($isi, -20000)]);
 }
 
-keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | utama | cadangan | log'], 1);
+keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | utama | cadangan | log | dns'], 1);

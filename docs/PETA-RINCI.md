@@ -185,3 +185,23 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   Diuji 21 Nov 2026 cbt162 (nonaktif) ← VPS (utama): 5 langkah ±1 menit, VPS terpasang ulang cadangan otomatis
   (replikasi Yes/Yes, lag 0). Pasang pengaman tanpa data: `ha-utama.sh jaga` / `ha-cadangan.sh jaga` (install.sh otomatis;
   jenis = ada cron cbt-ha-cadangan). Cek pengecualian siaga pakai `grep -F "^/cbt-ha-)"` (komentar memuat "cbt-ha-").
+
+## HA: pindah otomatis + domain ikut pindah (Cloudflare API, 24 Nov 2026)
+- Setelan di menu Server Cadangan → "Pindah otomatis" (tabel `settings`, BUKAN ha.conf; ikut replikasi ke cadangan):
+  `ha_pindah_otomatis` ya/tidak, `ha_pindah_menit` (2–30, bawaan 3), `ha_ip_publik_utama` (IP publik MikroTik),
+  `ha_cf_token` (token "Edit zone DNS"; input password, kosong = tetap), `ha_cf_zone` (opsional). `ServerCadangan::OTOMATIS`.
+- `deploy/ha/cbt-ha-dns` (PHP, dipasang install.sh ke /usr/local/sbin): `utama` → A record DOMAIN_UTAMA ke `ha_ip_publik_utama`,
+  `cadangan` → ke CADANGAN_IP, `cek`. Zone dicari dari nama domain bila `ha_cf_zone` kosong; CNAME (tunnel lama) diganti A
+  proxied. Tanpa token: keluar 0, tidak apa-apa. Panel: tombol "Cek DNS" (`server_cadangan/dns`, cbt-ha-panel `dns`, sudoers).
+- ha-cadangan.sh `pindah` (manual/otomatis) memanggil `cbt-ha-dns cadangan`; ha-utama.sh `kembalikan` langkah 5 → `cbt-ha-dns utama`.
+- cbt-ha-jaga cadangan, kasus `cadangan:*` → `otomatis()`: utama tak menjawab /cbt-ha-peran DAN ping → tulis
+  `/var/lib/cbt-ha-hilang`; ≥ N menit → `CBT_HA_OTOMATIS=<menit> cbt-ha-panel pindah` (catatan di panel "PINDAH OTOMATIS").
+  Ditolak bila `sync-terakhir` > 15 menit sebelum hilang (data usang; file diisi 9999999999 sampai utama terhubung lagi).
+- Syarat: siswa membuka lewat domain (tanpa DNS rewrite ke IP lokal), SSL Cloudflare Flexible bila utama hanya http (NAT port 80).
+- `ha_ip_publik_utama` boleh IP (→ A) atau `<id>.cfargotunnel.com` (→ CNAME). cbt-ha-dns: wajib LF (CRLF = gagal jalan,
+  `.gitattributes`), ulang 3x + resolve api.cloudflare.com lewat dig @1.1.1.1 bila resolver router gagal.
+- Saat ini (25 Nov 2026): cbtsrv2026 → A 191.101.190.252 (proxied). IP publik itu dari tunnel L2TP `20261124120239` di
+  MikroTik Lab_kom 192.168.110.6 (RB1200, ROS 6.49; SSH `smada`, kunci `~/.ssh/id_rsa_mikrotik`). dst-nat :80 → cbt100
+  192.168.110.11. Balasan wajib lewat tunnel: mangle "IP publik: …" (mark-connection via-l2tp, mark-routing ke-l2tp di
+  prerouting ether1 + output) + route 0.0.0.0/0 gw tunnel routing-mark ke-l2tp. Tanpa itu koneksi macet syn-recv (522).
+

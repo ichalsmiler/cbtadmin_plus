@@ -1,0 +1,155 @@
+#!/usr/bin/env php
+<?php
+/**
+ * CBT HA: arahkan domain ujian (DOMAIN_UTAMA di ha.conf) ke server yang sedang melayani ujian, lewat API Cloudflare.
+ *   cbt-ha-dns utama      → ke tujuan server utama (setelan "ha_ip_publik_utama": IP publik → A record,
+ *                           alamat Cloudflare Tunnel <id>.cfargotunnel.com → CNAME)
+ *   cbt-ha-dns cadangan   → A record ke CADANGAN_IP (VPS)
+ *   cbt-ha-dns cek        → tampilkan record sekarang
+ * Token, IP publik utama, dan Zone ID dibaca dari tabel cbtadmin.settings (ikut tersalin ke server cadangan lewat
+ * replikasi). Tanpa token: tidak melakukan apa-apa (keluar 0), domain dipindah manual di Cloudflare.
+ * Record selalu Proxied (awan oranye); record A/AAAA/CNAME lain untuk nama itu dihapus.
+ */
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+$tujuan = $argv[1] ?? '';
+if (! in_array($tujuan, ['utama', 'cadangan', 'cek'], true)) {
+    fwrite(STDERR, "Pakai: cbt-ha-dns utama | cadangan | cek\n");
+    exit(2);
+}
+
+function conf(): array
+{
+    $hasil = [];
+    foreach (@file('/etc/cbt-ha/ha.conf') ?: [] as $baris) {
+        if (preg_match('/^\s*([A-Z_]+)="?([^"#]*)"?/', $baris, $m)) {
+            $hasil[$m[1]] = trim($m[2]);
+        }
+    }
+
+    return $hasil;
+}
+
+function setelan(string $kunci): string
+{
+    $sql = "SELECT svalue FROM cbtadmin.settings WHERE skey = '" . preg_replace('/[^a-z_]/', '', $kunci) . "'";
+
+    return trim((string) shell_exec('mariadb -N -B -e ' . escapeshellarg($sql) . ' 2>/dev/null'));
+}
+
+function cf(string $metode, string $jalur, ?array $isi = null): array
+{
+    global $token;
+    static $resolve = [];
+    // Resolver lokal (router) kadang gagal: ulang 3x; setelah gagal resolve, alamat API dicari lewat 1.1.1.1/8.8.8.8.
+    for ($coba = 1; $coba <= 3; $coba++) {
+        $ch = curl_init('https://api.cloudflare.com/client/v4' . $jalur);
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST  => $metode,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+            CURLOPT_RESOLVE        => $resolve,
+            CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token, 'Content-Type: application/json'],
+        ]);
+        if ($isi !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($isi));
+        }
+        $jawab = curl_exec($ch);
+        $kode  = curl_errno($ch);
+        $galat = curl_error($ch);
+        curl_close($ch);
+        if ($kode === 0) {
+            break;
+        }
+        if ($kode === CURLE_COULDNT_RESOLVE_HOST && $resolve === []) {
+            foreach (['1.1.1.1', '8.8.8.8'] as $ns) {
+                $ipApi = trim((string) shell_exec('dig +short +time=3 +tries=1 A api.cloudflare.com @' . $ns . ' 2>/dev/null | grep -m1 -E "^[0-9.]+$"'));
+                if ($ipApi !== '') {
+                    $resolve = ["api.cloudflare.com:443:$ipApi"];
+                    break;
+                }
+            }
+        }
+        sleep(2);
+    }
+    $data = json_decode((string) $jawab, true);
+    if (! is_array($data) || empty($data['success'])) {
+        $pesan = $galat !== '' ? $galat : ($data['errors'][0]['message'] ?? 'jawaban tidak dikenal');
+        throw new RuntimeException('Cloudflare: ' . $pesan);
+    }
+
+    return $data;
+}
+
+$conf   = conf();
+$domain = strtolower($conf['DOMAIN_UTAMA'] ?? '');
+$token  = setelan('ha_cf_token');
+if ($token === '') {
+    echo "DNS Cloudflare tidak diatur (token kosong di menu Server Cadangan): domain tidak dipindah otomatis.\n";
+    exit(0);
+}
+if ($domain === '' || preg_match('/^[0-9.]+$/', $domain)) {
+    echo "Alamat utama bukan domain ($domain): tidak ada DNS yang dipindah.\n";
+    exit(0);
+}
+$ip = $tujuan === 'utama' ? setelan('ha_ip_publik_utama') : ($conf['CADANGAN_IP'] ?? '');
+if ($tujuan !== 'cek' && ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && ! preg_match('/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i', $ip)) {
+    fwrite(STDERR, "IP tujuan ($tujuan) belum diisi/tidak valid: '$ip'.\n");
+    exit(1);
+}
+
+try {
+    // Zone: dari setelan, atau dicari dari nama domain (sekolah.sch.id, lalu sch.id, ...).
+    $zone = setelan('ha_cf_zone');
+    if ($zone === '') {
+        $bagian = explode('.', $domain);
+        for ($i = 1; $i < count($bagian) - 1 && $zone === ''; $i++) {
+            $hasil = cf('GET', '/zones?name=' . rawurlencode(implode('.', array_slice($bagian, $i))))['result'];
+            $zone  = (string) ($hasil[0]['id'] ?? '');
+        }
+        if ($zone === '') {
+            throw new RuntimeException("zone untuk $domain tidak ditemukan (isi Zone ID di menu Server Cadangan).");
+        }
+    }
+    $record = cf('GET', "/zones/$zone/dns_records?name=" . rawurlencode($domain))['result'];
+    if ($tujuan === 'cek') {
+        foreach ($record as $r) {
+            echo "{$r['type']} {$r['name']} → {$r['content']}" . (! empty($r['proxied']) ? ' (proxied)' : '') . "\n";
+        }
+        exit(0);
+    }
+    // Tujuan IP → A record; alamat (mis. <id>.cfargotunnel.com) → CNAME. Record lain jenis A/AAAA/CNAME dihapus.
+    $jenis   = filter_var($ip, FILTER_VALIDATE_IP) ? 'A' : 'CNAME';
+    $sama    = null;
+    $proxied = true;
+    foreach ($record as $r) {
+        if (! in_array($r['type'], ['A', 'AAAA', 'CNAME'], true)) {
+            continue;
+        }
+        $proxied = (bool) $r['proxied'];
+        if ($r['type'] === $jenis && $sama === null) {
+            $sama = $r;
+        }
+    }
+    if ($sama !== null && strtolower($sama['content']) === strtolower($ip) && count($record) === 1) {
+        echo "DNS $domain sudah ke $ip.\n";
+        exit(0);
+    }
+    foreach ($record as $r) {
+        if (in_array($r['type'], ['A', 'AAAA', 'CNAME'], true) && $r !== $sama) {
+            cf('DELETE', "/zones/$zone/dns_records/{$r['id']}");
+        }
+    }
+    if ($sama !== null) {
+        cf('PATCH', "/zones/$zone/dns_records/{$sama['id']}", ['content' => $ip, 'proxied' => true]);
+    } else {
+        cf('POST', "/zones/$zone/dns_records", ['type' => $jenis, 'name' => $domain, 'content' => $ip, 'proxied' => true, 'ttl' => 1]);
+    }
+    echo "DNS $domain dipindah ke $ip (server $tujuan).\n";
+    @shell_exec('logger -t cbt-ha ' . escapeshellarg("DNS $domain -> $ip ($tujuan)"));
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Gagal memindah DNS: ' . $e->getMessage() . "\n");
+    exit(1);
+}

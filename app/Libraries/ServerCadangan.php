@@ -25,6 +25,9 @@ class ServerCadangan
         'ha_https'           => 'PAKAI_HTTPS',   // ya = https lewat Cloudflare (Tunnel/Proxied, sertifikat Origin opsional); tidak = http (DNS only)
     ];
 
+    /** Setelan pindah otomatis dan DNS Cloudflare (tabel settings; dibaca cbt-ha-jaga dan cbt-ha-dns). */
+    public const OTOMATIS = ['ha_pindah_otomatis', 'ha_pindah_menit', 'ha_ip_publik_utama', 'ha_cf_token', 'ha_cf_zone'];
+
     /**
      * Server ini cadangan yang masih siaga (database hanya-baca, siswa belum boleh ujian di sini)?
      * Dibaca dari /etc/cbt-ha-peran yang ditulis skrip HA (cadangan → utama setelah PINDAH).
@@ -46,7 +49,7 @@ class ServerCadangan
     /** @return array<string,mixed> */
     public static function jalankan(string $aksi, string $masukan = ''): array
     {
-        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'utama', 'cadangan', 'log'], true)) {
+        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'utama', 'cadangan', 'log', 'dns'], true)) {
             throw new RuntimeException('Aksi tidak dikenal.');
         }
         if (! self::tersedia()) {
@@ -89,6 +92,12 @@ class ServerCadangan
             $v['ha_https'] = $v['ha_domain_utama'] !== '' && ! preg_match('/^[0-9.]+$/', $v['ha_domain_utama']) ? 'ya' : 'tidak';
         }
         $v['ha_https'] = $v['ha_https'] === 'ya' ? 'ya' : 'tidak';
+        // Pindah otomatis + DNS Cloudflare: tidak masuk ha.conf; dibaca skrip dari tabel settings (ikut replikasi ke cadangan).
+        foreach (self::OTOMATIS as $k) {
+            $v[$k] = Settings::get($k);
+        }
+        $v['ha_pindah_otomatis'] = $v['ha_pindah_otomatis'] === 'ya' ? 'ya' : 'tidak';
+        $v['ha_pindah_menit']    = $v['ha_pindah_menit'] !== '' ? $v['ha_pindah_menit'] : '3';
 
         return $v;
     }

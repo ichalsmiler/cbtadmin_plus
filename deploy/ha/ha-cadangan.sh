@@ -428,6 +428,37 @@ cairkan() {   # batal: server cadangan melayani ujian lagi
     catat "pengembalian dibatalkan: server cadangan melayani ujian lagi"
 }
 
+# Pindah otomatis (panel: Server Cadangan → "Pindah otomatis"): server utama tidak terhubung N menit berturut-turut
+# (bawaan 3) → PINDAH lewat cbt-ha-panel (catatan tampil di panel), domain ikut dipindah (cbt-ha-dns). Hanya bila
+# berkas dari server utama masih tersalin ≤ 15 menit sebelum hilang, supaya cadangan yang lama terputus tidak aktif.
+HILANG=/var/lib/cbt-ha-hilang
+otomatis() {
+    local aktif menit mulai lama sync
+    aktif="\$(mariadb -N -e "SELECT svalue FROM cbtadmin.settings WHERE skey = 'ha_pindah_otomatis'" 2>/dev/null | tr -d '[:space:]')"
+    if [ "\$aktif" != ya ]; then rm -f \$HILANG; return; fi
+    if [ -n "\$pasangan" ] || ping -c3 -i0.5 -W2 $PEER_WG_IP >/dev/null 2>&1; then
+        [ -f \$HILANG ] && catat "server utama terhubung lagi; pindah otomatis tidak jadi"
+        rm -f \$HILANG; return
+    fi
+    if [ ! -f \$HILANG ]; then
+        date +%s > \$HILANG
+        catat "server utama tidak terhubung; pindah otomatis bila berlanjut"
+        return
+    fi
+    menit="\$(mariadb -N -e "SELECT svalue FROM cbtadmin.settings WHERE skey = 'ha_pindah_menit'" 2>/dev/null | tr -dc '0-9')"
+    menit="\${menit:-3}"; [ "\$menit" -lt 2 ] && menit=2; [ "\$menit" -gt 30 ] && menit=30
+    mulai="\$(cat \$HILANG)"; lama=\$(( \$(date +%s) - mulai ))
+    [ \$lama -ge \$(( menit * 60 - 20 )) ] || return
+    sync="\$(cat $HA_DIR/sync-terakhir 2>/dev/null || echo 0)"
+    if [ \$(( mulai - sync )) -gt 900 ]; then
+        catat "pindah otomatis DIBATALKAN: berkas dari server utama sudah lama tidak tersalin (data cadangan mungkin usang)"
+        echo 9999999999 > \$HILANG; return
+    fi
+    rm -f \$HILANG
+    catat "PINDAH OTOMATIS: server utama tidak terhubung \$(( lama / 60 )) menit"
+    CBT_HA_OTOMATIS="\$(( lama / 60 ))" /usr/local/sbin/cbt-ha-panel pindah >> \$LOG 2>&1
+}
+
 BATAL=/etc/cbt-ha-kembali-batal
 if [ "\${1:-}" = batal ]; then
     # Dibatalkan admin di konsol: jangan menerima permintaan Kembalikan lagi selama 15 menit.
@@ -448,6 +479,7 @@ case "\$peran:\$pasangan" in
                 >> \$LOG 2>&1 < /dev/null &
         fi ;;
     nonaktif:nonaktif) [ -f \$STATUS ] && cairkan ;;
+    cadangan:*) otomatis ;;
 esac
 exit 0
 EOJ
@@ -736,10 +768,23 @@ pindah() {
     systemctl reload "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm"
     set_site_mode aktif
 
+    # Domain ujian (DOMAIN_UTAMA) diarahkan ke server ini lewat API Cloudflare bila tokennya diatur di panel.
+    local alamat="$URL_CADANGAN"
+    if [ -x /usr/local/sbin/cbt-ha-dns ]; then
+        local dns
+        if dns="$(/usr/local/sbin/cbt-ha-dns cadangan 2>&1)"; then
+            echo "$dns"
+            [[ "$dns" == *"dipindah ke"* || "$dns" == *"sudah ke"* ]] && alamat="$URL_UTAMA (alamat sama, kini ke server ini)"
+        else
+            warn "$dns
+  Pindahkan domain $DOMAIN_UTAMA ke $CADANGAN_IP secara manual di Cloudflare, atau umumkan $URL_CADANGAN."
+        fi
+    fi
+
     echo
     echo "============================================================"
     echo "  SERVER INI SEKARANG UTAMA"
-    echo "  Umumkan ke siswa alamat baru:  $URL_CADANGAN"
+    echo "  Alamat ujian untuk siswa:  $alamat"
     echo "  Siswa login lagi lalu melanjutkan quiz; jawaban tersimpan."
     echo
     echo "  Server utama yang dinyalakan lagi otomatis nonaktif (tidak menerima siswa)."

@@ -189,9 +189,38 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     Matikan hanya bila DNS diatur <strong>DNS only</strong> (awan abu-abu) dan alamat memakai http biasa.</div>
             </div>
         </div>
+        <hr>
+        <h6 class="fw-semibold"><i class="bi bi-lightning-charge me-1"></i>Pindah otomatis</h6>
+        <p class="small text-muted">Server cadangan memeriksa server utama tiap menit. Bila server utama tidak terhubung selama waktu di bawah
+            (mis. mati lampu), server cadangan <strong>pindah sendiri</strong> menjadi utama, lalu domain <strong><?= esc($nilai['ha_domain_utama'] ?: 'alamat ujian utama') ?></strong>
+            diarahkan ke IP server cadangan lewat API Cloudflare. Siswa memakai alamat yang sama: muat ulang, login lagi, lanjutkan quiz.
+            Kembalikan ke server utama tetap lewat tombol <strong>Kembalikan</strong> (domain ikut kembali). Siswa harus membuka ujian lewat domain itu
+            (bukan IP lokal / DNS rewrite di jaringan sekolah), supaya semua siswa ikut pindah.</p>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="ha_pindah_otomatis" name="ha_pindah_otomatis" value="1" <?= $nilai['ha_pindah_otomatis'] === 'ya' ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="ha_pindah_otomatis">Aktifkan pindah otomatis</label>
+                </div>
+            </div>
+            <div class="col-6 col-md-3"><label class="form-label" for="ha_pindah_menit">Setelah tidak terhubung (menit)</label>
+                <input class="form-control" type="number" min="2" max="30" id="ha_pindah_menit" name="ha_pindah_menit" value="<?= esc($nilai['ha_pindah_menit'], 'attr') ?>"></div>
+            <div class="col-md-6"><label class="form-label" for="ha_ip_publik_utama">Tujuan domain saat server utama aktif</label>
+                <input class="form-control" id="ha_ip_publik_utama" name="ha_ip_publik_utama" value="<?= esc($nilai['ha_ip_publik_utama'], 'attr') ?>" placeholder="IP publik MikroTik atau <id>.cfargotunnel.com">
+                <div class="form-text">IP publik MikroTik (mis. 191.101.190.252) atau alamat Cloudflare Tunnel di server utama (<code>&lt;id&gt;.cfargotunnel.com</code>).
+                    Dipakai saat Kembalikan. Saat pindah, domain diarahkan ke IP server cadangan. Bukan IP VPS.</div></div>
+            <div class="col-md-6"><label class="form-label" for="ha_cf_token">Token API Cloudflare</label>
+                <input class="form-control font-monospace" type="password" id="ha_cf_token" name="ha_cf_token" value="" placeholder="<?= $nilai['ha_cf_token'] !== '' ? 'tersimpan — kosongkan untuk tetap memakai' : 'belum diisi' ?>">
+                <div class="form-text">Cloudflare → My Profile → API Tokens → Create Token → template <strong>Edit zone DNS</strong>, zone domain sekolah.
+                    <?php if ($nilai['ha_cf_token'] !== ''): ?><label class="ms-1"><input type="checkbox" name="hapus_cf_token" value="1"> hapus token</label><?php endif ?></div></div>
+            <div class="col-md-6"><label class="form-label" for="ha_cf_zone">Zone ID Cloudflare (opsional)</label>
+                <input class="form-control font-monospace" id="ha_cf_zone" name="ha_cf_zone" value="<?= esc($nilai['ha_cf_zone'], 'attr') ?>" placeholder="kosong = dicari otomatis">
+                <div class="form-text">Di halaman Overview domain, kolom kanan "Zone ID". Isi bila Cek DNS gagal menemukan zone.</div></div>
+        </div>
     </div>
     <div class="card-footer d-flex flex-wrap gap-2">
         <button class="btn btn-success" type="submit"><i class="bi bi-save me-1"></i>Simpan</button>
+        <a class="btn btn-outline-secondary" href="<?= site_url('server_cadangan/dns') ?>" title="Lihat ke mana domain ujian diarahkan sekarang (perlu token API Cloudflare)"><i class="bi bi-globe me-1"></i>Cek DNS</a>
         <a class="btn btn-outline-primary ms-auto" href="<?= site_url('server_cadangan/unduh') ?>"><i class="bi bi-download me-1"></i>Unduh ha.conf</a>
     </div>
 </form>

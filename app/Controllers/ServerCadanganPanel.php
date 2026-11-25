@@ -60,6 +60,33 @@ class ServerCadanganPanel extends PanelController
         }
         // Centang "Pakai HTTPS" = Cloudflare Proxied + sertifikat Origin; tanpa centang = http biasa (DNS only).
         $in['ha_https'] = $this->request->getPost('ha_https') === '1' ? 'ya' : 'tidak';
+        // Pindah otomatis + DNS Cloudflare (bukan bagian ha.conf).
+        $ipPublik = trim((string) $this->request->getPost('ha_ip_publik_utama'));
+        $ipPublik = strtolower(preg_replace('~^https?://|/.*$~i', '', $ipPublik));
+        if ($ipPublik !== '' && ! filter_var($ipPublik, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && ! preg_match('/^[a-z0-9-]+(\.[a-z0-9-]+)+$/', $ipPublik)) {
+            return redirect()->to($back)->with('error', 'Tujuan server utama: IP publik (mis. 191.101.190.252) atau alamat tunnel (<id>.cfargotunnel.com).');
+        }
+        if ($ipPublik !== '' && $ipPublik === trim((string) $this->request->getPost('ha_cadangan_ip'))) {
+            return redirect()->to($back)->with('error', 'Tujuan server utama tidak boleh sama dengan IP server cadangan (VPS).');
+        }
+        $token = trim((string) $this->request->getPost('ha_cf_token'));
+        if ($token !== '' && ! preg_match('/^[A-Za-z0-9_-]{20,}$/', $token)) {
+            return redirect()->to($back)->with('error', 'Token API Cloudflare tidak valid (huruf, angka, - dan _).');
+        }
+        $zone     = trim((string) $this->request->getPost('ha_cf_zone'));
+        $otomatis = $this->request->getPost('ha_pindah_otomatis') === '1';
+        if ($otomatis && ($ipPublik === '' || ($token === '' && Settings::get('ha_cf_token') === '' ) || $in['ha_cadangan_ip'] === '')) {
+            return redirect()->to($back)->with('error', 'Pindah otomatis butuh IP publik server utama, IP server cadangan, dan token API Cloudflare.');
+        }
+        $in['ha_pindah_otomatis'] = $otomatis ? 'ya' : 'tidak';
+        $in['ha_pindah_menit']    = (string) max(2, min(30, (int) $this->request->getPost('ha_pindah_menit') ?: 3));
+        $in['ha_ip_publik_utama'] = $ipPublik;
+        $in['ha_cf_zone']         = preg_match('/^[a-f0-9]{32}$/i', $zone) ? $zone : '';
+        if ($token !== '') {
+            $in['ha_cf_token'] = $token;
+        } elseif ($this->request->getPost('hapus_cf_token') === '1') {
+            $in['ha_cf_token'] = '';
+        }
         foreach ($in as $k => $v) {
             Settings::set($k, $v);
         }
@@ -152,6 +179,19 @@ class ServerCadanganPanel extends PanelController
         ActivityLog::add('server_cadangan', 'server ini dipasang sebagai CADANGAN (KODE dari panel utama)');
 
         return redirect()->to($back . '#proses')->with('success', 'Pemasangan server cadangan dimulai (beberapa menit). Setelah selesai, login panel memakai akun admin server utama.');
+    }
+
+    /** Cek ke mana domain ujian diarahkan di Cloudflare (cbt-ha-dns cek). */
+    public function dns()
+    {
+        $back = site_url('server_cadangan') . '#pengaturan';
+        try {
+            $hasil = (string) (ServerCadangan::jalankan('dns')['hasil'] ?? '');
+        } catch (\Throwable $e) {
+            return redirect()->to($back)->with('error', 'Cek DNS gagal: ' . $e->getMessage());
+        }
+
+        return redirect()->to($back)->with('success', 'DNS sekarang: ' . ($hasil !== '' ? str_replace("\n", '; ', $hasil) : '(tidak ada record)'));
     }
 
     /** Catatan proses pindah (JSON, untuk diperbarui berkala di halaman). */
