@@ -29,6 +29,14 @@ class Guard implements FilterInterface
     {
         helper('url');
         $path    = trim($request->getPath(), '/');
+
+        // Lewat server perantara (deploy/pasang-simulasi.sh, header X-CBT-Perantara): hanya dashboard simulasi, login,
+        // dan menu pengawas (PROKTOR_PATHS) untuk SEMUA akun; selain itu 404 seolah tidak ada. Menu pengawas baru
+        // otomatis ikut terbuka di perantara, tanpa mengubah konfigurasi nginx.
+        if ($request->getHeaderLine('X-CBT-Perantara') === '1' && ! self::bolehPerantara($path)) {
+            return service('response')->setStatusCode(404)->setBody('Halaman tidak tersedia.');
+        }
+
         $session = session();
 
         if ($request->is('post')) {
@@ -128,6 +136,12 @@ class Guard implements FilterInterface
         }
 
         return null;
+    }
+
+    /** Alamat yang boleh dibuka lewat server perantara (apa pun role-nya). */
+    public static function bolehPerantara(string $path): bool
+    {
+        return in_array($path, ['login', 'simulasi', 'tools/gambar/favicon'], true) || self::allowed('proktor', $path);
     }
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
