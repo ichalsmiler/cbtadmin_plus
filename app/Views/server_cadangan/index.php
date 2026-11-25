@@ -111,7 +111,7 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                 <?= csrf_field() ?>
                 <div class="card-header fw-semibold text-success"><i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ujian ke server ini</div>
                 <div class="card-body">
-                    <p class="small mb-2">Pakai setelah server ini normal lagi, <strong>di luar jam ujian</strong>. Server cadangan menolak bila masih ada siswa mengerjakan atau sesi ujian masih aktif.</p>
+                    <p class="small mb-2">Pakai setelah server ini normal lagi, <strong>di luar jam ujian</strong>. Server cadangan menolak bila masih ada siswa mengerjakan atau sesi ujian masih aktif, kecuali dipaksa.</p>
                     <ol class="small mb-3">
                         <li>Server cadangan berhenti menerima ujian, lalu menyiapkan salinan data terbaru.</li>
                         <li>Database dan berkas disalin ke server ini (data lama dibackup dulu), lalu server ini melayani ujian lagi di <strong><?= esc($s['url_utama'] ?: '–') ?></strong>.</li>
@@ -120,6 +120,11 @@ $replOk = $repl && $repl['io'] === 'Yes' && $repl['sql'] === 'Yes';
                     <?php if (! $kontakHidup): ?>
                         <div class="alert alert-warning small py-2">Server cadangan <strong>tidak terhubung</strong>. Pastikan server cadangan hidup lalu muat ulang halaman ini.</div>
                     <?php endif ?>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="paksa" value="1" id="paksaKembali">
+                        <label class="form-check-label small" for="paksaKembali"><strong>Paksa walau ada yang mengerjakan</strong> (darurat):
+                            siswa melihat halaman tunggu ±2–4 menit, lalu memuat ulang dan lanjut tanpa login ulang. Jawaban yang sudah tersimpan aman.</label>
+                    </div>
                     <label class="form-label" for="konfirmasiKembali">Ketik <code>KEMBALIKAN</code> untuk mengonfirmasi</label>
                     <div class="input-group">
                         <input class="form-control" id="konfirmasiKembali" name="konfirmasi" autocomplete="off" required>

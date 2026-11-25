@@ -152,11 +152,12 @@ set_site_mode() {
     cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOF'
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Server cadangan</title>
+<meta http-equiv="refresh" content="30">
+<title>Mohon tunggu</title>
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:420px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}</style>
-</head><body><main><h1>Server cadangan</h1>
-<p>Server ini menyimpan salinan data ujian dan belum aktif. Silakan kerjakan ujian di alamat server utama.</p></main></body></html>
+</head><body><main><h1>Mohon tunggu sebentar</h1>
+<p>Server ujian sedang dipindahkan. Halaman ini <strong>memuat ulang sendiri tiap 30 detik</strong>.</p><p>Jangan tutup browser dan jangan logout. Jawaban yang sudah tersimpan aman. Bila lebih dari 5 menit, lapor ke pengawas ruang.</p></main></body></html>
 EOF
     if [ "$mode" = cadangan ]; then
         cat > "$snip" <<'EOF'
@@ -245,7 +246,7 @@ set -uo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Sisa "Kembalikan" yang terputus (mis. listrik padam): peran kembali tanpa prosesnya → nonaktif lagi,
 # supaya server cadangan tidak terus berhenti melayani ujian.
-if [ "\$(cat $ROLE_FILE 2>/dev/null)" = kembali ] && ! pgrep -f "ha-utama.sh kembalikan" >/dev/null; then
+if [[ "\$(cat $ROLE_FILE 2>/dev/null)" == kembali* ]] && ! pgrep -f "ha-utama.sh kembalikan" >/dev/null; then
     echo nonaktif > $ROLE_FILE
 fi
 [ "\$(cat $ROLE_FILE 2>/dev/null)" = utama ] || exit 0
@@ -267,11 +268,12 @@ mkdir -p /var/www/cbt-ha
 cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOH'
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ujian dipindah</title>
+<meta http-equiv="refresh" content="30">
+<title>Mohon tunggu</title>
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
-</head><body><main><h1>Ujian dipindah ke server cadangan</h1>
-<p>Server ini sedang tidak dipakai. Tanyakan alamat ujian kepada pengawas ruang.</p></main></body></html>
+</head><body><main><h1>Mohon tunggu sebentar</h1>
+<p>Server ujian sedang dipindahkan. Halaman ini <strong>memuat ulang sendiri tiap 30 detik</strong>.</p><p>Jangan tutup browser dan jangan logout. Jawaban yang sudah tersimpan aman. Bila lebih dari 5 menit, lapor ke pengawas ruang.</p></main></body></html>
 EOH
 cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
 # CBT HA: server utama nonaktif, cadangan sedang dipakai (dibuat oleh cbt-ha-jaga)
@@ -398,6 +400,8 @@ EOF
 # Server utama ini nonaktif (server cadangan sudah dipakai ujian setelah PINDAH). Ambil data terbaru dari server
 # cadangan lalu aktif lagi; server cadangan otomatis dipasang ulang sebagai cadangan (cbt-ha-jaga di sana).
 # Hanya di luar ujian: server cadangan menolak bila ada siswa mengerjakan atau sesi masih aktif.
+# PAKSA=1 (panel: "Paksa walau ada yang mengerjakan"): peran "kembali-paksa", server cadangan tidak menolak; siswa
+# menunggu ±2–4 menit lalu lanjut tanpa login ulang (sesi Redis ikut tersalin, cbt-ha-redis).
 kembalikan() {
     load_conf
     [ "$(cat "$ROLE_FILE" 2>/dev/null)" = nonaktif ] || die "Kembalikan hanya untuk server utama yang sedang nonaktif."
@@ -427,7 +431,12 @@ kembalikan() {
         sed -i '/\^\/cbtadmin(/a if ($uri ~ ^/cbt-ha-) { set $cbt_siaga 0; }' "$mode"
         nginx -t >/dev/null 2>&1 && systemctl reload nginx
     fi
-    echo kembali > "$ROLE_FILE"
+    if [ "${PAKSA:-0}" = 1 ]; then
+        warn "Dipaksa: siswa yang sedang mengerjakan menunggu beberapa menit, lalu lanjut tanpa login ulang."
+        echo kembali-paksa > "$ROLE_FILE"
+    else
+        echo kembali > "$ROLE_FILE"
+    fi
     local i st=""
     for i in $(seq 1 90); do                      # sampai 15 menit (salinan database besar)
         st="$(curl -fsS --max-time 5 "http://$PEER_WG_IP/cbt-ha-kembali" 2>/dev/null)" || st=""
@@ -470,6 +479,8 @@ kembalikan() {
     for f in moodle cbtadmin; do
         if [ -f "/etc/cron.d/$f.cadangan-off" ]; then mv "/etc/cron.d/$f.cadangan-off" "/etc/cron.d/$f"; fi
     done
+    # Sesi siswa (salinan Redis dari server cadangan) dipakai di sini: siswa tidak perlu login ulang.
+    [ -x /usr/local/sbin/cbt-ha-redis ] && /usr/local/sbin/cbt-ha-redis master
     echo utama > "$ROLE_FILE"
     set_site_mode aktif
     runuser -u www-data -- php "$MOODLE_DIR/admin/cli/purge_caches.php"

@@ -200,6 +200,14 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Syarat: siswa membuka lewat domain (tanpa DNS rewrite ke IP lokal), SSL Cloudflare Flexible bila utama hanya http (NAT port 80).
 - `ha_ip_publik_utama` boleh IP (→ A) atau `<id>.cfargotunnel.com` (→ CNAME). cbt-ha-dns: wajib LF (CRLF = gagal jalan,
   `.gitattributes`), ulang 3x + resolve api.cloudflare.com lewat dig @1.1.1.1 bila resolver router gagal.
+- Sesi siswa ikut pindah (tanpa login ulang): `deploy/ha/cbt-ha-redis` (install.sh → /usr/local/sbin + cron tiap menit
+  `/etc/cron.d/cbt-ha-redis`). Peran "utama" = Redis master; peran lain = replicaof pasangan (10.77.0.x) bila pasangan
+  master. Hanya CONFIG SET (bind + IP wg, protected-mode no, replica-read-only no), tidak menulis redis.conf.
+  `cbt-ha-redis master` dipanggil pindah (3/3) dan kembalikan (5/5) sebelum peran utama; kunci `session_*.lock` dihapus.
+  `cbt-ha-redis status`. Purge cache Moodle aman (cachestore_redis hanya unlink hash, sesi tidak terhapus).
+- Kembalikan paksa (centang "Paksa walau ada yang mengerjakan"): POST `paksa=1` → cbt-ha-panel `kembalikan_paksa`
+  (sudoers) → `PAKSA=1 ha-utama.sh kembalikan` → peran utama `kembali-paksa`; jaga cadangan `utama:kembali-paksa` →
+  `bekukan paksa` (tidak menolak, dicatat "DIPAKSA"). Jaga utama menganggap `kembali*` sisa proses terputus.
 - Saat ini (25 Nov 2026): cbtsrv2026 → A 191.101.190.252 (proxied). IP publik itu dari tunnel L2TP `20261124120239` di
   MikroTik Lab_kom 192.168.110.6 (RB1200, ROS 6.49; SSH `smada`, kunci `~/.ssh/id_rsa_mikrotik`). dst-nat :80 → cbt100
   192.168.110.11. Balasan wajib lewat tunnel: mangle "IP publik: …" (mark-connection via-l2tp, mark-routing ke-l2tp di

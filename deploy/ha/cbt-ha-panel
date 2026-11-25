@@ -138,6 +138,11 @@ function hasilTerakhir(): ?array
 }
 
 $aksi = $argv[1] ?? '';
+// kembalikan_paksa = kembalikan walau ada siswa mengerjakan / sesi aktif (PAKSA=1 ha-utama.sh kembalikan).
+$paksa = $aksi === 'kembalikan_paksa';
+if ($paksa) {
+    $aksi = 'kembalikan';
+}
 
 if ($aksi === 'status') {
     $conf  = bacaConf();
@@ -271,7 +276,8 @@ if ($aksi === 'kembalikan') {
         keluar(['ok' => false, 'error' => 'Server cadangan tidak sedang dipakai ujian atau tidak terjangkau (peran: ' . ($peran ?: 'tidak terjangkau')
             . '). Pastikan server cadangan hidup dan sudah cbt-perbarui.'], 1);
     }
-    mulaiLatar('kembalikan', 'Mulai kembalikan dari panel CBT Admin', 'bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan');
+    mulaiLatar('kembalikan', 'Mulai kembalikan dari panel CBT Admin' . ($paksa ? ' (DIPAKSA walau ujian berjalan)' : ''),
+        ($paksa ? 'PAKSA=1 ' : '') . 'bash ' . escapeshellarg(SKRIP_UTAMA) . ' kembalikan');
 }
 
 if ($aksi === 'utama') {
@@ -343,4 +349,4 @@ if ($aksi === 'log') {
     keluar(['ok' => true, 'berjalan' => berjalan(), 'hasil' => hasilTerakhir(), 'log' => mb_substr($isi, -20000)]);
 }
 
-keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | utama | cadangan | log | dns'], 1);
+keluar(['ok' => false, 'error' => 'Pakai: cbt-ha-panel status | pindah | kembalikan | kembalikan_paksa | utama | cadangan | log | dns'], 1);

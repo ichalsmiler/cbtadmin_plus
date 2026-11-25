@@ -49,7 +49,7 @@ class ServerCadangan
     /** @return array<string,mixed> */
     public static function jalankan(string $aksi, string $masukan = ''): array
     {
-        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'utama', 'cadangan', 'log', 'dns'], true)) {
+        if (! in_array($aksi, ['status', 'pindah', 'kembalikan', 'kembalikan_paksa', 'utama', 'cadangan', 'log', 'dns'], true)) {
             throw new RuntimeException('Aksi tidak dikenal.');
         }
         if (! self::tersedia()) {

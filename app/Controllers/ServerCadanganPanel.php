@@ -132,12 +132,14 @@ class ServerCadanganPanel extends PanelController
         if (trim((string) $this->request->getPost('konfirmasi')) !== 'KEMBALIKAN') {
             return redirect()->to($back)->with('error', 'Ketik KEMBALIKAN (huruf kapital) untuk mengaktifkan lagi server ini.');
         }
+        $paksa = $this->request->getPost('paksa') === '1';
         try {
-            ServerCadangan::jalankan('kembalikan');
+            ServerCadangan::jalankan($paksa ? 'kembalikan_paksa' : 'kembalikan');
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Tidak bisa mengembalikan: ' . $e->getMessage());
         }
-        ActivityLog::add('server_cadangan', 'KEMBALIKAN: data diambil dari server cadangan, server utama aktif lagi');
+        ActivityLog::add('server_cadangan', 'KEMBALIKAN' . ($paksa ? ' (DIPAKSA saat ujian berjalan)' : '')
+            . ': data diambil dari server cadangan, server utama aktif lagi');
 
         return redirect()->to($back . '#proses')->with('success', 'Proses kembalikan dimulai. Ikuti catatannya di bawah sampai selesai (beberapa menit).');
     }

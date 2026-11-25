@@ -157,11 +157,12 @@ set_site_mode() {
     cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOF'
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Server cadangan</title>
+<meta http-equiv="refresh" content="30">
+<title>Mohon tunggu</title>
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:420px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}</style>
-</head><body><main><h1>Server cadangan</h1>
-<p>Server ini menyimpan salinan data ujian dan belum aktif. Silakan kerjakan ujian di alamat server utama.</p></main></body></html>
+</head><body><main><h1>Mohon tunggu sebentar</h1>
+<p>Server ujian sedang dipindahkan. Halaman ini <strong>memuat ulang sendiri tiap 30 detik</strong>.</p><p>Jangan tutup browser dan jangan logout. Jawaban yang sudah tersimpan aman. Bila lebih dari 5 menit, lapor ke pengawas ruang.</p></main></body></html>
 EOF
     if [ "$mode" = cadangan ]; then
         # Moodle untuk siswa ditutup, tetapi panel /cbtadmin/ tetap terbuka (mode siaga: hanya menu Server Cadangan,
@@ -335,11 +336,12 @@ halaman() {   # \$1 = tutup | buka
         cat > /var/www/cbt-ha/cbt-cadangan.html <<'EOH'
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ujian dipindah</title>
+<meta http-equiv="refresh" content="30">
+<title>Mohon tunggu</title>
 <style>body{font-family:system-ui,sans-serif;background:#f1f3f7;color:#2a2e3d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{background:#fff;border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}h1{font-size:1.3rem;margin:0 0 .5rem}a{font-weight:600}</style>
-</head><body><main><h1>Ujian kembali ke server utama</h1>
-<p>Server ini sedang tidak dipakai. Tanyakan alamat ujian kepada pengawas ruang.</p></main></body></html>
+</head><body><main><h1>Mohon tunggu sebentar</h1>
+<p>Server ujian sedang dipindahkan. Halaman ini <strong>memuat ulang sendiri tiap 30 detik</strong>.</p><p>Jangan tutup browser dan jangan logout. Jawaban yang sudah tersimpan aman. Bila lebih dari 5 menit, lapor ke pengawas ruang.</p></main></body></html>
 EOH
         cat > /etc/nginx/snippets/cbt-ha-mode.conf <<'EON'
 # CBT HA: server cadangan berhenti, data dikembalikan ke server utama (dibuat oleh cbt-ha-jaga)
@@ -370,6 +372,11 @@ bekukan() {
     sesi="\$(mariadb -N -e "SELECT svalue FROM cbtadmin.settings WHERE skey = 'sesi_aktif'" 2>/dev/null | tr -d '[:space:]')"
     [ "\${n:-0}" -gt 0 ] && alasan="\$n siswa sedang mengerjakan ujian di server cadangan"
     [ -n "\$sesi" ] && alasan="\${alasan:+\$alasan; }sesi ujian masih aktif (nonaktifkan dulu di Setting Ujian)"
+    # Dipaksa dari server utama (peran "kembali-paksa"): tidak ditolak; sesi siswa ikut tersalin (cbt-ha-redis).
+    if [ -n "\$alasan" ] && [ "\${1:-}" = paksa ]; then
+        catat "kembalikan DIPAKSA walau \$alasan"
+        alasan=""
+    fi
     if [ -n "\$alasan" ]; then
         echo "tolak \$alasan" > \$STATUS; chmod 644 \$STATUS
         return
@@ -471,6 +478,9 @@ case "\$peran:\$pasangan" in
     utama:kembali)
         baru_batal && exit 0
         [ -f \$STATUS ] && grep -q '^tolak' \$STATUS && [ \$(( \$(date +%s) - \$(stat -c %Y \$STATUS) )) -lt 60 ] || bekukan ;;
+    utama:kembali-paksa)
+        baru_batal && exit 0
+        bekukan paksa ;;
     utama:*) [ -f \$STATUS ] && grep -q '^tolak' \$STATUS && rm -f \$STATUS ;;
     nonaktif:utama)
         if [ -f \$STATUS ]; then
@@ -759,6 +769,8 @@ pindah() {
     sed -i 's/^read_only = 1/read_only = 0/' "$DB_CNF"
 
     log "3/3 Moodle dan CBT Admin dibuka untuk siswa di server ini"
+    # Sesi siswa (salinan Redis dari server utama) dipakai di sini: siswa tidak perlu login ulang.
+    [ -x /usr/local/sbin/cbt-ha-redis ] && /usr/local/sbin/cbt-ha-redis master
     echo "utama" > "$ROLE_FILE"
     local f
     for f in moodle cbtadmin; do

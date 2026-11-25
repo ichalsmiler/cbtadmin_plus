@@ -1,0 +1,56 @@
+#!/bin/bash
+# CBT HA: sesi login Moodle (Redis) ikut tersalin ke server pasangan lewat WireGuard, jadi siswa tidak perlu login
+# ulang setelah PINDAH atau KEMBALIKAN. Server yang melayani ujian (peran "utama") = master; server lain (cadangan,
+# nonaktif, kembali) = salinan dari pasangannya, hanya bila pasangan itu master (tidak saling menyalin).
+# Dipanggil tiap menit (/etc/cron.d/cbt-ha-redis) dan langsung oleh pindah/kembalikan:
+#   cbt-ha-redis          sesuaikan dengan /etc/cbt-ha-peran
+#   cbt-ha-redis master   jadikan master sekarang (sebelum server ini melayani siswa)
+#   cbt-ha-redis status
+# Setelan hanya lewat CONFIG SET (tidak menulis redis.conf); setelah reboot dipasang lagi oleh cron dalam 1 menit.
+set -u
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+R=(redis-cli --no-auth-warning)
+info() { "${R[@]}" "$@" info replication 2>/dev/null | tr -d '\r'; }
+nilai() { awk -F: -v k="$1" '$1 == k {print $2}'; }
+
+wg="$(ip -4 -o addr show wg-cbt 2>/dev/null | awk '{print $4}' | cut -d/ -f1)"
+case "$wg" in
+    10.77.0.1) peer=10.77.0.2 ;;
+    10.77.0.2) peer=10.77.0.1 ;;
+    *) [ "${1:-}" = status ] && echo "WireGuard wg-cbt tidak aktif: sesi Redis tidak disalin."; exit 0 ;;
+esac
+"${R[@]}" ping >/dev/null 2>&1 || exit 0
+peran="$(cat /etc/cbt-ha-peran 2>/dev/null | tr -d '[:space:]')"
+rep="$(info)"; role="$(nilai role <<< "$rep")"; host="$(nilai master_host <<< "$rep")"
+
+if [ "${1:-}" = status ]; then
+    echo "Redis $role${host:+ dari $host ($(nilai master_link_status <<< "$rep"))}, peran server: ${peran:-?}," \
+        "kunci: $("${R[@]}" dbsize)"
+    exit 0
+fi
+
+# Dengar juga di alamat WireGuard (jaringan itu hanya berisi kedua server CBT).
+bind="$("${R[@]}" config get bind 2>/dev/null | tail -1)"
+case " $bind " in
+    *" $wg "*) ;;
+    *) "${R[@]}" config set protected-mode no >/dev/null
+       "${R[@]}" config set bind "127.0.0.1 -::1 $wg" >/dev/null ;;
+esac
+# Salinan tetap bisa ditulis (Moodle CLI/cache di server pasif); tulisan lokal itu tertimpa saat menyalin ulang.
+"${R[@]}" config set replica-read-only no >/dev/null
+
+if [ "${1:-}" = master ] || [ "$peran" = utama ]; then
+    if [ "$role" != master ]; then
+        "${R[@]}" replicaof no one >/dev/null
+        # Kunci sesi dari permintaan yang terputus di server lama: hapus supaya siswa tidak menunggu kunci.
+        "${R[@]}" --scan --pattern 'session_*.lock' | xargs -r -n 200 "${R[@]}" del >/dev/null
+        logger -t cbt-ha "Redis: jadi master (sesi siswa dari salinan $host dipakai)"
+    fi
+    exit 0
+fi
+
+# Server pasif: salin dari pasangan bila pasangan master.
+[ "$role" = slave ] && [ "$host" = "$peer" ] && exit 0
+[ "$(info -h "$peer" | nilai role)" = master ] || exit 0
+"${R[@]}" replicaof "$peer" 6379 >/dev/null
+logger -t cbt-ha "Redis: menyalin sesi dari $peer"
