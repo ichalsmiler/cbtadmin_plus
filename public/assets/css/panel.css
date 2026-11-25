@@ -286,6 +286,7 @@ code { color: var(--brand); }
 .progress-bar { font-size: .75rem; color: var(--on-brand); background: var(--brand-fill); transition: none; } /* tanpa animasi lebar (unslop) */
 .progress-bar.warn { background: var(--warn-fill); color: #1f1100; }
 .progress-bar.crit { background: var(--crit); color: #fff; }
+.progress-bar.ok { background: var(--ok); color: var(--on-brand); }
 
 /* ------------------------------------------------------------------ Peringatan: warna dari palet panel, bukan biru/kuning bawaan Bootstrap. */
 .alert-info { --bs-alert-bg: var(--brand-soft); --bs-alert-color: var(--ink); --bs-alert-border-color: color-mix(in srgb, var(--brand) 18%, transparent); --bs-alert-link-color: var(--brand); }
@@ -370,6 +371,7 @@ form > .tes-bagian:first-of-type { margin-top: 0; padding-top: 0; border-top: 0;
     font-weight: 500;
 }
 .text-bg-success { background-color: var(--brand-fill) !important; color: var(--on-brand) !important; }
+.text-success { color: var(--ok) !important; }   /* "sudah" = Mars Green/mint (DESIGN.md), bukan hijau Bootstrap */
 
 /* Konvert User: aplikasi HTML tunggal di dalam bingkai, setinggi layar. */
 .konvert-frame { display: block; width: 100%; height: calc(100vh - var(--topbar-h) - 9.5rem); min-height: 560px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }

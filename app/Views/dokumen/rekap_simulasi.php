@@ -39,7 +39,8 @@ $query  = http_build_query(array_filter(['kat' => $katId ?: '', 'quiz' => $quizI
         </form>
         <p class="small text-muted mb-0 mt-2">Siswa diambil dari Data CBTAdmin. <strong>Sudah ikut</strong> = ada percobaan yang terkirim;
             <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim; <strong>Belum ikut</strong> = belum mulai sama sekali
-            (termasuk siswa yang akun Moodle-nya belum ada). Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel di kategori ini.</p>
+            (termasuk siswa yang akun Moodle-nya belum ada). Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel di kategori ini.
+            Bilah: merah di bawah 70%, oranye 70–99%, hijau 100%.</p>
     </div>
 </div>
 
@@ -143,7 +144,7 @@ $labelMapel = $quiz !== null ? $quiz['course_short'] . ' · ' . $quiz['name'] : 
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <div class="progress flex-grow-1" style="height:.5rem" role="progressbar" aria-label="Sudah ikut kelas <?= esc($k['kelas'], 'attr') ?>" aria-valuenow="<?= $k['persen'] ?>" aria-valuemin="0" aria-valuemax="100">
-                                    <div class="progress-bar <?= $k['persen'] === 100 ? 'bg-success' : '' ?>" style="width: <?= $k['persen'] ?>%"></div>
+                                    <div class="progress-bar <?= $k['persen'] >= 100 ? 'ok' : ($k['persen'] >= 70 ? 'warn' : 'crit') ?>" style="width: <?= $k['persen'] ?>%"></div>
                                 </div>
                                 <span class="small"><?= $k['persen'] ?>%</span>
                             </div>

@@ -140,7 +140,7 @@
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="progress flex-grow-1" style="height:.5rem" role="progressbar" aria-label="Sudah ikut kelas <?= esc($k['kelas'], 'attr') ?>" aria-valuenow="<?= $k['persen'] ?>" aria-valuemin="0" aria-valuemax="100">
-                                        <div class="progress-bar <?= $k['persen'] === 100 ? 'bg-success' : '' ?>" style="width: <?= $k['persen'] ?>%"></div>
+                                        <div class="progress-bar <?= $k['persen'] >= 100 ? 'ok' : ($k['persen'] >= 70 ? 'warn' : 'crit') ?>" style="width: <?= $k['persen'] ?>%"></div>
                                     </div>
                                     <span class="small"><?= $k['persen'] ?>%</span>
                                 </div>
@@ -166,7 +166,7 @@
                             <span class="fw-semibold <?= $k['persen'] === 100 ? 'text-success' : '' ?>"><?= $k['persen'] ?>%</span>
                         </div>
                         <div class="progress my-2" style="height:.5rem" role="progressbar" aria-label="Sudah ikut kelas <?= esc($k['kelas'], 'attr') ?>" aria-valuenow="<?= $k['persen'] ?>" aria-valuemin="0" aria-valuemax="100">
-                            <div class="progress-bar <?= $k['persen'] === 100 ? 'bg-success' : '' ?>" style="width: <?= $k['persen'] ?>%"></div>
+                            <div class="progress-bar <?= $k['persen'] >= 100 ? 'ok' : ($k['persen'] >= 70 ? 'warn' : 'crit') ?>" style="width: <?= $k['persen'] ?>%"></div>
                         </div>
                         <div class="small d-flex flex-wrap column-gap-3">
                             <span class="text-success">Sudah <strong><?= $k['selesai'] ?></strong></span>
@@ -184,7 +184,7 @@
             </ul>
         </div>
         <p class="small text-muted mt-2 mb-0"><strong>Sudah ikut</strong> = ada percobaan yang terkirim; <strong>Belum selesai</strong> = mulai tetapi belum/tidak terkirim;
-            <strong>Belum ikut</strong> = belum mulai. Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel.</p>
+            <strong>Belum ikut</strong> = belum mulai. Bilah: merah di bawah 70%, oranye 70–99%, hijau 100%. Dengan "Semua mapel", siswa dihitung sudah ikut bila mengerjakan salah satu mapel.</p>
     <?php endif ?>
 <?php endif ?>
 </main>
