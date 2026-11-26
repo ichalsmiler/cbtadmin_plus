@@ -1073,7 +1073,7 @@ class Tools extends PanelController
         $me       = (int) session()->get('admin_id');
         $username = trim((string) $this->request->getPost('username'));
         $nama     = trim((string) $this->request->getPost('nama'));
-        $role     = in_array($this->request->getPost('role'), ['proktor', 'operator', 'demo'], true) ? (string) $this->request->getPost('role') : 'admin';
+        $role     = in_array($this->request->getPost('role'), ['proktor', 'operator', 'demo', 'kurikulum'], true) ? (string) $this->request->getPost('role') : 'admin';
         $aktif    = $this->request->getPost('aktif') ? 1 : 0;
         $password = (string) $this->request->getPost('password');
 

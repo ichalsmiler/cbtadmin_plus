@@ -124,6 +124,11 @@ class Guard implements FilterInterface
             }
         }
 
+        // Kurikulum hanya punya menu Hasil Ujian: beranda (dashboard) langsung ke sana.
+        if ($session->get('admin_role') === 'kurikulum' && $path === '') {
+            return redirect()->to(site_url('hasil_ujian'));
+        }
+
         if (! self::allowed((string) $session->get('admin_role'), $path)) {
             if ($request->isAJAX()) {
                 return service('response')->setStatusCode(403)->setJSON(['error' => 'Hanya untuk administrator.']);
@@ -131,7 +136,8 @@ class Guard implements FilterInterface
             // GET ke halaman terlarang → dashboard; POST (form) kembali ke halaman asal bila masih boleh dibuka.
             $asal = (string) $request->getServer('HTTP_REFERER');
 
-            $balik = strtoupper($request->getMethod()) === 'POST' && str_starts_with($asal, site_url('/')) ? $asal : site_url('/');
+            $balik = strtoupper($request->getMethod()) === 'POST' && str_starts_with($asal, site_url('/')) ? $asal
+                : site_url($session->get('admin_role') === 'kurikulum' ? 'hasil_ujian' : '/');
 
             return redirect()->to($balik)
                 ->with('error', 'Menu atau tindakan itu hanya untuk administrator.');
@@ -165,10 +171,13 @@ class Guard implements FilterInterface
         'soal', 'soal/baca', 'soal/ubah', // Soal: hanya tab Edit Soal (Masukkan Soal = soal/periksa, soal/kirim tetap admin)
     ];
 
+    /** Kurikulum (role `kurikulum`): hanya melihat dan mengunduh Hasil Ujian (nilai, analisis soal). */
+    private const KURIKULUM_PATHS = ['logout', 'tools/gambar/logo', 'hasil_ujian*'];
+
     /** Nama peran untuk ditampilkan. */
     public static function namaPeran(string $role): string
     {
-        return ['admin' => 'Administrator', 'operator' => 'Proktor', 'demo' => 'Pengawas (demo)'][$role] ?? 'Pengawas';
+        return ['admin' => 'Administrator', 'operator' => 'Proktor', 'demo' => 'Pengawas (demo)', 'kurikulum' => 'Kurikulum'][$role] ?? 'Pengawas';
     }
 
     /** Melihat semua ruang (administrator dan proktor), bukan hanya ruang sendiri seperti pengawas. */
@@ -183,8 +192,8 @@ class Guard implements FilterInterface
             return true;
         }
         $path = trim($path, '/');
-        if ($role === 'operator') {
-            foreach (self::OPERATOR_PATHS as $allowed) {
+        if ($role === 'operator' || $role === 'kurikulum') {
+            foreach ($role === 'operator' ? self::OPERATOR_PATHS : self::KURIKULUM_PATHS as $allowed) {
                 $awal = rtrim($allowed, '*');
                 if ($path === $awal || ($allowed !== $awal && str_starts_with($path, $awal . '/'))) {
                     return true;

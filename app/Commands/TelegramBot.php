@@ -193,14 +193,58 @@ class TelegramBot extends BaseCommand
         return is_array($ha) ? $ha : null;
     }
 
+    /** Satu sambungan dipakai ulang selama proses berjalan (tanpa jabat tangan TLS dan pencarian DNS tiap pesan). */
+    private static $ch = null;
+
     /** @return array<string, mixed> */
     private static function api(string $token, string $metode, array $isi, int $batas): array
     {
-        $ch = curl_init('https://api.telegram.org/bot' . $token . '/' . $metode);
-        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $isi, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $batas, CURLOPT_CONNECTTIMEOUT => 10]);
-        $jawab = curl_exec($ch);
-        curl_close($ch);
+        if (self::$ch === null) {
+            self::$ch = curl_init();
+        } else {
+            curl_reset(self::$ch);
+        }
+        $opsi = [
+            CURLOPT_URL => 'https://api.telegram.org/bot' . $token . '/' . $metode, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $isi,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $batas, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        ];
+        $ip = self::ipTelegram();
+        if ($ip !== '') {
+            $opsi[CURLOPT_RESOLVE] = ['api.telegram.org:443:' . $ip];
+        }
+        curl_setopt_array(self::$ch, $opsi);
+        $jawab = curl_exec(self::$ch);
+        if ($jawab === false && $ip !== '') {
+            @unlink(self::BERKAS_IP);  // alamat lama mungkin sudah berubah: cari ulang di putaran berikutnya
+        }
 
         return json_decode((string) $jawab, true) ?: [];
+    }
+
+    private const BERKAS_IP = WRITEPATH . 'cache/telegram_ip';
+
+    /**
+     * Alamat IPv4 api.telegram.org, disimpan sehari. DNS jaringan sekolah kadang lambat (5–15 dtk) atau gagal, dan
+     * itu membuat balasan bot terlambat; dengan alamat tersimpan, pencarian DNS hanya sekali sehari. Bila DNS gagal,
+     * alamat lama tetap dipakai.
+     */
+    private static function ipTelegram(): string
+    {
+        static $ip = null;
+        if ($ip !== null) {
+            return $ip;
+        }
+        $lama = is_file(self::BERKAS_IP) ? trim((string) @file_get_contents(self::BERKAS_IP)) : '';
+        if ($lama !== '' && filemtime(self::BERKAS_IP) > time() - 86400) {
+            return $ip = $lama;
+        }
+        $baru = gethostbyname('api.telegram.org');
+        if (filter_var($baru, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            @file_put_contents(self::BERKAS_IP, $baru);
+
+            return $ip = $baru;
+        }
+
+        return $ip = filter_var($lama, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $lama : '';
     }
 }

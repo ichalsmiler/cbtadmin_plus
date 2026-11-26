@@ -303,7 +303,7 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
                 <div class="col-sm-6"><label class="form-label">Username</label><input class="form-control" name="username" maxlength="60" pattern="[A-Za-z0-9._\-]{3,60}" required></div>
                 <div class="col-sm-6"><label class="form-label">Nama</label><input class="form-control" name="nama" maxlength="120" required></div>
                 <div class="col-sm-6"><label class="form-label">Role</label>
-                    <select class="form-select" name="role" id="akunRole"><option value="admin">Administrator</option><option value="operator">Proktor</option><option value="proktor">Pengawas</option><option value="demo">Demo (pengawas contoh)</option></select>
+                    <select class="form-select" name="role" id="akunRole"><option value="admin">Administrator</option><option value="operator">Proktor</option><option value="proktor">Pengawas</option><option value="demo">Demo (pengawas contoh)</option><option value="kurikulum">Kurikulum (hanya Hasil Ujian)</option></select>
                 </div>
                 <div class="col-sm-6"><label class="form-label">Status</label>
                     <select class="form-select" name="aktif"><option value="1">Aktif</option><option value="0">Nonaktif</option></select>

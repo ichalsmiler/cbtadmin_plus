@@ -99,9 +99,21 @@ class SoalRtf
                 $opsi[] = $p;  // opsi diketik manual, dimulai "A. …"
             } else {
                 if ($opsi !== []) {
-                    // Paragraf biasa setelah opsi tanpa ANS: soal sebelumnya tidak punya kunci.
-                    $peringatan[] = 'Soal setelah nomor ' . $nomorSoal . ' tidak punya baris "ANS:", dilewati.';
-                    $batang = $opsi = [];
+                    // Paragraf biasa setelah "opsi" sebelum ANS: daftar A/B/C itu bagian dari soal (mis. soal menjodohkan
+                    // "A. … B. … Pasangan yang tepat adalah …"), bukan opsi. Digabung ke teks soal; daftar otomatis diberi
+                    // hurufnya lagi karena nomor daftar Word tidak ikut terbaca. Bila memang ANS lupa ditulis, soal ini
+                    // akan tergabung dengan soal berikutnya dan terlihat di pratinjau.
+                    if ($batang !== []) {
+                        // Nomor soal ada di paragraf sebelum daftar; bangunSoal() hanya membuang nomor di paragraf terakhir.
+                        $batang[count($batang) - 1]['runs'] = self::buangAwalan($batang[count($batang) - 1]['runs'], '/^\s*\d{1,3}\s*[.)]\s*/');
+                    }
+                    foreach ($opsi as $n => $o) {
+                        if (! preg_match('/^\s*[A-Za-z][.)]\s/', self::teksPolos($o['runs']))) {
+                            array_unshift($o['runs'], ['t' => chr(65 + $n) . '. ']);
+                        }
+                        $batang[] = $o;
+                    }
+                    $opsi = [];
                 }
                 $batang[] = $p;
             }
