@@ -56,6 +56,20 @@ class Dashboard extends PanelController
         return $this->response->setJSON($this->collect());
     }
 
+    /**
+     * Penanda sesi/tes aktif untuk halaman pengawas (layout main.php): berubah saat Proktor mengaktifkan/menonaktifkan
+     * atau mengganti sesi maupun tes, lalu halaman pengawas dimuat ulang. Ringan: dua setelan saja.
+     */
+    public static function penandaSesi(): string
+    {
+        return \App\Libraries\ActiveTest::sesiId() . '|' . \App\Libraries\Settings::get('tes_kategori', '0');
+    }
+
+    public function sesi()
+    {
+        return $this->response->setJSON(['sesi' => self::penandaSesi()]);
+    }
+
     private function isAdmin(): bool
     {
         return \App\Filters\Guard::lihatSemua((string) session()->get('admin_role'));

@@ -115,6 +115,30 @@ function cbt_soal_gambar_ke_data(string $html, int $contextid, string $filearea,
     }, $html);
 }
 
+/**
+ * Edit Soal: gambar tempelan (data URI dari panel, sudah dikecilkan) disimpan sebagai berkas soal Moodle di area
+ * question/<filearea>/<itemid>, src diganti @@PLUGINFILE@@/<nama>.
+ */
+function cbt_soal_data_ke_berkas(string $html, int $contextid, string $filearea, int $itemid): string
+{
+    $fs = get_file_storage();
+    $n  = 0;
+
+    return (string) preg_replace_callback('/src="data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+\/=]+)"/', static function ($m) use ($fs, $contextid, $filearea, $itemid, &$n) {
+        $data = base64_decode($m[2], true);
+        if ($data === false || $data === '') {
+            return 'src=""';
+        }
+        $nama = 'tempel_' . date('Ymd_His') . '_' . (++$n) . '_' . substr(sha1($data), 0, 8) . '.' . ($m[1] === 'jpeg' ? 'jpg' : $m[1]);
+        if (! $fs->file_exists($contextid, 'question', $filearea, $itemid, '/', $nama)) {
+            $fs->create_file_from_string(['contextid' => $contextid, 'component' => 'question', 'filearea' => $filearea,
+                'itemid' => $itemid, 'filepath' => '/', 'filename' => $nama], $data);
+        }
+
+        return 'src="@@PLUGINFILE@@/' . rawurlencode($nama) . '"';
+    }, $html);
+}
+
 /** Nama kategori tetap "tanpa ujian": tes aktif saat semua sesi nonaktif, disisakan saat reset, tidak bisa dihapus/diganti nama. */
 const CBT_KAT_NONAKTIF = 'SESI NONAKTIF';
 
@@ -1139,6 +1163,12 @@ try {
             }
             $answers = $DB->get_records('question_answers', ['question' => $qid], 'id');
             $single  = $q->qtype === 'multichoice' && (int) $DB->get_field('qtype_multichoice_options', 'single', ['questionid' => $qid]) === 1;
+            $ctx     = (int) $DB->get_field_sql(
+                'SELECT qc.contextid FROM {question_versions} qv JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                   JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid WHERE qv.questionid = ?',
+                [$qid]
+            );
+            $teks    = cbt_soal_data_ke_berkas($teks, $ctx, 'questiontext', $qid);
             $tx      = $DB->start_delegated_transaction();
             $DB->update_record('question', (object) ['id' => $qid, 'questiontext' => $teks, 'timemodified' => time(), 'modifiedby' => get_admin()->id]);
             $kunciBerubah = false;
@@ -1151,7 +1181,7 @@ try {
                     if (trim(strip_tags((string) $o['teks'], '<img>')) === '') {
                         throw new RuntimeException('Teks opsi tidak boleh kosong.');
                     }
-                    $DB->set_field('question_answers', 'answer', trim((string) $o['teks']), ['id' => $aid]);
+                    $DB->set_field('question_answers', 'answer', cbt_soal_data_ke_berkas(trim((string) $o['teks']), $ctx, 'answer', $aid), ['id' => $aid]);
                 }
                 $kunci = (int) ($in['kunci'] ?? 0);
                 if ($single && $kunci > 0) {

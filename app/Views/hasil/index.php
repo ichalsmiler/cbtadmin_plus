@@ -2,7 +2,7 @@
 
 <?= $this->section('content') ?>
 <?php
-$query = http_build_query(array_filter(['quiz' => $quizId ?: '', 'ruang' => $ruangId, 'kelas' => $kelas, 'tingkat' => $tingkat], static fn ($v) => $v !== ''));
+$query = http_build_query(array_filter(['quiz' => $quizId ?: '', 'kelas' => $kelas, 'tingkat' => $tingkat], static fn ($v) => $v !== ''));
 $num   = static fn ($v) => $v === null ? '–' : number_format($v, 2, ',', '.');
 $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 'secondary'];
 ?>
@@ -15,8 +15,8 @@ $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 's
         <form class="d-flex flex-wrap gap-2 align-items-end" method="get" action="<?= site_url('hasil_ujian') ?>">
             <div class="flex-grow-1" style="min-width: 240px">
                 <label class="form-label small mb-1" for="fQuiz">Quiz</label>
-                <select class="form-select form-select-sm" id="fQuiz" name="quiz" required onchange="this.form.submit()">
-                    <option value="">Pilih quiz</option>
+                <select class="form-select form-select-sm" id="fQuiz" name="quiz" onchange="this.form.submit()">
+                    <option value="">Semua mapel (rekap nilai)</option>
                     <?php foreach ($quizzes as $q): ?>
                         <option value="<?= (int) $q['id'] ?>" <?= (int) $q['id'] === $quizId ? 'selected' : '' ?>><?= esc($q['course_short'] . ' · ' . $q['name']) ?></option>
                     <?php endforeach ?>
@@ -29,16 +29,6 @@ $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 's
                     <option value="">Semua kelas</option>
                     <?php foreach ($kelasList as $k): ?>
                         <option value="<?= esc($k, 'attr') ?>" <?= $k === $kelas ? 'selected' : '' ?>><?= esc($k) ?></option>
-                    <?php endforeach ?>
-                </select>
-            </div>
-            <div>
-                <label class="form-label small mb-1" for="fRuang">Ruang</label>
-                <select class="form-select form-select-sm" id="fRuang" name="ruang" onchange="this.form.submit()">
-                    <option value="">Semua ruang</option>
-                    <option value="0" <?= $ruangId === '0' ? 'selected' : '' ?>>(tanpa ruang)</option>
-                    <?php foreach ($ruangList as $r): ?>
-                        <option value="<?= (int) $r['id'] ?>" data-kelas="<?= esc((string) $r['kelas'], 'attr') ?>" <?= (string) $r['id'] === $ruangId ? 'selected' : '' ?>><?= esc($r['nama']) ?></option>
                     <?php endforeach ?>
                 </select>
             </div>
@@ -119,7 +109,7 @@ $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 's
     <div class="card border-top-0 rounded-top-0">
         <div class="card-body">
             <form class="d-flex flex-wrap gap-2 align-items-end small mb-3" method="get" action="<?= site_url('hasil_ujian') ?>">
-                <?php foreach (['quiz' => $quizId, 'ruang' => $ruangId, 'kelas' => $kelas, 'tingkat' => $tingkat, 'tab' => 'cepat'] as $k => $val): ?>
+                <?php foreach (['quiz' => $quizId, 'kelas' => $kelas, 'tingkat' => $tingkat, 'tab' => 'cepat'] as $k => $val): ?>
                     <input type="hidden" name="<?= $k ?>" value="<?= esc((string) $val, 'attr') ?>">
                 <?php endforeach ?>
                 <span>Ditandai bila durasi kurang dari</span>
@@ -190,7 +180,46 @@ $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 's
     </div>
     <p class="small text-muted mt-2">Nilai diambil dari nilai akhir quiz di Moodle (sesuai metode penilaian quiz). Peserta yang sedang mengerjakan belum punya nilai.</p>
     <?php endif ?>
-<?php elseif (! $quiz): ?>
-    <div class="card"><div class="card-body text-muted">Pilih quiz untuk melihat nilai peserta.</div></div>
+<?php elseif (! $quiz && $rekap !== null): ?>
+    <div class="card">
+        <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+            <span class="fw-semibold">Rekap nilai semua mapel</span>
+            <span class="small text-muted"><?= (int) $rekap['siswa'] ?> siswa · <?= count($rekap['quiz']) ?> mapel bernilai</span>
+            <?php if ($rekap['quiz'] !== []): ?>
+                <div class="ms-auto">
+                    <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('hasil_ujian/zip') . ($query !== '' ? '?' . $query : '') ?>" title="PDF dan Excel tiap mapel dalam satu ZIP (bisa sampai 1 menit)"><i class="bi bi-file-earmark-zip me-1"></i>Unduh ZIP per mapel</a>
+                </div>
+            <?php endif ?>
+        </div>
+        <div class="card-body">
+            <?php if ($rekap['quiz'] === []): ?>
+                <p class="text-muted mb-0">Belum ada nilai untuk siswa ini (sesuai filter).</p>
+            <?php else: ?>
+                <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle w-100 datatable" data-order-col="1">
+                    <thead><tr><th>No. Peserta</th><th>Nama</th><th>Kelas</th>
+                        <?php foreach ($rekap['quiz'] as $q): ?>
+                            <th class="text-end" title="<?= esc($q['course_name'] . ' · ' . $q['name'], 'attr') ?>"><?= esc($q['course_short']) ?></th>
+                        <?php endforeach ?>
+                        <th class="text-end">Rata-rata</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($rekap['rows'] as $r): ?>
+                        <tr>
+                            <td><?= esc($r['nomor_peserta']) ?></td>
+                            <td><?= esc($r['nama']) ?></td>
+                            <td><?= esc($r['kelas']) ?></td>
+                            <?php foreach ($rekap['quiz'] as $q): $v = $r['nilai'][(int) $q['id']] ?? null; ?>
+                                <td class="text-end" data-order="<?= $v ?? -1 ?>"><?= $num($v) ?></td>
+                            <?php endforeach ?>
+                            <td class="text-end fw-semibold" data-order="<?= $r['rata'] ?? -1 ?>"><?= $num($r['rata']) ?></td>
+                        </tr>
+                    <?php endforeach ?>
+                    </tbody>
+                </table>
+                </div>
+            <?php endif ?>
+        </div>
+    </div>
+    <p class="small text-muted mt-2">Nilai akhir tiap quiz di Moodle. Arahkan kursor ke judul kolom untuk nama mapel lengkap. Quiz simulasi tidak ikut rekap. Pilih satu quiz untuk status, durasi, dan analisis soal.</p>
 <?php endif ?>
 <?= $this->endSection() ?>

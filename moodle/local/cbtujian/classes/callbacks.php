@@ -436,6 +436,14 @@ class callbacks {
             // [role=main] disembunyikan, supaya isian "Masukkan token" tidak terlihat sekejap saat halaman dibuka.
             $hook->add_html(\html_writer::tag('style', '#page-mod-quiz-view [role=main] > h3 + ul.list-unstyled{display:none}'
                 . '#page-mod-quiz-view [role=main] #mod_quiz_preflight_form{display:none}'));
+            // Token di halaman sendiri (startattempt.php), bukan jendela pop-up (26 Nov 2026), seperti LMS sekolah:
+            // klik tombol mulai ditangkap lebih dulu (capture) sebelum JS mod_quiz/preflightcheck membuka modal,
+            // lalu form tombol (POST cmid + sesskey) dikirim biasa → Moodle menampilkan halaman isian token.
+            $hook->add_html(\html_writer::script(
+                "document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.quizstartbuttondiv [type=submit]');"
+                . "if(!b||!b.form||!document.getElementById('mod_quiz_preflight_form'))return;"
+                . "e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();b.disabled=true;b.form.submit();},true);"
+            ));
             $j = fn(string $s) => json_encode($s, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $status = $j(get_string('attemptstate', 'quiz'));
             $review = $j(get_string('review', 'quiz'));

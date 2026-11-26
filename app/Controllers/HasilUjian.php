@@ -25,9 +25,18 @@ class HasilUjian extends PanelController
             }
         }
 
+        $data['rekap'] = null;
+        if (! $data['quiz'] && ! $data['error']) {
+            try {
+                $data['rekap'] = $this->rekap($data['kelas'], $data['tingkat']);
+            } catch (\Throwable $e) {
+                $data['error'] = true;
+                log_message('error', 'Rekap nilai: ' . $e->getMessage());
+            }
+        }
+
         return $this->render('hasil/index', $data + [
             'title'     => 'Hasil Ujian',
-            'ruangList' => $this->ruangList(),
             'kelasList' => array_column(db_connect()->table('peserta')->distinct()->select('kelas')->where('kelas !=', '')->orderBy('kelas')->get()->getResultArray(), 'kelas'),
         ]);
     }
@@ -38,9 +47,18 @@ class HasilUjian extends PanelController
         if (! $data['quiz']) {
             return redirect()->to(site_url('hasil_ujian'))->with('error', 'Pilih quiz dulu.');
         }
+        ActivityLog::add('export_hasil', $data['quiz']['name'] . ' (excel)');
 
+        return $this->response->download(
+            'hasil_' . preg_replace('/[^A-Za-z0-9]+/', '_', $data['quiz']['name']) . '_' . date('Ymd_His') . '.xlsx',
+            self::excel($data['rows'])
+        );
+    }
+
+    private static function excel(array $list)
+    {
         $rows = [];
-        foreach ($data['rows'] as $i => $r) {
+        foreach ($list as $i => $r) {
             $rows[] = [
                 $i + 1, $r['nomor_peserta'], $r['username'], $r['nama'], $r['kelas'], $r['ruang'] ?? '',
                 self::label($r['status']), $r['nilai'] === null ? '' : number_format($r['nilai'], 2, ',', ''),
@@ -48,12 +66,48 @@ class HasilUjian extends PanelController
                 $r['durasi'] !== null ? self::durasi($r['durasi']) : '',
             ];
         }
-        ActivityLog::add('export_hasil', $data['quiz']['name'] . ' (excel)');
 
-        return $this->response->download(
-            'hasil_' . preg_replace('/[^A-Za-z0-9]+/', '_', $data['quiz']['name']) . '_' . date('Ymd_His') . '.xlsx',
-            Excel::build(['no', 'nomor_peserta', 'username', 'nama', 'kelas', 'ruang', 'status', 'nilai', 'mulai', 'selesai', 'durasi'], $rows)
-        );
+        return Excel::build(['no', 'nomor_peserta', 'username', 'nama', 'kelas', 'ruang', 'status', 'nilai', 'mulai', 'selesai', 'durasi'], $rows);
+    }
+
+    /**
+     * Tanpa memilih quiz satu per satu: ZIP berisi PDF + Excel nilai tiap mapel (quiz yang sudah ada nilainya
+     * untuk siswa sesuai Tingkatan/Kelas), isi tiap berkas sama dengan unduhan saat satu quiz dipilih.
+     */
+    public function zip()
+    {
+        $filter = $this->collect();
+        $quiz   = $this->rekap($filter['kelas'], $filter['tingkat'])['quiz'];
+        if ($quiz === []) {
+            return redirect()->to(site_url('hasil_ujian'))->with('error', 'Belum ada nilai untuk diunduh (sesuai filter).');
+        }
+
+        @set_time_limit(0);
+        $tmp = tempnam(WRITEPATH . 'cache', 'nilai');
+        $zip = new \ZipArchive();
+        if ($zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+            return redirect()->to(site_url('hasil_ujian'))->with('error', 'Berkas ZIP tidak bisa dibuat.');
+        }
+        $school = \App\Libraries\School::info();
+        $jumlah = 0;
+        foreach ($quiz as $q) {
+            $d = $this->collect((int) $q['id']);
+            if (! $d['quiz'] || $d['rows'] === []) {
+                continue;
+            }
+            $nama = trim(preg_replace('/[^A-Za-z0-9]+/', '_', $q['course_short'] . ' ' . $q['name']), '_');
+            $zip->addFromString($nama . '.pdf', Pdf::render('pdf/hasil', $d + ['school' => $school]));
+            $zip->addFromString($nama . '.xlsx', self::excel($d['rows']));
+            $jumlah++;
+        }
+        $zip->close();
+        $isi = (string) file_get_contents($tmp);
+        @unlink($tmp);
+        ActivityLog::add('export_hasil', 'ZIP ' . $jumlah . ' mapel');
+
+        $label = $filter['kelas'] !== '' ? $filter['kelas'] : ($filter['tingkat'] !== '' ? 'kelas_' . $filter['tingkat'] : 'semua_kelas');
+
+        return $this->response->download('nilai_per_mapel_' . preg_replace('/[^A-Za-z0-9]+/', '_', $label) . '_' . date('Ymd_His') . '.zip', $isi);
     }
 
     /** Excel jawaban per nomor soal: B benar, S salah, – kosong, ? belum dinilai (sesuai filter halaman). */
@@ -133,10 +187,57 @@ class HasilUjian extends PanelController
         return sprintf('%d:%02d', intdiv($seconds, 60), $seconds % 60);
     }
 
-    private function collect(): array
+    /**
+     * Rekap nilai semua mapel: siswa panel (sesuai Tingkatan/Kelas) × quiz yang sudah punya nilai untuk siswa itu
+     * (tabel di layar dan daftar quiz untuk ZIP per mapel).
+     *
+     * @return array{quiz: list<array>, rows: list<array>, siswa: int}
+     */
+    private function rekap(string $kelas, string $tingkat): array
     {
-        $quizId  = (int) $this->request->getGet('quiz');
-        $ruangId = (string) $this->request->getGet('ruang');
+        $peserta = array_values(array_filter(
+            db_connect()->table('peserta')->select('nomor_peserta, nama, kelas, username')->orderBy('kelas')->orderBy('nama')->get()->getResultArray(),
+            static fn ($p) => ($kelas === '' || $p['kelas'] === $kelas) && Tingkat::cocok($p['kelas'], $tingkat)
+        ));
+        if ($peserta === []) {
+            return ['quiz' => [], 'rows' => [], 'siswa' => 0];
+        }
+
+        $mdb = Moodle::db();
+        $ids = array_column($mdb->table(Moodle::t('user'))->select('id, username')->where('deleted', 0)
+            ->whereIn('username', array_column($peserta, 'username'))->get()->getResultArray(), 'id', 'username');
+        $nilai = [];
+        if ($ids !== []) {
+            foreach ($mdb->table(Moodle::t('quiz_grades'))->select('quiz, userid, grade')->whereIn('userid', array_values($ids))->get()->getResultArray() as $g) {
+                $nilai[(int) $g['userid']][(int) $g['quiz']] = (float) $g['grade'];
+            }
+        }
+        $adaNilai = [];
+        foreach ($nilai as $per) {
+            $adaNilai += array_fill_keys(array_keys($per), true);
+        }
+        // Quiz simulasi (kategori/kursus/quiz bernama "SIMULASI") tidak ikut rekap.
+        $quiz = array_values(array_filter(Moodle::quizzes(), static fn ($q) => isset($adaNilai[(int) $q['id']])
+            && stripos($q['name'] . ' ' . $q['course_short'] . ' ' . $q['course_name'] . ' ' . $q['category_name'], 'simulasi') === false));
+        usort($quiz, static fn ($a, $b) => [$a['course_short'], $a['name']] <=> [$b['course_short'], $b['name']]);
+        $ikut = array_fill_keys(array_map('intval', array_column($quiz, 'id')), true);
+
+        $rows = [];
+        foreach ($peserta as $p) {
+            $per        = $nilai[(int) ($ids[$p['username']] ?? 0)] ?? [];
+            $ujian      = array_intersect_key($per, $ikut);
+            $p['nilai'] = $ujian;
+            $p['rata']  = $ujian ? array_sum($ujian) / count($ujian) : null;
+            $rows[]     = $p;
+        }
+
+        return ['quiz' => $quiz, 'rows' => $rows, 'siswa' => count($peserta)];
+    }
+
+    private function collect(?int $quizId = null): array
+    {
+        $quizId ??= (int) $this->request->getGet('quiz');
+        $ruangId = '';
         $kelas   = (string) $this->request->getGet('kelas');
         // Parameter "selesai terlalu cepat" (persen): batas waktu quiz, median durasi, nilai minimal.
         $param = [

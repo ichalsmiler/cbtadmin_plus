@@ -195,5 +195,38 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
 <script src="<?= $asset('vendor/dataTables.bootstrap5.min.js') ?>"></script>
 <script src="<?= $asset('js/panel.js') ?>?v=<?= esc($version) ?>"></script>
 <?= $this->renderSection('scripts') ?>
+<?php if (in_array($adminRole, ['proktor', 'demo'], true)): ?>
+<script>
+// Pengawas: Proktor mengganti/mengaktifkan sesi atau tes → halaman dimuat ulang otomatis (cek tiap 15 detik).
+// Bila pengawas sedang mengisi formulir (mis. absensi belum disimpan), muncul pemberitahuan saja supaya isian tidak hilang.
+(function () {
+    'use strict';
+    var awal = <?= json_encode(\App\Controllers\Dashboard::penandaSesi()) ?>, ubah = false, tampil = false;
+    document.addEventListener('change', function (e) { if (e.target.closest('form')) { ubah = true; } });
+    document.addEventListener('submit', function () { ubah = false; });
+    setInterval(function () {
+        if (document.hidden || tampil) { return; }
+        fetch(<?= json_encode(site_url('dashboard/sesi')) ?>, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { if (r.status === 401) { window.location.reload(); return null; } return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || d.sesi === awal) { return; }
+                if (!ubah) { window.location.reload(); return; }
+                tampil = true;
+                var b = document.createElement('div');
+                b.className = 'alert alert-warning shadow position-fixed bottom-0 start-50 translate-middle-x mb-3 d-flex align-items-center gap-2';
+                b.style.zIndex = 1080;
+                b.setAttribute('role', 'alert');
+                b.innerHTML = '<span>Sesi ujian diganti oleh Proktor. Simpan isian Anda, lalu muat ulang halaman.</span>';
+                var t = document.createElement('button');
+                t.type = 'button'; t.className = 'btn btn-sm btn-warning'; t.textContent = 'Muat ulang';
+                t.addEventListener('click', function () { window.location.reload(); });
+                b.appendChild(t);
+                document.body.appendChild(b);
+            })
+            .catch(function () {});
+    }, 15000);
+})();
+</script>
+<?php endif ?>
 </body>
 </html>

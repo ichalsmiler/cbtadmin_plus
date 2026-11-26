@@ -103,7 +103,8 @@ class Guard implements FilterInterface
         }
         // Permintaan auto-refresh tidak dihitung sebagai aktivitas, kecuali untuk pengawas: dashboard pantauan yang
         // terbuka menjaga sesinya; sesi berakhir 30 menit setelah halaman ditutup.
-        if ($pengawas || ! in_array($path, ['dashboard/stats', 'status_tes/token'], true)) {
+        // dashboard/sesi (cek pindah sesi di semua halaman pengawas) tidak dihitung, supaya sesi tetap berakhir saat diam.
+        if (($pengawas && $path !== 'dashboard/sesi') || ! in_array($path, ['dashboard/stats', 'status_tes/token', 'dashboard/sesi'], true)) {
             $session->set('last_seen', time());
         }
 
@@ -147,7 +148,7 @@ class Guard implements FilterInterface
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
     // tools/gambar/logo: logo sekolah di bilah atas (gambar tanda tangan tetap khusus admin).
-    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout'];
+    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'dashboard/sesi', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout'];
 
     /**
      * Proktor ujian (role `operator`): menjalankan ujian hari-H di semua ruang, tanpa menu persiapan/berbahaya.

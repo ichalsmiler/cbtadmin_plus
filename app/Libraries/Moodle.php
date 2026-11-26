@@ -64,7 +64,7 @@ class Moodle
 
         return self::db()->query(
             "SELECT q.id, q.name, q.course, q.timeopen, q.timeclose, q.timelimit, q.password, q.grade, q.sumgrades,
-                    c.fullname AS course_name, c.shortname AS course_short, c.visible AS course_visible,
+                    c.fullname AS course_name, c.shortname AS course_short, c.visible AS course_visible, cc.name AS category_name,
                     cm.id AS cmid, cm.visible
                FROM {$q} q
                JOIN {$c} c ON c.id = q.course

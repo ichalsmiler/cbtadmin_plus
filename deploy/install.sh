@@ -148,6 +148,8 @@ fi
 cat > "$CRON_FILE" <<EOF
 # CBT Admin: release token otomatis dan pasang token di quiz tes aktif.
 * * * * * www-data cd $APP_DIR && flock -n /tmp/cbtadmin-token.lock php spark cbt:token >/dev/null 2>&1
+# Bot Telegram: jawab perintah /status /token /absensi dari chat admin (menu Server Cadangan).
+* * * * * www-data cd $APP_DIR && flock -n /tmp/cbtadmin-telegram.lock php spark cbt:telegram >/dev/null 2>&1
 EOF
 chmod 644 "$CRON_FILE"
 

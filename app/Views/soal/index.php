@@ -293,11 +293,40 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
             });
     });
     opsi.addEventListener('change', kunciBerubah);
-    // Tempel dari Word/web sebagai teks biasa, supaya gaya asing tidak ikut masuk ke soal.
+    // Tempel dari Word/web sebagai teks biasa, supaya gaya asing tidak ikut masuk ke soal. Gambar (tangkapan layar,
+    // "Salin gambar") ditempel sebagai gambar: dikecilkan di sini (lebar maks 1000 px), lalu dikecilkan lagi di server
+    // dan disimpan sebagai berkas soal Moodle. Salinan Word berisi teks + gambar pratinjau: yang dipakai teksnya.
+    var tempelGambar = function (berkas) {
+        var baca = new FileReader();
+        baca.onload = function () {
+            var img = new Image();
+            img.onload = function () {
+                var src = baca.result;
+                if (img.width > 1000 || berkas.size > 300 * 1024) {
+                    var s = Math.min(1, 1000 / img.width), c = document.createElement('canvas');
+                    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+                    var g = c.getContext('2d');
+                    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+                    g.drawImage(img, 0, 0, c.width, c.height);
+                    src = c.toDataURL('image/jpeg', 0.85);
+                }
+                document.execCommand('insertHTML', false, '<img src="' + src + '" alt="">');
+            };
+            img.src = baca.result;
+        };
+        baca.readAsDataURL(berkas);
+    };
     modal.addEventListener('paste', function (event) {
         if (!event.target.closest('.editor-soal')) { return; }
         event.preventDefault();
-        document.execCommand('insertText', false, (event.clipboardData || window.clipboardData).getData('text/plain'));
+        var data = event.clipboardData || window.clipboardData;
+        var teks = data.getData('text/plain');
+        var gambar = Array.prototype.filter.call(data.items || [], function (it) { return it.kind === 'file' && /^image\//.test(it.type); });
+        if (gambar.length && teks.trim() === '') {
+            gambar.forEach(function (it) { tempelGambar(it.getAsFile()); });
+            return;
+        }
+        document.execCommand('insertText', false, teks);
     });
     document.querySelectorAll('[data-perintah]').forEach(function (b) {
         b.addEventListener('mousedown', function (event) { event.preventDefault(); });

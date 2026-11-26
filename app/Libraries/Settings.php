@@ -23,6 +23,12 @@ class Settings
         return self::$cache;
     }
 
+    /** Buang cache supaya setelan dibaca ulang dari database (proses yang berjalan lama, mis. cbt:telegram). */
+    public static function segarkan(): void
+    {
+        self::$cache = null;
+    }
+
     public static function get(string $key, string $default = ''): string
     {
         $value = self::all()[$key] ?? '';

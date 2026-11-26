@@ -108,11 +108,23 @@ class Soal extends PanelController
 
     /**
      * HTML dari editor panel. Gambar asli sudah dikembalikan ke @@PLUGINFILE@@ oleh JS (atribut data-berkas);
-     * gambar yang masih data URI berarti tempelan baru (tidak punya berkas di Moodle), jadi dibuang, begitu juga skrip.
+     * gambar yang masih data URI = tempelan baru: dikecilkan (SoalRtf::kecilkan) lalu disimpan sebagai berkas soal
+     * oleh jembatan (soal_ubah). Data URI selain gambar PNG/JPEG/GIF/WEBP (atau > 8 MB) dibuang, begitu juga skrip.
      */
     private static function bersihkanHtml(string $html): string
     {
-        $html = (string) preg_replace('/<img\b[^>]*\bsrc="data:[^"]*"[^>]*>/i', '', $html);
+        $html = (string) preg_replace_callback('/<img\b[^>]*\bsrc="data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+\/=\s]+)"[^>]*>/i', static function ($m) {
+            $data = base64_decode((string) preg_replace('/\s+/', '', $m[2]), true);
+            if ($data === false || strlen($data) > 8 * 1024 * 1024 || ! @getimagesizefromstring($data)) {
+                return '';
+            }
+            $jenis = strtolower($m[1]);
+            [$data, $ext] = SoalRtf::kecilkan($data, $jenis === 'jpeg' ? 'jpg' : $jenis);
+            $mime = ['jpg' => 'jpeg', 'png' => 'png', 'gif' => 'gif', 'webp' => 'webp'][$ext] ?? 'png';
+
+            return '<img src="data:image/' . $mime . ';base64,' . base64_encode($data) . '" alt="" style="max-width:100%">';
+        }, $html);
+        $html = (string) preg_replace('/<img\b[^>]*\bsrc="data:(?!image\/(png|jpeg|gif|webp);base64,)[^"]*"[^>]*>/i', '', $html);
         $html = (string) preg_replace('#<(script|style|iframe)\b.*?</\1>#is', '', $html);
         $html = (string) preg_replace('/\son\w+="[^"]*"/i', '', $html);
 
