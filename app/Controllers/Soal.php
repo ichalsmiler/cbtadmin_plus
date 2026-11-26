@@ -18,8 +18,16 @@ class Soal extends PanelController
     private const DIR = WRITEPATH . 'soal/';
 
     /** Menu Soal: tab Masukkan Soal (unggah RTF) dan Edit Soal (perbaiki naskah/kunci soal yang sudah di Moodle). */
-    public function index(): string
+    public function index(string $bagian = '')
     {
+        // Alamat lama ?tab=edit|review (sebelum submenu) → soal/edit|review, supaya submenu yang benar tersorot.
+        $lama = (string) $this->request->getGet('tab');
+        // Review Soal digabung ke Review & Edit (soal/edit): alamat lamanya dialihkan.
+        if (($bagian === '' && in_array($lama, ['edit', 'review'], true)) || $bagian === 'review') {
+            $mapel = (int) $this->request->getGet('mapel');
+
+            return redirect()->to(site_url('soal/edit') . ($mapel > 1 ? '?mapel=' . $mapel : ''));
+        }
         $mapel = [];
         $error = false;
         try {
@@ -30,22 +38,24 @@ class Soal extends PanelController
         }
         // Proktor hanya boleh Edit Soal (unggah soal baru khusus admin).
         $admin   = session('admin_role') === 'admin';
-        $tab     = (string) $this->request->getGet('tab');
-        $tab     = in_array($tab, ['edit', 'review'], true) ? $tab : ($admin ? 'masuk' : 'edit');
+        if ($bagian === '' && ! $admin) {
+            return redirect()->to(site_url('soal/edit') . ($this->request->getGet('mapel') ? '?mapel=' . (int) $this->request->getGet('mapel') : ''));
+        }
+        $tab     = $bagian !== '' ? $bagian : 'masuk';
         $dipilih = (int) $this->request->getGet('mapel');
         $daftar  = null;
         $gagal   = null;
         if ($tab !== 'masuk' && $dipilih > 1) {
-            // Review Soal: semua soal lengkap (opsi, kunci, gambar); Edit Soal: daftar ringkas.
+            // Review & Edit: semua soal lengkap (opsi, kunci, gambar) + jumlah attempt sedang/selesai.
             try {
-                $daftar = MoodleBridge::call($tab === 'review' ? 'soal_semua' : 'soal_daftar', ['courseid' => $dipilih])[0] ?? null;
+                $daftar = MoodleBridge::call('soal_semua', ['courseid' => $dipilih])[0] ?? null;
             } catch (\Throwable $e) {
                 $gagal = $e->getMessage();
             }
         }
 
         return $this->render('soal/index', [
-            'title'   => 'Soal',
+            'title'   => $tab === 'masuk' ? 'Masukkan Soal' : 'Review & Edit Soal',
             'tab'     => $tab,
             'admin'   => $admin,
             'mapel'   => $mapel,
@@ -76,7 +86,7 @@ class Soal extends PanelController
     {
         $courseId = (int) $this->request->getPost('mapel');
         $nomor    = (int) $this->request->getPost('nomor');
-        $back     = site_url('soal') . '?tab=edit&mapel=' . $courseId . ($nomor > 0 ? '#soal-' . $nomor : '');
+        $back     = site_url('soal/edit') . '?mapel=' . $courseId . ($nomor > 0 ? '#soal-' . $nomor : '');
         $opsi     = [];
         foreach ((array) $this->request->getPost('opsi') as $id => $teks) {
             $opsi[] = ['id' => (int) $id, 'teks' => self::bersihkanHtml((string) $teks)];

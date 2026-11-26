@@ -22,12 +22,6 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
     <div class="alert alert-danger" role="alert">Database Moodle tidak bisa dibaca. Periksa pengaturan <code>moodle.*</code> di berkas <code>.env</code>.</div>
 <?php endif ?>
 
-<ul class="nav nav-tabs mb-4">
-    <?php if ($admin): ?><li class="nav-item"><a class="nav-link <?= $tab === 'masuk' ? 'active' : '' ?>" href="<?= site_url('soal') ?><?= $dipilih > 1 ? '?mapel=' . $dipilih : '' ?>"<?= $tab === 'masuk' ? ' aria-current="page"' : '' ?>>Masukkan Soal</a></li><?php endif ?>
-    <li class="nav-item"><a class="nav-link <?= $tab === 'edit' ? 'active' : '' ?>" href="<?= site_url('soal') ?>?tab=edit<?= $dipilih > 1 ? '&mapel=' . $dipilih : '' ?>"<?= $tab === 'edit' ? ' aria-current="page"' : '' ?>>Edit Soal</a></li>
-    <li class="nav-item"><a class="nav-link <?= $tab === 'review' ? 'active' : '' ?>" href="<?= site_url('soal') ?>?tab=review<?= $dipilih > 1 ? '&mapel=' . $dipilih : '' ?>"<?= $tab === 'review' ? ' aria-current="page"' : '' ?>>Review Soal</a></li>
-</ul>
-
 <?php if ($tab === 'masuk'): ?>
 <div class="row g-4">
     <div class="col-lg-7">
@@ -60,8 +54,7 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
     </div>
 </div>
 <?php else: ?>
-<form class="card mb-4" method="get" action="<?= site_url('soal') ?>">
-    <input type="hidden" name="tab" value="<?= esc($tab) ?>">
+<form class="card mb-4" method="get" action="<?= site_url('soal/' . $tab) ?>">
     <div class="card-body d-flex flex-wrap gap-2 align-items-end">
         <div class="flex-grow-1" style="max-width: 36rem">
             <label class="form-label small mb-1" for="e_mapel">Mapel</label>
@@ -73,13 +66,19 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
 <?php if ($gagal !== null): ?>
     <div class="alert alert-danger" role="alert">Soal tidak bisa dibaca dari Moodle: <?= esc($gagal) ?></div>
 <?php elseif ($daftar !== null && $daftar['quiz'] === null): ?>
-    <div class="alert alert-warning" role="status">Mapel ini belum punya quiz. Masukkan soalnya dulu di tab <a class="alert-link" href="<?= site_url('soal') ?>?mapel=<?= $dipilih ?>">Masukkan Soal</a></div>
-<?php elseif ($daftar !== null && $tab === 'review'): ?>
-    <?php // Review Soal: semua soal lengkap. HTML dari jembatan soal_semua (clean_text Moodle, gambar data URI). ?>
+    <div class="alert alert-warning" role="status">Mapel ini belum punya quiz. Masukkan soalnya dulu di menu <a class="alert-link" href="<?= site_url('soal') ?>?mapel=<?= $dipilih ?>">Masukkan Soal</a></div>
+<?php elseif ($daftar !== null): ?>
+    <?php // Review & Edit: semua soal lengkap (jembatan soal_semua: clean_text Moodle, gambar data URI) + tombol Edit (modal). ?>
+    <?php if ((int) $daftar['sedang'] > 0): ?>
+        <div class="alert alert-info d-flex gap-2" role="status">
+            <i class="bi bi-pencil-square"></i>
+            <span><strong><?= (int) $daftar['sedang'] ?> siswa sedang mengerjakan.</strong> Perbaikan teks langsung tampil saat mereka pindah nomor atau memuat ulang halaman; jawaban yang sudah dipilih tetap.</span>
+        </div>
+    <?php endif ?>
     <div class="card">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
             <span class="fw-semibold me-auto"><?= esc($daftar['quiz']['nama']) ?></span>
-            <span class="small text-body-secondary"><?= count($daftar['soal']) ?> soal · kunci ditandai hijau · urutan opsi seperti di bank soal (siswa melihatnya diacak)</span>
+            <span class="small text-body-secondary"><?= count($daftar['soal']) ?> soal · kunci ditandai hijau · <?= (int) $daftar['sedang'] ?> sedang mengerjakan · <?= (int) $daftar['selesai'] ?> selesai</span>
             <button class="btn btn-outline-secondary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer me-1"></i>Cetak</button>
         </div>
         <div class="card-body review-soal">
@@ -87,7 +86,7 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
                 <p class="text-center text-muted py-4 mb-0">Quiz ini belum berisi soal.</p>
             <?php endif ?>
             <?php foreach ($daftar['soal'] as $s): ?>
-                <article class="review-soal-item" id="review-<?= (int) $s['slot'] ?>">
+                <article class="review-soal-item" id="soal-<?= (int) $s['slot'] ?>">
                     <div class="d-flex gap-3">
                         <div class="review-soal-no font-monospace"><?= (int) $s['slot'] ?>.</div>
                         <div class="flex-grow-1 min-w-0 soal-pratinjau">
@@ -102,56 +101,13 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
                                 <p class="small text-body-secondary mb-0">Tipe soal: <?= esc($s['qtype']) ?></p>
                             <?php endif ?>
                         </div>
-                        <a class="btn btn-outline-primary btn-sm align-self-start text-nowrap d-print-none" href="<?= site_url('soal') ?>?tab=edit&mapel=<?= $dipilih ?>#soal-<?= (int) $s['slot'] ?>"><i class="bi bi-pencil me-1"></i>Edit</a>
+                        <button class="btn btn-outline-primary btn-sm align-self-start text-nowrap d-print-none" type="button" data-edit-soal="<?= (int) $s['id'] ?>" data-nomor="<?= (int) $s['slot'] ?>"><i class="bi bi-pencil me-1"></i>Edit</button>
                     </div>
                 </article>
             <?php endforeach ?>
         </div>
-    </div>
-<?php elseif ($daftar !== null): ?>
-    <?php if ((int) $daftar['sedang'] > 0): ?>
-        <div class="alert alert-info d-flex gap-2" role="status">
-            <i class="bi bi-pencil-square"></i>
-            <span><strong><?= (int) $daftar['sedang'] ?> siswa sedang mengerjakan.</strong> Perbaikan teks langsung tampil saat mereka pindah nomor atau memuat ulang halaman; jawaban yang sudah dipilih tetap.</span>
-        </div>
-    <?php endif ?>
-    <div class="card">
-        <div class="card-header d-flex flex-wrap align-items-center gap-2">
-            <span class="fw-semibold me-auto"><?= esc($daftar['quiz']['nama']) ?></span>
-            <span class="small text-body-secondary"><?= count($daftar['soal']) ?> soal · <?= (int) $daftar['sedang'] ?> sedang mengerjakan · <?= (int) $daftar['selesai'] ?> selesai</span>
-        </div>
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead><tr><th class="text-end" style="width:3.5rem">No</th><th>Soal</th><th class="text-center">Kunci</th><th></th></tr></thead>
-                <tbody>
-                <?php if ($daftar['soal'] === []): ?>
-                    <tr><td colspan="4" class="text-center text-muted py-4">Quiz ini belum berisi soal.</td></tr>
-                <?php endif ?>
-                <?php foreach ($daftar['soal'] as $s): ?>
-                    <tr id="soal-<?= (int) $s['slot'] ?>">
-                        <td class="text-end font-monospace text-body-secondary"><?= (int) $s['slot'] ?></td>
-                        <td>
-                            <div class="soal-ringkas"><?= esc($s['teks'] !== '' ? $s['teks'] : '(tanpa teks)') ?></div>
-                            <?php if ((int) $s['gambar'] > 0 || $s['qtype'] !== 'multichoice'): ?>
-                                <div class="small text-body-secondary">
-                                    <?= (int) $s['gambar'] > 0 ? (int) $s['gambar'] . ' gambar' : '' ?>
-                                    <?= $s['qtype'] !== 'multichoice' ? ((int) $s['gambar'] > 0 ? ' · ' : '') . 'tipe ' . esc($s['qtype']) : '' ?>
-                                </div>
-                            <?php endif ?>
-                        </td>
-                        <td class="text-center"><?= $s['kunci'] !== null ? '<span class="kode-tag">' . esc($s['kunci']) . '</span>' : '<span class="text-body-secondary">–</span>' ?></td>
-                        <td class="text-end">
-                            <button class="btn btn-outline-primary btn-sm text-nowrap" type="button" data-edit-soal="<?= (int) $s['id'] ?>" data-nomor="<?= (int) $s['slot'] ?>">
-                                <i class="bi bi-pencil me-1"></i>Edit
-                            </button>
-                        </td>
-                    </tr>
-                <?php endforeach ?>
-                </tbody>
-            </table>
-        </div>
-        <div class="card-body small text-body-secondary border-top">
-            Perubahan langsung mengganti soal di Moodle (tanpa versi baru). Opsi tidak bisa ditambah atau dihapus di sini karena urutan acak opsi tiap siswa memakai opsi yang ada.
+        <div class="card-body small text-body-secondary border-top d-print-none">
+            Urutan opsi seperti di bank soal (siswa melihatnya diacak). Perubahan langsung mengganti soal di Moodle (tanpa versi baru). Opsi tidak bisa ditambah atau dihapus di sini karena urutan acak opsi tiap siswa memakai opsi yang ada.
             Mengubah kunci menilai ulang jawaban siswa yang sudah selesai bila dicentang; siswa yang masih mengerjakan dinilai dengan kunci baru saat mengirim jawaban.
         </div>
     </div>

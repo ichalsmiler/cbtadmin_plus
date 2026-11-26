@@ -3,9 +3,13 @@
 namespace App\Commands;
 
 use App\Libraries\ActiveTest;
+use App\Libraries\ActivityLog;
+use App\Libraries\CekSoal;
 use App\Libraries\Moodle;
 use App\Libraries\Settings;
 use App\Libraries\SysInfo;
+use App\Libraries\Telegram;
+use App\Libraries\Tingkat;
 use CodeIgniter\CLI\BaseCommand;
 
 /**
@@ -45,7 +49,7 @@ class TelegramBot extends BaseCommand
             $upd    = self::api($token, 'getUpdates', [
                 'offset'          => (int) Settings::get('ha_tg_offset', '0'),
                 'timeout'         => $tunggu,
-                'allowed_updates' => '["message"]',
+                'allowed_updates' => '["message","callback_query"]',
             ], $tunggu + 10);
             if (! ($upd['ok'] ?? false)) {
                 sleep(5);
@@ -54,6 +58,20 @@ class TelegramBot extends BaseCommand
             }
             foreach ($upd['result'] ?? [] as $u) {
                 Settings::set('ha_tg_offset', (string) ((int) $u['update_id'] + 1));
+                // Tombol pilihan (Cek Soal): hanya dari pesan di chat admin.
+                $cq = $u['callback_query'] ?? null;
+                if (is_array($cq)) {
+                    if ((string) ($cq['message']['chat']['id'] ?? '') === $chat) {
+                        try {
+                            $this->tombol($token, $chat, $cq);
+                        } catch (\Throwable $e) {
+                            log_message('error', 'cbt:telegram tombol: ' . $e->getMessage());
+                            self::api($token, 'answerCallbackQuery', ['callback_query_id' => $cq['id'], 'text' => 'Gagal: ' . mb_substr($e->getMessage(), 0, 150), 'show_alert' => 'true'], 15);
+                        }
+                    }
+
+                    continue;
+                }
                 $m = $u['message'] ?? null;
                 if (! is_array($m) || (string) ($m['chat']['id'] ?? '') !== $chat || time() - (int) ($m['date'] ?? 0) > self::BASI) {
                     continue;
@@ -63,6 +81,16 @@ class TelegramBot extends BaseCommand
                     continue;
                 }
                 $perintah = strtolower(preg_replace('/@\S+$/', '', strtok($teks, ' ')));
+                if ($perintah === '/ceksoal' || $perintah === '/cekstatus') {
+                    try {
+                        $perintah === '/ceksoal' ? $this->cekMulai($token, $chat) : $this->cekStatus($token, $chat);
+                    } catch (\Throwable $e) {
+                        log_message('error', 'cbt:telegram: ' . $e->getMessage());
+                        self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => '⚠️ Gagal: ' . $e->getMessage()], 15);
+                    }
+
+                    continue;
+                }
                 try {
                     $balas = $this->jawab($perintah);
                 } catch (\Throwable $e) {
@@ -93,6 +121,8 @@ class TelegramBot extends BaseCommand
             . "/status – server, sesi, siswa mengerjakan/selesai, beban server\n"
             . "/token – token yang berlaku dan sisa waktunya\n"
             . "/absensi – ruang yang belum lengkap absensinya\n"
+            . "/ceksoal – buat tautan cek soal untuk guru\n"
+            . "/cekstatus – tautan cek soal yang belum selesai\n"
             . '/bantuan – daftar perintah ini';
     }
 
@@ -193,58 +223,212 @@ class TelegramBot extends BaseCommand
         return is_array($ha) ? $ha : null;
     }
 
-    /** Satu sambungan dipakai ulang selama proses berjalan (tanpa jabat tangan TLS dan pencarian DNS tiap pesan). */
-    private static $ch = null;
+    // ---------- Cek Soal (/ceksoal, /cekstatus; tombol berawalan "cs:") ----------
+    // Pilihan berjalan disimpan di setelan cek_tg_state (satu menu aktif): {msg, cid, guru: [id], semua: [id]}.
 
-    /** @return array<string, mixed> */
-    private static function api(string $token, string $metode, array $isi, int $batas): array
+    private function cekMulai(string $token, string $chat): void
     {
-        if (self::$ch === null) {
-            self::$ch = curl_init();
-        } else {
-            curl_reset(self::$ch);
+        $ada = [];
+        foreach (CekSoal::mapel('', true) as $m) {
+            if ($m['tingkat'] !== '') {
+                $ada[$m['tingkat']] = true;
+            }
         }
-        $opsi = [
-            CURLOPT_URL => 'https://api.telegram.org/bot' . $token . '/' . $metode, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $isi,
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $batas, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-        ];
-        $ip = self::ipTelegram();
-        if ($ip !== '') {
-            $opsi[CURLOPT_RESOLVE] = ['api.telegram.org:443:' . $ip];
-        }
-        curl_setopt_array(self::$ch, $opsi);
-        $jawab = curl_exec(self::$ch);
-        if ($jawab === false && $ip !== '') {
-            @unlink(self::BERKAS_IP);  // alamat lama mungkin sudah berubah: cari ulang di putaran berikutnya
-        }
+        $baris = [array_values(array_map(static fn ($t) => ['text' => 'Kelas ' . $t, 'callback_data' => 'cs:t:' . $t], array_filter(Tingkat::LIST, static fn ($t) => isset($ada[$t]))))];
+        if ($baris[0] === []) {
+            self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => 'Tidak ada mapel yang bisa dicek (belum berisi soal, sudah dikerjakan, atau sedang diujikan).'], 15);
 
-        return json_decode((string) $jawab, true) ?: [];
+            return;
+        }
+        $r = self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => '📋 Cek soal guru – pilih tingkat:', 'reply_markup' => json_encode(['inline_keyboard' => $baris])], 15);
+        Settings::set('cek_tg_state', json_encode(['msg' => (int) ($r['result']['message_id'] ?? 0)]));
     }
 
-    private const BERKAS_IP = WRITEPATH . 'cache/telegram_ip';
-
-    /**
-     * Alamat IPv4 api.telegram.org, disimpan sehari. DNS jaringan sekolah kadang lambat (5–15 dtk) atau gagal, dan
-     * itu membuat balasan bot terlambat; dengan alamat tersimpan, pencarian DNS hanya sekali sehari. Bila DNS gagal,
-     * alamat lama tetap dipakai.
-     */
-    private static function ipTelegram(): string
+    private function tombol(string $token, string $chat, array $cq): void
     {
-        static $ip = null;
-        if ($ip !== null) {
-            return $ip;
-        }
-        $lama = is_file(self::BERKAS_IP) ? trim((string) @file_get_contents(self::BERKAS_IP)) : '';
-        if ($lama !== '' && filemtime(self::BERKAS_IP) > time() - 86400) {
-            return $ip = $lama;
-        }
-        $baru = gethostbyname('api.telegram.org');
-        if (filter_var($baru, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            @file_put_contents(self::BERKAS_IP, $baru);
+        $data  = (string) ($cq['data'] ?? '');
+        $msgId = (int) ($cq['message']['message_id'] ?? 0);
+        $jawab = static fn (string $teks = '', bool $alert = false) => self::api($token, 'answerCallbackQuery', ['callback_query_id' => $cq['id'], 'text' => $teks, 'show_alert' => $alert ? 'true' : 'false'], 15);
+        $ubah  = static fn (string $teks, array $tombol = []) => self::api($token, 'editMessageText', ['chat_id' => $chat, 'message_id' => $msgId, 'text' => $teks, 'disable_web_page_preview' => 'true']
+            + ($tombol !== [] ? ['reply_markup' => json_encode(['inline_keyboard' => $tombol])] : []), 15);
+        $parts = explode(':', $data, 3);
+        if (($parts[0] ?? '') !== 'cs') {
+            $jawab();
 
-            return $ip = $baru;
+            return;
+        }
+        $aksi = $parts[1] ?? '';
+        $arg  = $parts[2] ?? '';
+
+        // Cabut dari /cekstatus: tidak memakai menu berjalan.
+        if ($aksi === 'c') {
+            $db = db_connect();
+            $t  = $db->table('cek_tugas')->where('id', (int) $arg)->get()->getRowArray();
+            if ($t !== null && in_array(CekSoal::status($t), ['belum', 'dibuka'], true)) {
+                $db->table('cek_tugas')->where('id', (int) $arg)->delete();
+                ActivityLog::add('cek_soal_cabut', $t['guru_nama'] . ' · ' . $t['mapel'], 'telegram');
+                $jawab('Tautan ' . $t['guru_nama'] . ' dicabut.');
+            } else {
+                $jawab('Tautan sudah tidak aktif.');
+            }
+            [$teks, $tombol] = $this->cekStatusIsi();
+            $ubah($teks, $tombol);
+
+            return;
         }
 
-        return $ip = filter_var($lama, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $lama : '';
+        $st = json_decode(Settings::get('cek_tg_state', '{}'), true) ?: [];
+        if ((int) ($st['msg'] ?? 0) !== $msgId) {
+            $jawab('Menu ini sudah kedaluwarsa. Ketik /ceksoal lagi.', true);
+
+            return;
+        }
+        $simpan = static fn (array $s) => Settings::set('cek_tg_state', json_encode($s));
+
+        if ($aksi === 't' && in_array($arg, Tingkat::LIST, true)) {
+            $list  = CekSoal::mapel($arg, true);
+            $nama  = array_count_values(array_column($list, 'fullname'));
+            $btn   = array_map(static fn ($m) => ['text' => $m['nama'] . ($nama[$m['fullname']] > 1 ? ' · ' . $m['kategori'] : ''), 'callback_data' => 'cs:m:' . $m['id']], $list);
+            $baris = array_chunk($btn, 2);
+            $baris[] = [['text' => '« Tingkat', 'callback_data' => 'cs:awal']];
+            $jawab();
+            $ubah('📋 Kelas ' . $arg . ' – pilih mapel:', $baris);
+
+            return;
+        }
+        if ($aksi === 'awal') {
+            $jawab();
+            self::api($token, 'deleteMessage', ['chat_id' => $chat, 'message_id' => $msgId], 15);
+            $this->cekMulai($token, $chat);
+
+            return;
+        }
+        if ($aksi === 'm') {
+            $course = CekSoal::course((int) $arg);
+            if ($course === null) {
+                $jawab('Mapel tidak ditemukan.', true);
+
+                return;
+            }
+            $tutup = CekSoal::alasanMapelTutup((int) $course['id']);
+            if ($tutup !== '') {
+                $jawab($tutup, true);
+
+                return;
+            }
+            $guru = CekSoal::guruUntuk($course);
+            if ($guru === []) {
+                $jawab();
+                $ubah('⚠️ Belum ada data guru untuk ' . $course['fullname'] . ".\nUnggah di panel: menu Cek Soal → Data Guru, lalu /ceksoal lagi.");
+                Settings::set('cek_tg_state', '{}');
+
+                return;
+            }
+            $ids = array_map(static fn ($g) => (int) $g['id'], $guru);
+            $st  = ['msg' => $msgId, 'cid' => (int) $course['id'], 'guru' => $ids, 'semua' => $ids];
+            $simpan($st);
+            $jawab();
+            $ubah(...$this->cekGuruIsi($course, $guru, $ids));
+
+            return;
+        }
+        $course = isset($st['cid']) ? CekSoal::course((int) $st['cid']) : null;
+        if ($course === null) {
+            $jawab('Menu ini sudah kedaluwarsa. Ketik /ceksoal lagi.', true);
+
+            return;
+        }
+        $semua = array_values(array_filter(CekSoal::guruUntuk($course), static fn ($g) => in_array((int) $g['id'], $st['semua'] ?? [], true)));
+        if ($aksi === 'g') {
+            $id  = (int) $arg;
+            $sel = array_map('intval', $st['guru'] ?? []);
+            $st['guru'] = in_array($id, $sel, true) ? array_values(array_diff($sel, [$id])) : array_merge($sel, [$id]);
+            $simpan($st);
+            $jawab();
+            $ubah(...$this->cekGuruIsi($course, $semua, $st['guru']));
+
+            return;
+        }
+        $dipilih = array_values(array_filter($semua, static fn ($g) => in_array((int) $g['id'], $st['guru'] ?? [], true)));
+        // Buat: batas waktu lewat bot selalu BATAS_BOT hari (tanpa langkah pilih batas).
+        if ($aksi === 'l') {
+            if ($dipilih === []) {
+                $jawab('Pilih minimal satu guru.', true);
+
+                return;
+            }
+            $dibuat = CekSoal::buat((int) $course['id'], array_map(static fn ($g) => ['id' => (int) $g['id'], 'nama' => $g['nama']], $dipilih), self::BATAS_BOT, 'telegram');
+            Settings::set('cek_tg_state', '{}');
+            $jawab('Tautan dibuat.');
+            $ubah('✅ ' . count($dibuat) . ' tautan cek ' . $course['fullname'] . ' dibuat (batas ' . CekSoal::tanggal((string) $dibuat[0]['batas']) . ").\nSalin pesan di bawah lalu teruskan ke WA guru:");
+            foreach ($dibuat as $t) {
+                self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => CekSoal::pesan($t), 'disable_web_page_preview' => 'true'], 15);
+            }
+
+            return;
+        }
+        $jawab();
+    }
+
+    /** @return array{0: string, 1: array} */
+    private function cekGuruIsi(array $course, array $guru, array $dipilih): array
+    {
+        $btn = array_map(static fn ($g) => ['text' => (in_array((int) $g['id'], $dipilih, true) ? '☑ ' : '☐ ') . $g['nama'], 'callback_data' => 'cs:g:' . $g['id']], $guru);
+        $baris   = array_chunk($btn, 2);
+        $baris[] = [['text' => '« Mapel', 'callback_data' => 'cs:t:' . $course['tingkat']], ['text' => 'Buat tautan ✓', 'callback_data' => 'cs:l']];
+
+        return ['📋 ' . $course['fullname'] . ' (' . $course['soal'] . " soal)\n"
+            . (CekSoal::jumlah() === 0 ? 'Semua soal' : CekSoal::jumlah() . ' soal acak') . ' per guru, batas ' . self::BATAS_BOT . " hari.\n"
+            . 'Guru (ketuk untuk centang/hapus centang):', $baris];
+    }
+
+    /** Batas waktu tautan yang dibuat lewat bot (hari). */
+    private const BATAS_BOT = 1;
+
+    private function cekStatus(string $token, string $chat): void
+    {
+        [$teks, $tombol] = $this->cekStatusIsi();
+        self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => $teks, 'disable_web_page_preview' => 'true']
+            + ($tombol !== [] ? ['reply_markup' => json_encode(['inline_keyboard' => $tombol])] : []), 15);
+    }
+
+    /** @return array{0: string, 1: array} */
+    private function cekStatusIsi(): array
+    {
+        $rows = db_connect()->table('cek_tugas')->where('created_at >=', date('Y-m-d H:i:s', strtotime('-14 days')))->orderBy('id', 'DESC')->get()->getResultArray();
+        $aktif = $selesai = [];
+        foreach ($rows as $t) {
+            $s = CekSoal::status($t);
+            if ($s === 'belum' || $s === 'dibuka') {
+                $aktif[] = $t;
+            } elseif ($s === 'selesai') {
+                $selesai[] = $t;
+            }
+        }
+        if ($aktif === [] && $selesai === []) {
+            return ['📋 Belum ada tautan cek soal dalam 14 hari terakhir.', []];
+        }
+        $teks = '📋 Cek soal (14 hari)';
+        if ($aktif !== []) {
+            $teks .= "\n\n⏳ Belum selesai (" . count($aktif) . '):';
+            foreach ($aktif as $t) {
+                $teks .= "\n• " . $t['guru_nama'] . ' – ' . $t['mapel'] . ' (' . ($t['dibuka_at'] !== null ? 'sudah dibuka' : 'belum dibuka') . ', batas ' . date('d/m H:i', strtotime((string) $t['batas'])) . ')';
+            }
+        }
+        if ($selesai !== []) {
+            $teks .= "\n\n✅ Sudah menyatakan benar (" . count($selesai) . '):';
+            foreach (array_slice($selesai, 0, 20) as $t) {
+                $cat   = CekSoal::catatan($t);
+                $teks .= "\n• " . $t['guru_nama'] . ' – ' . $t['mapel'] . ($cat !== '' ? ' (catatan: ' . mb_strimwidth($cat, 0, 80, '…') . ')' : '');
+            }
+        }
+        $tombol = array_map(static fn ($t) => [['text' => 'Cabut: ' . $t['guru_nama'] . ' · ' . $t['mapel'], 'callback_data' => 'cs:c:' . $t['id']]], array_slice($aktif, 0, 10));
+
+        return [mb_substr($teks, 0, 4000), $tombol];
+    }
+
+    private static function api(string $token, string $metode, array $isi, int $batas): array
+    {
+        return Telegram::api($token, $metode, $isi, $batas);
     }
 }

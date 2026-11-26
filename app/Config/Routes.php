@@ -69,10 +69,26 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->get('konvert', 'Konvert::index');
     $routes->get('jadwal_mapel', 'Konvert::jadwal');
     $routes->get('soal', 'Soal::index');
+    $routes->get('soal/(edit|review)', 'Soal::index/$1');
     $routes->post('soal/periksa', 'Soal::periksa');
     $routes->post('soal/kirim', 'Soal::kirim');
     $routes->get('soal/baca', 'Soal::baca');
     $routes->post('soal/ubah', 'Soal::ubah');
+    // Cek Soal: menu admin/kurikulum + halaman guru /cek/<token> (tanpa login, lihat Guard).
+    $routes->get('cek_soal', 'CekSoalPanel::index');
+    $routes->post('cek_soal/buat', 'CekSoalPanel::buat');
+    $routes->post('cek_soal/aksi/(:num)', 'CekSoalPanel::aksi/$1');
+    $routes->get('cek_soal/hasil/(:num)', 'CekSoalPanel::hasil/$1');
+    $routes->post('cek_soal/setelan', 'CekSoalPanel::setelan');
+    $routes->get('cek_soal/guru/template', 'CekSoalPanel::template');
+    $routes->post('cek_soal/guru/unggah', 'CekSoalPanel::unggah');
+    $routes->post('cek_soal/guru/simpan', 'CekSoalPanel::simpanGuru');
+    $routes->post('cek_soal/guru/hapus/(:num)', 'CekSoalPanel::hapusGuru/$1');
+    // Pesan lama yang alamatnya sempat berisi ".../login/" (sebelum CekSoal::asal) tetap terbuka.
+    $routes->addRedirect('login/cek/([0-9a-f]{32})', 'cek/$1');
+    $routes->get('cek/([0-9a-f]{32})', 'CekGuru::index/$1');
+    $routes->post('cek/([0-9a-f]{32})/buka', 'CekGuru::buka/$1');
+    $routes->post('cek/([0-9a-f]{32})/kirim', 'CekGuru::kirim/$1');
     $routes->get('sesi_tingkat', 'SesiTingkat::index');
     $routes->get('server_cadangan', 'ServerCadanganPanel::index');
     $routes->post('server_cadangan/simpan', 'ServerCadanganPanel::simpan');

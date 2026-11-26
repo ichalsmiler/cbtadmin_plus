@@ -4,8 +4,8 @@ $menu = [
     ['Dashboard', 'house', ''],
     ['Daftar Peserta', 'person', null, [['Data CBTAdmin', 'daftar_peserta/cbtadmin'], ['Data Moodle', 'daftar_peserta/moodle']]],
     ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Token', 'token_ujian'], ['Hapus Attempt', 'hapus_attempt']]],
-    // Soal: masukkan (RTF) dan edit naskah/kunci soal di Moodle, juga saat ujian berjalan (tab di halaman soal).
-    ['Soal', 'pencil-square', 'soal'],
+    // Soal: masukkan (RTF), edit/review naskah & kunci di Moodle (juga saat ujian berjalan), cek soal oleh guru.
+    ['Soal', 'pencil-square', null, [['Masukkan Soal', 'soal'], ['Review & Edit Soal', 'soal/edit'], ['Cek Soal', 'cek_soal']]],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
@@ -23,7 +23,7 @@ if ($adminRole === 'proktor' || $adminRole === 'demo') {
 }
 // Lock login aktif (Tools): peserta yang masih tercatat login perlu di-reset pengawas.
 if (\App\Libraries\Settings::get('lock_login', '0') === '1') {
-    array_splice($menu, 5, 0, [['Reset Login Peserta', 'person-x', 'reset_login']]);
+    array_splice($menu, array_search('status_peserta', array_column($menu, 2), true) + 1, 0, [['Reset Login Peserta', 'person-x', 'reset_login']]);
 }
 // Laporan Siswa (Proktor + admin, bukan pengawas ruang): disembunyikan selama LaporanSiswa::TAMPIL = false.
 if (\App\Libraries\LaporanSiswa::TAMPIL && in_array($adminRole, ['admin', 'operator'], true)) {
@@ -33,7 +33,8 @@ if (\App\Libraries\LaporanSiswa::TAMPIL && in_array($adminRole, ['admin', 'opera
 }
 // Kategori Mapel (tools/test_manage) punya menunya sendiri, jadi menu Tools tidak ikut disorot di sana.
 $isActive = static fn (string $path): bool => $path === '' ? $current === ''
-    : ($current === $path || (str_starts_with($current, $path . '/') && ! ($path === 'tools' && str_starts_with($current, 'tools/test_manage'))));
+    : ($current === $path || (str_starts_with($current, $path . '/') && ! ($path === 'tools' && str_starts_with($current, 'tools/test_manage'))
+        && ! ($path === 'soal' && in_array(explode('/', $current)[1] ?? '', ['edit', 'review'], true))));
 $asset    = static fn (string $file): string => base_url('assets/' . $file);
 ?>
 <!DOCTYPE html>
@@ -83,9 +84,10 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
             // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Laporan Kehadiran
             // (rekapnya di Dokumen → Rekap Kehadiran). Pengawas: hanya menu yang boleh dibukanya.
             // Proktor (operator): menu/submenu yang diizinkan Guard; Token cukup lewat Status Ujian → Token.
-            if ($adminRole === 'operator') {
+            // Kurikulum: sama seperti proktor (menu/submenu yang diizinkan Guard). Masukkan Soal (soal) khusus admin.
+            if ($adminRole === 'operator' || $adminRole === 'kurikulum') {
                 if (isset($item[3])) {
-                    $item[3] = array_values(array_filter($item[3], static fn ($sub) => \App\Filters\Guard::allowed($adminRole, $sub[1])));
+                    $item[3] = array_values(array_filter($item[3], static fn ($sub) => $sub[1] !== 'soal' && \App\Filters\Guard::allowed($adminRole, $sub[1])));
                     // Tools → Panel untuk proktor hanya berisi Log aktivitas.
                     $item[3] = array_map(static fn ($sub) => $sub[1] === 'tools/lainnya' ? ['Log Aktivitas', 'tools/lainnya'] : $sub, $item[3]);
                     if ($item[3] === []) {

@@ -1097,8 +1097,13 @@ try {
                 break;
             }
             $soal = [];
+            // ids (opsional): hanya soal itu (Cek Soal guru: 5 soal terpilih).
+            $hanya = array_map('intval', (array) ($in['ids'] ?? []));
             foreach ($slots as $sl) {
                 $qid = (int) $sl->questionid;
+                if ($hanya !== [] && ! in_array($qid, $hanya, true)) {
+                    continue;
+                }
                 $ctx = (int) $DB->get_field_sql(
                     'SELECT qc.contextid FROM {question_versions} qv JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
                        JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid WHERE qv.questionid = ?',
@@ -1119,7 +1124,11 @@ try {
                     'opsi' => $opsi,
                 ];
             }
-            $result['items'][] = ['quiz' => ['id' => (int) $quiz->id, 'nama' => $quiz->name], 'soal' => $soal];
+            $result['items'][] = [
+                'quiz'    => ['id' => (int) $quiz->id, 'nama' => $quiz->name], 'soal' => $soal,
+                'sedang'  => $DB->count_records_select('quiz_attempts', "quiz = ? AND preview = 0 AND state IN ('inprogress', 'overdue')", [$quiz->id]),
+                'selesai' => $DB->count_records('quiz_attempts', ['quiz' => $quiz->id, 'preview' => 0, 'state' => 'finished']),
+            ];
             break;
 
         case 'soal_baca':

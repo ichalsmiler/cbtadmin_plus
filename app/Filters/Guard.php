@@ -48,8 +48,10 @@ class Guard implements FilterInterface
         }
 
         // Halaman login, favicon (dipakai juga di halaman login), dashboard simulasi publik, dan form laporan siswa
-        // (identitas dari tautan bertanda tangan Moodle, lihat Controllers/Lapor) terbuka tanpa sesi.
-        if ($path === 'login' || $path === 'tools/gambar/favicon' || ($path === 'simulasi' && $request->is('get')) || $path === 'lapor' || $path === 'lapor/kirim') {
+        // (identitas dari tautan bertanda tangan Moodle, lihat Controllers/Lapor), dan halaman cek soal guru (tautan
+        // acak terkunci perangkat, lihat Controllers/CekGuru) terbuka tanpa sesi.
+        if ($path === 'login' || $path === 'tools/gambar/favicon' || ($path === 'simulasi' && $request->is('get')) || $path === 'lapor' || $path === 'lapor/kirim'
+            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path)) {
             return null;
         }
 
@@ -149,7 +151,9 @@ class Guard implements FilterInterface
     /** Alamat yang boleh dibuka lewat server perantara (apa pun role-nya). */
     public static function bolehPerantara(string $path): bool
     {
-        return in_array($path, ['login', 'simulasi', 'tools/gambar/favicon'], true) || self::allowed('proktor', $path);
+        // cek/<token>: halaman cek soal guru (tautan acak, terkunci perangkat) boleh lewat domain perantara.
+        return in_array($path, ['login', 'simulasi', 'tools/gambar/favicon'], true) || self::allowed('proktor', $path)
+            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path) === 1;
     }
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
@@ -168,11 +172,11 @@ class Guard implements FilterInterface
         'dokumen*', 'hasil_ujian*',
         'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',
         'tools/lainnya', 'tools/log_export', 'tools/jejak', // Tools → Panel: hanya kartu Log aktivitas (view tools/index)
-        'soal', 'soal/baca', 'soal/ubah', // Soal: hanya tab Edit Soal (Masukkan Soal = soal/periksa, soal/kirim tetap admin)
+        'soal', 'soal/edit', 'soal/review', 'soal/baca', 'soal/ubah', // Soal: Edit/Review Soal (Masukkan Soal = soal/periksa, soal/kirim tetap admin)
     ];
 
-    /** Kurikulum (role `kurikulum`): hanya melihat dan mengunduh Hasil Ujian (nilai, analisis soal). */
-    private const KURIKULUM_PATHS = ['logout', 'tools/gambar/logo', 'hasil_ujian*'];
+    /** Kurikulum (role `kurikulum`): Hasil Ujian (nilai, analisis soal) dan Cek Soal oleh guru. */
+    private const KURIKULUM_PATHS = ['logout', 'tools/gambar/logo', 'hasil_ujian*', 'cek_soal*'];
 
     /** Nama peran untuk ditampilkan. */
     public static function namaPeran(string $role): string
