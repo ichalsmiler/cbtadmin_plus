@@ -190,6 +190,16 @@ if (trim($baru) !== trim($scss)) {
     $ubah++;
 }
 
+// Alamat situs di soal (mis. sumber berita "https://…") tidak boleh jadi tautan yang bisa diklik: siswa bisa keluar
+// dari ujian (Anti Newtab). Parser soal RTF sudah membuang tautan, jadi cukup matikan filter "Convert URLs into links".
+require_once($CFG->libdir . '/filterlib.php');
+$filterurl = $DB->get_field('filter_active', 'active', ['filter' => 'urltolink', 'contextid' => context_system::instance()->id]);
+if ($filterurl === false || (int) $filterurl !== TEXTFILTER_DISABLED) {
+    filter_set_global_state('urltolink', TEXTFILTER_DISABLED);
+    $catatan('filter urltolink dimatikan (alamat situs di soal tidak bisa diklik)');
+    $ubah++;
+}
+
 // ---------------------------------------------------------------------- Course dan quiz
 echo "== Course dan quiz\n";
 // Kategori "SESI NONAKTIF" (tanpa ujian): tes aktif saat semua sesi nonaktif, tidak bisa dihapus dari panel.

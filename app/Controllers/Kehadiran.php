@@ -77,7 +77,16 @@ class Kehadiran extends PanelController
             }
             $idBoleh  = array_flip(array_map('intval', array_column(db_connect()->table('peserta')->select('id')
                 ->where('ruang_id', $ruangId)->whereIn('username', $boleh)->get()->getResultArray(), 'id')));
+            // Siswa yang tampil di halaman (filter tingkatan ikut), untuk syarat "semua sudah ditandai".
+            $idTampil = array_map('intval', array_column(array_filter(db_connect()->table('peserta')->select('id, kelas')
+                ->where('ruang_id', $ruangId)->whereIn('username', $boleh)->get()->getResultArray(),
+                static fn ($p) => Tingkat::cocok((string) $p['kelas'], $tingkat)), 'id'));
             $statuses = array_filter($statuses, static fn ($pid) => isset($idBoleh[(int) $pid]), ARRAY_FILTER_USE_KEY);
+            // Pengawas wajib menandai semua siswa ruangnya (tombol Simpan juga terkunci di halaman sampai lengkap).
+            $kurang = count(array_diff($idTampil, array_map('intval', array_keys($statuses))));
+            if ($statuses !== [] && $kurang > 0) {
+                return redirect()->to($back)->with('error', 'Absensi belum disimpan: masih ada ' . $kurang . ' siswa yang belum ditandai Hadir atau Tidak hadir.');
+            }
         }
         if ($statuses === []) {
             return redirect()->to($back)->with('error', 'Belum ada siswa yang ditandai.');

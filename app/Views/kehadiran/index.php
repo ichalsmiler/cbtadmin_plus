@@ -83,7 +83,11 @@ $sudah = count(array_filter($rows, static fn ($r) => $r['status'] !== null));
                         </tbody>
                     </table>
                 </div>
-                <button class="btn btn-primary mt-3" type="submit"><i class="bi bi-save me-1"></i>Simpan</button>
+                <?php // Simpan baru aktif bila semua siswa sudah ditandai Hadir/Tidak hadir (26 Nov 2026). ?>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <button class="btn btn-primary" type="submit" id="btnSimpanAbsen"><i class="bi bi-save me-1"></i>Simpan</button>
+                    <span class="small text-danger" id="infoSimpanAbsen"></span>
+                </div>
             </form>
         <?php endif ?>
     </div>
@@ -107,7 +111,11 @@ $sudah = count(array_filter($rows, static fn ($r) => $r['status'] !== null));
         var h = all('input[value=hadir]:checked').length;
         var t = all('input[value=tidak_hadir]:checked').length;
         var total = all('input[value=hadir]').length;
-        document.getElementById('ringkas').textContent = h + ' hadir · ' + t + ' tidak hadir · ' + (total - h - t) + ' belum ditandai';
+        var belum = total - h - t;
+        document.getElementById('ringkas').textContent = h + ' hadir · ' + t + ' tidak hadir · ' + belum + ' belum ditandai';
+        var tombol = document.getElementById('btnSimpanAbsen');
+        tombol.disabled = belum > 0;
+        document.getElementById('infoSimpanAbsen').textContent = belum > 0 ? 'Tandai semua siswa dulu (' + belum + ' belum ditandai).' : '';
     };
     form.addEventListener('change', function (e) { if (e.target.type === 'radio') { update(); } });
     document.getElementById('semuaHadir').addEventListener('click', function () {
@@ -118,6 +126,8 @@ $sudah = count(array_filter($rows, static fn ($r) => $r['status'] !== null));
         update();
     });
     form.addEventListener('submit', function (event) {
+        var belum = all('input[value=hadir]').length - all('input[type=radio]:checked').length;
+        if (belum > 0) { event.preventDefault(); update(); return; }
         form.querySelectorAll('.absen-extra').forEach(function (x) { x.remove(); });
         all('input[type=radio]:checked').forEach(function (r) {
             if (document.body.contains(r)) { return; }
