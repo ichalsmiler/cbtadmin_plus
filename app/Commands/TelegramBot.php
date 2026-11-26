@@ -45,6 +45,7 @@ class TelegramBot extends BaseCommand
             if (! preg_match('/^\d{5,}:[A-Za-z0-9_-]{30,}$/', $token) || $chat === '') {
                 return EXIT_SUCCESS;
             }
+            self::pasangMenu($token);
             $tunggu = max(1, min(25, self::DURASI - (time() - $mulai)));
             $upd    = self::api($token, 'getUpdates', [
                 'offset'          => (int) Settings::get('ha_tg_offset', '0'),
@@ -115,15 +116,40 @@ class TelegramBot extends BaseCommand
         };
     }
 
+    /** Daftar perintah: sumber teks /bantuan dan menu perintah Telegram (tombol Menu / ketik "/"). */
+    private const PERINTAH = [
+        'status'    => 'server, sesi, siswa mengerjakan/selesai, beban server',
+        'token'     => 'token yang berlaku dan sisa waktunya',
+        'absensi'   => 'ruang yang belum lengkap absensinya',
+        'ceksoal'   => 'buat tautan cek soal untuk guru',
+        'cekstatus' => 'tautan cek soal yang belum selesai',
+        'bantuan'   => 'daftar perintah ini',
+    ];
+
     private static function bantuan(): string
     {
-        return "Perintah CBT:\n"
-            . "/status – server, sesi, siswa mengerjakan/selesai, beban server\n"
-            . "/token – token yang berlaku dan sisa waktunya\n"
-            . "/absensi – ruang yang belum lengkap absensinya\n"
-            . "/ceksoal – buat tautan cek soal untuk guru\n"
-            . "/cekstatus – tautan cek soal yang belum selesai\n"
-            . '/bantuan – daftar perintah ini';
+        $baris = [];
+        foreach (self::PERINTAH as $p => $ket) {
+            $baris[] = '/' . $p . ' – ' . $ket;
+        }
+
+        return "Perintah CBT:\n" . implode("\n", $baris);
+    }
+
+    /**
+     * Pasang menu perintah bot (setMyCommands) bila daftar PERINTAH berubah atau token bot diganti. Tanda daftar yang
+     * terpasang disimpan di setelan tg_menu, jadi panggilan ke Telegram hanya terjadi sekali per perubahan.
+     */
+    private static function pasangMenu(string $token): void
+    {
+        $daftar = array_map(static fn ($p, $ket) => ['command' => $p, 'description' => $ket], array_keys(self::PERINTAH), self::PERINTAH);
+        $tanda  = md5($token . json_encode($daftar));
+        if (Settings::get('tg_menu') === $tanda) {
+            return;
+        }
+        if ((self::api($token, 'setMyCommands', ['commands' => json_encode($daftar)], 15)['ok'] ?? false)) {
+            Settings::set('tg_menu', $tanda);
+        }
     }
 
     private static function sesiTeks(): string
