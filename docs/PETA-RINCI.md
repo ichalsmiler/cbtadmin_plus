@@ -104,7 +104,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
   (`#quiz-timer-wrapper` di bilah info soal) jadi bilah tipis `position: fixed` di bawah bar atas (top 60px, tinggi 36px).
 - Plugin `moodle/local/`: `cbtblokir` (pesan "User Anda terblokir"), `cbtnama` (nama depan di samping ikon profil),
   `cbtujian` (Anti Submit / Lock login / Resume timer / Anti Newtab; Anti Submit: summary.php dialihkan balik
-  sebelum waktunya, dan tombol "Selesaikan ujian" di halaman soal terakhir `disabled` + keterangan `.cbt-antisubmit`
+  sebelum waktunya, dan tombol "Selesaikan ujian" di halaman soal terakhir tidak di-disabled (26 Nov 2026: tombol disabled membuat nomor Daftar Soal di halaman terakhir tidak bisa diklik, karena nav Moodle mengklik tombol next lewat kode), hanya klik siswa `isTrusted` ditahan + pudar + keterangan `.cbt-antisubmit`
   lalu aktif sendiri lewat setTimeout (`detik_sebelum_boleh_submit()`); di panel tombol Nonaktifkan (`nonaktif=1` → 0); setelan plugin `local_cbtujian` dikirim dari
   Tools via aksi `cbtujian_config`, Lock login mematikan `limitconcurrentlogins`; juga kotak cari di
   `admin/user.php` → `?cbtcari=&cbtkolom=fullname|username|email` mengisi filter "contains" laporan via
@@ -120,7 +120,7 @@ Migrasi `Database/Migrations/`: tabel admins (role admin/proktor, ruang_id, pass
 - Halaman Selesaikan ujian (`mod/quiz/summary.php`) seperti LMS: judul/tabel status/Kembali disembunyikan, tengah = Sisa waktu +
   "Ujian akan selesai secara otomatis pada …" + tombol abu-abu "Kirim Jawaban", Daftar Soal kanan (JS cbtujian juga di summary);
   tombol soal terakhir "Selesaikan ujian" (lang quiz.php endtest).
-- Halaman awal ujian (`mod/quiz/view.php`): bila percobaan selesai >= batas percobaan, kotak `.quizinfo` disembunyikan dan `.quizattempt` diganti keterangan `sudahmengerjakan` (lang local_cbtujian) + tombol Daftar Ujian (/my/courses.php) oleh JS cbtujian; bagian yang diganti JS disembunyikan lebih dulu oleh `<style>` di awal body (tanpa kedipan "Masukkan token"; juga kartu percobaan `h3 + ul.list-unstyled` dan form token `#mod_quiz_preflight_form` selama masih di [role=main], sebelum dipindah JS Moodle ke modal). Meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
+- Halaman awal ujian (`mod/quiz/view.php`; hook dibatasi `$SCRIPT === /mod/quiz/view.php` karena startattempt.php juga ber-pagetype mod-quiz-view: tanpa itu form token di halaman mulai (dipakai SEB iOS bila pop-up gagal) tersembunyi, siswa hanya melihat tombol Kembali, perbaikan 26 Nov 2026): bila percobaan selesai >= batas percobaan, kotak `.quizinfo` disembunyikan dan `.quizattempt` diganti keterangan `sudahmengerjakan` (lang local_cbtujian) + tombol Daftar Ujian (/my/courses.php) oleh JS cbtujian; bagian yang diganti JS disembunyikan lebih dulu oleh `<style>` di awal body (tanpa kedipan "Masukkan token"; juga kartu percobaan `h3 + ul.list-unstyled` dan form token `#mod_quiz_preflight_form` selama masih di [role=main], sebelum dipindah JS Moodle ke modal). Meniru LMS sekolah 3.9: teks "Kesempatan mengerjakan : 1 kali", "Masukkan token
   untuk memulai ujian", "Waktu mengerjakan : …" (lang quizaccess_numattempts/password/timelimit, `min(s)`=menit; statefinished = "Sudah Mengerjakan"; kolom Review disembunyikan), kartu
   percobaan diganti tabel `.cbt-percobaan` Status | Review oleh JS di `cbtujian` awal_halaman, urutan/kotak/tombol abu-abu
   di boost.scss (`#page-mod-quiz-view`). Cek poin = tag git `cekpoin-N` (kembali: checkout tag lalu deploy + setelan-moodle).

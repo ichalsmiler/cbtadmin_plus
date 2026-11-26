@@ -381,18 +381,28 @@ class callbacks {
                 $label = $j(get_string('endtest', 'quiz'));
                 $info  = $j(get_string('tombolselesaiaktif', 'local_cbtujian', $menit));
                 $hook->add_html(\html_writer::script(
+                    // Tombol TIDAK di-disabled: navigasi Daftar Soal (mod_quiz module.js nav_to_page) mengklik tombol
+                    // "next" ini lewat kode; tombol disabled membuat nomor soal tidak bisa diklik di halaman terakhir
+                    // (26 Nov 2026). Hanya klik siswa (isTrusted) yang ditahan; klik dari kode tetap jalan.
                     "document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('mod_quiz-next-nav');"
-                    . "if(!b||b.value!=={$label})return;b.disabled=true;b.title={$info};"
+                    . "if(!b||b.value!=={$label})return;var kunci=true;b.title={$info};b.setAttribute('aria-disabled','true');"
+                    . "b.style.opacity='.5';b.style.cursor='not-allowed';"
+                    . "b.addEventListener('click',function(e){if(kunci&&e.isTrusted){e.preventDefault();e.stopImmediatePropagation();}},true);"
                     . "var p=document.createElement('div');p.className='cbt-antisubmit small text-muted mt-2';p.textContent={$info};"
                     . "b.parentNode.appendChild(p);"
-                    . "setTimeout(function(){b.disabled=false;b.removeAttribute('title');p.remove();}," . ($sisa * 1000) . ");});"
+                    . "setTimeout(function(){kunci=false;b.removeAttribute('aria-disabled');b.style.opacity='';b.style.cursor='';"
+                    . "b.removeAttribute('title');p.remove();}," . ($sisa * 1000) . ");});"
                 ));
             }
         }
 
         // Halaman awal ujian: bila kesempatan mengerjakan sudah habis (semua percobaan selesai), kotak tombol di bawah
         // tabel diganti keterangan + tombol Daftar Ujian (pesan bawaan "tidak ada lagi kesempatan" ikut diganti).
-        if ($PAGE->pagetype === 'mod-quiz-view' && isloggedin() && ! isguestuser() && ! empty($PAGE->cm->instance)) {
+        // Hanya view.php: startattempt.php (halaman isian token, dipakai bila jendela token JS gagal, mis. Safe Exam
+        // Browser iOS) juga ber-pagetype mod-quiz-view karena set_url(view_url) lebih dulu; CSS di bawah menyembunyikan
+        // form token sehingga siswa hanya melihat tombol Kembali (26 Nov 2026).
+        $halamanawal = $PAGE->pagetype === 'mod-quiz-view' && $SCRIPT === '/mod/quiz/view.php';
+        if ($halamanawal && isloggedin() && ! isguestuser() && ! empty($PAGE->cm->instance)) {
             global $DB, $USER;
             $maks    = (int) $DB->get_field('quiz', 'attempts', ['id' => (int) $PAGE->cm->instance]);
             $selesai = $DB->count_records_select('quiz_attempts', "quiz = ? AND userid = ? AND state IN ('finished', 'abandoned')",
@@ -420,7 +430,7 @@ class callbacks {
 
         // Halaman awal ujian seperti LMS sekolah: kartu "Percobaan 1" (Moodle 4.4+) diganti tabel "Status | Review"
         // (urutan dan gaya di boost.scss).
-        if ($PAGE->pagetype === 'mod-quiz-view') {
+        if ($halamanawal) {
             // Kartu percobaan bawaan disembunyikan sejak awal (diganti tabel oleh JS di bawah), supaya tidak berkedip.
             // Form token (preflight) dicetak di halaman lalu dipindah JS Moodle ke jendela modal; selama masih di
             // [role=main] disembunyikan, supaya isian "Masukkan token" tidak terlihat sekejap saat halaman dibuka.
