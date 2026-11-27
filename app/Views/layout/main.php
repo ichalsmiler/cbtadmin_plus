@@ -21,10 +21,12 @@ $menu = [
 if ($adminRole === 'proktor' || $adminRole === 'demo') {
     $menu[1] =['Daftar Peserta', 'person', 'peserta_ruang'];
 }
-// Lock login aktif (Tools): peserta yang masih tercatat login perlu di-reset pengawas.
-if (\App\Libraries\Settings::get('lock_login', '0') === '1') {
-    array_splice($menu, array_search('status_peserta', array_column($menu, 2), true) + 1, 0, [['Reset Login Peserta', 'person-x', 'reset_login']]);
+// Reset Login (selalu) dan Lock Peserta (bila Batas login per mapel / Anti Newtab aktif) = dua menu terpisah.
+$menuLogin = [['Reset Login', 'person-x', 'reset_login']];
+if ((int) \App\Libraries\Settings::get('login_maks', '0') > 0 || \App\Libraries\Settings::get('anti_newtab', '0') === '1') {
+    $menuLogin[] = ['Lock Peserta', 'lock', 'lock_peserta'];
 }
+array_splice($menu, array_search('status_peserta', array_column($menu, 2), true) + 1, 0, $menuLogin);
 // Laporan Siswa (Proktor + admin, bukan pengawas ruang): disembunyikan selama LaporanSiswa::TAMPIL = false.
 if (\App\Libraries\LaporanSiswa::TAMPIL && in_array($adminRole, ['admin', 'operator'], true)) {
     $nBaru = \App\Libraries\LaporanSiswa::jumlahBaru();

@@ -3,18 +3,18 @@
 namespace App\Libraries;
 
 /**
- * Laporan evaluasi per sesi ujian ke Telegram admin, JEDA detik setelah sesi dimatikan (Nonaktifkan sesi atau pindah
+ * Ringkasan server per sesi ujian ke Telegram admin, JEDA detik setelah sesi dimatikan (Nonaktifkan sesi atau pindah
  * ke sesi lain). Dipanggil cron cbt:token tiap menit: pantau() mencatat sesi yang sedang aktif (setelan lapor_sesi:
  * id, label, mulai, kategori) dan saat sesi berganti/mati memasukkannya ke antrean (lapor_antrian) untuk dikirim.
- * Isi: kehadiran (peserta sesi vs yang mengerjakan, tidak hadir dari absensi), per mapel (ikut, belum terkirim,
- * nilai rata-rata/min/maks, durasi, selesai terlalu cepat) dan soal yang kuncinya patut dicek.
+ * Isi (tanpa nilai/soal): 1 beban server, 2 kesehatan web (dari sampel ServerSampel), 3 login (log Moodle + Reset
+ * Login panel), 4 gangguan saat mengerjakan (macet, ditutup otomatis, belum terkirim), 5 saran otomatis.
  */
 class LaporanSesi
 {
     public const JEDA = 900;
 
-    /** Selesai < persentase batas waktu ini dianggap terlalu cepat. */
-    private const CEPAT = 0.25;
+    /** Siswa dianggap macet/terputus bila tidak ada permintaan ke Moodle selama sekian menit berturut saat ujian berjalan. */
+    private const MACET = 10;
 
     public static function pantau(): void
     {
@@ -61,121 +61,261 @@ class LaporanSesi
         }
     }
 
-    /** Teks laporan satu sesi. $item: id, label, mulai, selesai (timestamp). */
+    /** Ringkasan server satu sesi. $item: id, label, mulai, selesai (timestamp). */
     public static function susun(array $item): string
     {
         $mulai   = (int) $item['mulai'];
         $selesai = (int) $item['selesai'];
-        $db      = Moodle::db();
-        $qa      = Moodle::t('quiz_attempts');
-        $q       = Moodle::t('quiz');
-        $c       = Moodle::t('course');
-        $u       = Moodle::t('user');
+        $jam     = static fn (int $t): string => date('H.i', $t);
 
-        $teks = '📊 Evaluasi ' . $item['label'] . "\n" . CekSoal::tanggal(date('Y-m-d H:i:s', $mulai)) . '–' . date('H.i', $selesai) . ' WITA';
+        $teks = '🖥 Ringkasan server ' . $item['label'] . "\n" . CekSoal::tanggal(date('Y-m-d H:i:s', $mulai)) . '–' . $jam($selesai)
+            . ' WITA (' . max(1, (int) round(($selesai - $mulai) / 60)) . ' mnt)';
 
-        // Attempt yang dimulai selama sesi (5 menit sebelum sesi tercatat ikut, karena pantau() berjalan per menit).
-        $rows = $db->query(
-            "SELECT a.id, a.quiz, a.userid, a.state, a.timestart, a.timefinish, a.sumgrades, q.sumgrades AS maks, q.grade,
-                    q.timelimit, c.fullname, u.username
-               FROM {$qa} a JOIN {$q} q ON q.id = a.quiz JOIN {$c} c ON c.id = q.course JOIN {$u} u ON u.id = a.userid
-              WHERE a.preview = 0 AND a.timestart BETWEEN ? AND ?
-              ORDER BY c.sortorder",
-            [$mulai - 300, $selesai]
-        )->getResultArray();
+        $attempt = self::attempt($mulai, $selesai);
+        $teks   .= "\n👥 Peserta " . count(self::peserta((int) $item['id'])) . ' · mengerjakan ' . count(array_unique(array_column($attempt, 'username')));
 
-        // Kehadiran: peserta sesi ini (Semua Sesi = semua peserta) dibanding yang mengerjakan.
-        $pdb = db_connect()->table('peserta p')->select('p.id, p.username')->join('ruang r', 'r.id = p.ruang_id', 'left');
-        if ((int) $item['id'] > 0) {
-            $pdb->where('COALESCE(p.sesi_id, r.sesi_id)', (int) $item['id'], false);
-        }
-        $peserta = $pdb->get()->getResultArray();
-        $ikut    = array_flip(array_column($rows, 'username'));
-        $belum   = array_filter($peserta, static fn ($p) => ! isset($ikut[$p['username']]));
-        $tidak   = $peserta === [] ? 0 : db_connect()->table('absensi')->where('tanggal', date('Y-m-d', $mulai))
-            ->where('status', Absensi::TIDAK_HADIR)->whereIn('peserta_id', array_column($peserta, 'id'))->countAllResults();
-        $teks .= "\n\n👥 Peserta: " . count($peserta) . ' · mengerjakan ' . (count($peserta) - count($belum))
-            . ' · tidak mengerjakan ' . count($belum) . ($tidak > 0 ? ' (' . $tidak . ' ditandai tidak hadir)' : '');
+        $sampel = db_connect()->table('server_sampel')->where('waktu >=', $mulai)->where('waktu <=', $selesai + 60)
+            ->orderBy('waktu')->get()->getResultArray();
+        $saran  = [];
 
-        if ($rows === []) {
-            return $teks . "\n\nTidak ada attempt selama sesi ini.";
-        }
-
-        $perQuiz = [];
-        foreach ($rows as $r) {
-            $perQuiz[(int) $r['quiz']][] = $r;
-        }
-        foreach ($perQuiz as $quizId => $list) {
-            $nilai = $durasi = [];
-            $buka  = $cepat = 0;
-            foreach ($list as $r) {
-                if ($r['state'] !== 'finished') {
-                    $buka++;
-
-                    continue;
+        $teks .= "\n\n▌1. BEBAN SERVER";
+        if ($sampel === []) {
+            $teks .= "\nBelum ada sampel (pencatat server belum berjalan saat sesi ini).";
+        } else {
+            $puncak = static function (string $kolom) use ($sampel): array {
+                $p = $sampel[0];
+                foreach ($sampel as $s) {
+                    if ((float) $s[$kolom] > (float) $p[$kolom]) {
+                        $p = $s;
+                    }
                 }
-                if ((float) $r['maks'] > 0 && $r['sumgrades'] !== null) {
-                    $nilai[] = (float) $r['sumgrades'] / (float) $r['maks'] * 100;
-                }
-                $lama     = max(0, (int) $r['timefinish'] - (int) $r['timestart']);
-                $durasi[] = $lama / 60;
-                if ((int) $r['timelimit'] > 0 && $lama < (int) $r['timelimit'] * self::CEPAT) {
-                    $cepat++;
-                }
+
+                return [(float) $p[$kolom], (int) $p['waktu']];
+            };
+            $rata = static fn (string $kolom): float => array_sum(array_column($sampel, $kolom)) / count($sampel);
+            [$cpu, $tCpu]   = $puncak('cpu');
+            [$ram, $tRam]   = $puncak('ram');
+            [$beban]        = $puncak('beban');
+            [$aktif, $tAkt] = $puncak('aktif');
+            $disk      = (int) $sampel[count($sampel) - 1]['disk'];
+            $inti      = max(1, (int) (SysInfo::get()['cpu']['cores'] ?? 1));
+            $cpuTinggi = count(array_filter($sampel, static fn ($s) => (int) $s['cpu'] >= 85));
+            $teks .= "\nCPU puncak " . (int) $cpu . '% (' . $jam($tCpu) . '), rata-rata ' . round($rata('cpu')) . '%'
+                . ($cpuTinggi > 0 ? ', ≥85% selama ' . $cpuTinggi . ' mnt' : '')
+                . "\nRAM puncak " . (int) $ram . '% (' . $jam($tRam) . ') · beban puncak ' . $beban . ' (' . $inti . ' inti) · disk ' . $disk . '%'
+                . "\nSiswa aktif bersamaan puncak " . (int) $aktif . ' (' . $jam($tAkt) . ')';
+            if ($cpuTinggi >= 5 || $cpu >= 95) {
+                $saran[] = 'CPU tinggi (' . (int) $cpu . '%, ≥85% selama ' . $cpuTinggi . ' mnt): kurangi siswa per sesi atau tambah inti CPU.';
             }
-            $teks .= "\n\n📚 " . $list[0]['fullname'] . ': ' . count($list) . ' attempt';
-            if ($nilai !== []) {
-                $teks .= "\n   Nilai rata-rata " . round(array_sum($nilai) / count($nilai)) . ' (min ' . round(min($nilai)) . ', maks ' . round(max($nilai)) . ')'
-                    . ' · durasi ' . round(array_sum($durasi) / count($durasi)) . ' mnt';
+            if ($ram >= 90) {
+                $saran[] = 'RAM hampir penuh (' . (int) $ram . '%): tambah RAM atau turunkan pm.max_children.';
             }
-            if ($buka > 0) {
-                $teks .= "\n   ⚠️ " . $buka . ' belum terkirim (dikirim otomatis saat waktu habis)';
+            if ($disk >= 85) {
+                $saran[] = 'Disk ' . $disk . '% terisi: bersihkan log/cadangan lama.';
             }
-            if ($cepat > 0) {
-                $teks .= "\n   ⚡ " . $cepat . ' selesai < ' . round(self::CEPAT * 100) . '% waktu';
+
+            $maksFpm = ServerSampel::maksFpm();
+            $maksDb  = ServerSampel::maksDb();
+            [$fpm, $tFpm] = $puncak('fpm');
+            [$dbc]        = $puncak('db');
+            [$rpm, $tRpm] = $puncak('http');
+            $penuh  = $maksFpm > 0 ? count(array_filter($sampel, static fn ($s) => (int) $s['fpm'] >= $maksFpm - 1)) : 0;
+            $galat  = (int) array_sum(array_column($sampel, 'galat'));
+            $mGalat = count(array_filter($sampel, static fn ($s) => (int) $s['galat'] > 0));
+            $http   = (int) array_sum(array_column($sampel, 'http'));
+            $teks  .= "\n\n▌2. KESEHATAN WEB"
+                . "\nPHP-FPM puncak " . (int) $fpm . ($maksFpm > 0 ? '/' . $maksFpm : '') . ' pekerja (' . $jam($tFpm) . ')'
+                . ($penuh > 0 ? ', penuh ' . $penuh . ' mnt' : '')
+                . "\nKoneksi database puncak " . (int) $dbc . ($maksDb > 0 ? '/' . $maksDb : '')
+                . "\nPermintaan " . number_format($http, 0, ',', '.') . ' (puncak ' . number_format((int) $rpm, 0, ',', '.') . '/mnt pukul ' . $jam($tRpm) . ')'
+                . "\nGalat server (5xx): " . ($galat === 0 ? 'tidak ada ✅' : $galat . ' dalam ' . $mGalat . ' mnt ⚠️');
+            if ($penuh > 0) {
+                $saran[] = 'PHP-FPM penuh ' . $penuh . ' mnt (siswa menunggu/lambat): naikkan pm.max_children bila RAM cukup.';
             }
-            foreach (self::kunciCuriga($quizId, array_map('intval', array_column($list, 'userid'))) as $baris) {
-                $teks .= "\n   🔑 " . $baris;
+            if ($maksDb > 0 && $dbc >= $maksDb * 0.9) {
+                $saran[] = 'Koneksi database hampir habis (' . (int) $dbc . '/' . $maksDb . '): naikkan max_connections MariaDB.';
+            }
+            if ($galat > 0) {
+                $saran[] = 'Ada ' . $galat . ' galat 5xx: cek /var/log/nginx/error.log dan log PHP-FPM pada menit itu.';
             }
         }
+
+        $teks .= "\n\n▌3. LOGIN" . self::login($mulai, $selesai, $saran);
+        $teks .= "\n\n▌4. GANGGUAN SAAT MENGERJAKAN" . self::gangguan($attempt, $sampel, $selesai, $saran);
+        $teks .= "\n\n▌5. SARAN\n" . ($saran === [] ? '✅ Server aman, tidak ada yang perlu ditindaklanjuti.' : '• ' . implode("\n• ", $saran));
 
         return mb_substr($teks, 0, 4000);
     }
 
-    /**
-     * Soal yang kuncinya patut dicek: daya beda negatif (siswa pintar lebih banyak salah), atau sangat sukar (P ≤ 0,25)
-     * dengan satu jawaban salah dipilih ≥ 40% siswa. Maksimal 5 soal per mapel.
-     *
-     * @return list<string>
-     */
-    public static function kunciCuriga(int $quizId, array $userIds): array
+    /** Attempt yang dimulai selama sesi (5 menit sebelum sesi tercatat ikut, karena pantau() berjalan per menit). */
+    private static function attempt(int $mulai, int $selesai): array
     {
-        $data = AnalisisSoal::jawaban($quizId, $userIds);
-        if (count($data['jawaban']) < 10) {
-            return [];  // terlalu sedikit siswa untuk disimpulkan
-        }
-        $hasil = [];
-        foreach (AnalisisSoal::analisis($data)['butir'] as $b) {
-            if ($b['p'] === null) {
-                continue;
-            }
-            $salah = [];
-            foreach ($data['jawaban'] as $per) {
-                $j = $per[$b['slot']] ?? null;
-                if ($j !== null && AnalisisSoal::kode($j) === 'S' && $j['respon'] !== '') {
-                    $salah[$j['respon']] = ($salah[$j['respon']] ?? 0) + 1;
-                }
-            }
-            arsort($salah);
-            $populer = (string) array_key_first($salah);
-            $porsi   = $salah === [] ? 0 : reset($salah) / max(1, count($data['jawaban']));
-            if (($b['d'] !== null && $b['d'] < 0) || ($b['p'] <= 0.25 && $porsi >= 0.40)) {
-                $hasil[] = 'No. ' . $b['slot'] . ': benar ' . round($b['p'] * 100) . '%'
-                    . ($populer !== '' ? ', ' . round($porsi * 100) . '% memilih "' . mb_strimwidth(trim(strip_tags($populer)), 0, 40, '…') . '"' : '')
-                    . ($b['d'] !== null && $b['d'] < 0 ? ', daya beda negatif' : '') . ' → cek kunci';
-            }
+        return Moodle::db()->query(
+            'SELECT a.id, a.userid, a.state, a.timestart, a.timefinish, q.timelimit, u.username, u.firstname
+               FROM ' . Moodle::t('quiz_attempts') . ' a JOIN ' . Moodle::t('quiz') . ' q ON q.id = a.quiz
+               JOIN ' . Moodle::t('user') . ' u ON u.id = a.userid
+              WHERE a.preview = 0 AND a.timestart BETWEEN ? AND ?',
+            [$mulai - 300, $selesai]
+        )->getResultArray();
+    }
+
+    /** Peserta sesi (0 / Semua Sesi = semua peserta): username => [username, nama, ruang]. */
+    private static function peserta(int $sesiId): array
+    {
+        $b = db_connect()->table('peserta p')->select('p.username, p.nama, r.nama AS ruang')->join('ruang r', 'r.id = p.ruang_id', 'left');
+        if ($sesiId > 0) {
+            $b->where('COALESCE(p.sesi_id, r.sesi_id)', $sesiId, false);
         }
 
-        return array_slice($hasil, 0, 5);
+        return array_column($b->get()->getResultArray(), null, 'username');
+    }
+
+    /** Nama siswa singkat untuk daftar: "Nama (R.5)". */
+    private static function namaSiswa(string $username, string $cadangan = ''): string
+    {
+        static $semua = null;
+        $semua ??= self::peserta(0);
+        $p = $semua[$username] ?? null;
+        if (! $p) {
+            return $cadangan !== '' ? $cadangan : $username;
+        }
+
+        return mb_strimwidth((string) $p['nama'], 0, 28, '…') . ($p['ruang'] ? ' (R.' . $p['ruang'] . ')' : '');
+    }
+
+    /** Daftar nama maksimal 10, sisanya "+N lainnya". */
+    private static function daftar(array $nama): string
+    {
+        return "\n   " . implode(', ', array_slice($nama, 0, 10)) . (count($nama) > 10 ? ' +' . (count($nama) - 10) . ' lainnya' : '');
+    }
+
+    private static function login(int $mulai, int $selesai, array &$saran): string
+    {
+        $log   = Moodle::t('logstore_standard_log');
+        $db    = Moodle::db();
+        $ok    = $db->query("SELECT userid, COUNT(*) AS n FROM {$log} WHERE eventname = ? AND timecreated BETWEEN ? AND ? GROUP BY userid",
+            ['\\core\\event\\user_loggedin', $mulai, $selesai])->getResultArray();
+        $gagal = $db->query("SELECT other FROM {$log} WHERE eventname = ? AND timecreated BETWEEN ? AND ?",
+            ['\\core\\event\\user_login_failed', $mulai, $selesai])->getResultArray();
+
+        $alasan = [1 => 'username tidak ada', 2 => 'akun diblokir', 3 => 'password salah', 4 => 'akun terkunci', 5 => 'tidak diizinkan'];
+        $per    = [];   // kode alasan => [username => kali]
+        foreach ($gagal as $g) {
+            $o = json_decode((string) $g['other'], true);
+            if (! is_array($o)) {
+                $o = @unserialize((string) $g['other'], ['allowed_classes' => false]) ?: [];
+            }
+            $kode = (int) ($o['reason'] ?? 0);
+            $un   = (string) ($o['username'] ?? '?');
+            $per[$kode][$un] = ($per[$kode][$un] ?? 0) + 1;
+        }
+        $ulang = count(array_filter($ok, static fn ($r) => (int) $r['n'] > 1));
+        $teks  = "\nBerhasil " . array_sum(array_column($ok, 'n')) . ' kali (' . count($ok) . ' siswa)'
+            . ($ulang > 0 ? ' · ' . $ulang . ' siswa login lebih dari sekali' : '')
+            . "\nGagal " . count($gagal) . ' kali';
+        $siswaGagal = [];
+        foreach ($per as $kode => $user) {
+            $teks .= "\n • " . ($alasan[$kode] ?? 'lainnya') . ': ' . array_sum($user) . ' kali, ' . count($user) . ' akun';
+            foreach ($user as $un => $n) {
+                $siswaGagal[$un] = ($siswaGagal[$un] ?? 0) + $n;
+            }
+        }
+        if ($siswaGagal !== []) {
+            arsort($siswaGagal);
+            $teks .= "\n Paling sering gagal:" . self::daftar(array_map(
+                static fn ($un, $n) => self::namaSiswa((string) $un) . ' ' . $n . 'x',
+                array_keys($siswaGagal),
+                $siswaGagal
+            ));
+        }
+        if (count($per[3] ?? []) >= 10) {
+            $saran[] = count($per[3]) . ' akun salah password: periksa kartu login / huruf besar-kecil password.';
+        }
+
+        $reset = db_connect()->table('activity_log')->select('detail')->where('aksi', 'reset_login')
+            ->where('created_at >=', date('Y-m-d H:i:s', $mulai))->where('created_at <=', date('Y-m-d H:i:s', $selesai))
+            ->get()->getResultArray();
+        if ($reset !== []) {
+            $n = 0;
+            foreach ($reset as $r) {
+                $n += preg_match('/: (\d+) peserta/', (string) $r['detail'], $m) ? (int) $m[1] : 0;
+            }
+            $teks .= "\nReset login oleh pengawas/admin: " . count($reset) . ' kali (' . $n . ' siswa)';
+        }
+
+        return $teks;
+    }
+
+    /**
+     * Macet: attempt masih berjalan tetapi user tidak tampak aktif (tidak ada permintaan ke Moodle) ≥ MACET menit
+     * berturut menurut sampel server. Ditutup otomatis: selesai tepat di batas waktu. Belum terkirim saat laporan dibuat.
+     */
+    private static function gangguan(array $attempt, array $sampel, int $selesai, array &$saran): string
+    {
+        if ($attempt === []) {
+            return "\nTidak ada siswa yang mengerjakan selama sesi ini.";
+        }
+        $aktif = [];
+        foreach ($sampel as $s) {
+            $aktif[] = [(int) $s['waktu'], array_flip(array_filter(explode(',', (string) $s['pengguna'])))];
+        }
+        $macet = $otomatis = $buka = $ruangMacet = [];
+        foreach ($attempt as $a) {
+            $nama  = self::namaSiswa((string) $a['username'], (string) $a['firstname']);
+            $akhir = $a['state'] === 'finished' ? (int) $a['timefinish'] : $selesai;
+            if ($a['state'] !== 'finished') {
+                $buka[] = $nama;
+            } elseif ((int) $a['timelimit'] > 0 && (int) $a['timefinish'] >= (int) $a['timestart'] + (int) $a['timelimit'] - 2) {
+                $otomatis[] = $nama;
+            }
+            $hilang = $terlama = 0;
+            foreach ($aktif as [$t, $ids]) {
+                if ($t < (int) $a['timestart'] + 120 || $t > $akhir) {
+                    continue;
+                }
+                $hilang  = isset($ids[(string) $a['userid']]) ? 0 : $hilang + 1;
+                $terlama = max($terlama, $hilang);
+            }
+            if ($terlama >= self::MACET) {
+                $macet[] = $nama . ' ' . $terlama . 'mnt';
+                $ruang   = preg_match('/\(R\.([^)]+)\)/', $nama, $m) ? $m[1] : '?';
+                $ruangMacet[$ruang] = ($ruangMacet[$ruang] ?? 0) + 1;
+            }
+        }
+        $teks = "\nTidak ada aktivitas ≥" . self::MACET . ' mnt saat ujian berjalan (macet/terputus): ' . count($macet)
+            . ($macet !== [] ? self::daftar($macet) : '')
+            . "\nDitutup otomatis karena waktu habis (tidak menekan Selesai): " . count($otomatis)
+            . ($otomatis !== [] ? self::daftar($otomatis) : '')
+            . ($buka !== [] ? "\nBelum terkirim saat laporan dibuat: " . count($buka) . self::daftar($buka) : '');
+        if ($sampel === []) {
+            $teks .= "\n(Deteksi macet perlu sampel server.)";
+        }
+
+        // Anti Newtab: keluar dari aplikasi/halaman ujian (mis. keluar SEB di HP untuk mencari jawaban).
+        try {
+            $keluar = KeluarAplikasi::daftar(array_map('intval', array_column($attempt, 'id')));
+        } catch (\Throwable $e) {
+            $keluar = [];
+        }
+        if ($keluar !== []) {
+            $kunci = array_filter($keluar, static fn ($k) => $k['total'] > KeluarAplikasi::maks());
+            $teks .= "\nKeluar dari aplikasi ujian: " . count($keluar) . ' siswa, ' . array_sum(array_column($keluar, 'total')) . ' kali'
+                . ($kunci !== [] ? ', ' . count($kunci) . ' sempat terkunci' : '')
+                . self::daftar(array_map(static fn ($k) => self::namaSiswa($k['username'], $k['nama']) . ' ' . $k['total'] . 'x', $keluar));
+            if (count($kunci) >= 3) {
+                $saran[] = count($kunci) . ' siswa terkunci karena keluar aplikasi: pastikan SEB memakai mode ujian (iPhone terkunci di SEB) dan pengawas berkeliling.';
+            }
+        }
+        arsort($ruangMacet);
+        foreach ($ruangMacet as $ruang => $n) {
+            if ($n >= 3) {
+                $saran[] = $n . ' siswa macet di Ruang ' . $ruang . ': cek jaringan/Wi-Fi ruang itu.';
+            }
+        }
+        if (count($otomatis) >= max(5, (int) (count($attempt) * 0.1))) {
+            $saran[] = count($otomatis) . ' ujian ditutup otomatis: ingatkan siswa menekan Selesai, atau cek apakah halaman sempat hang.';
+        }
+
+        return $teks;
     }
 }

@@ -51,7 +51,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 | Daftar Peserta | Peserta |
 | Status Ujian: Setting Ujian / Token / Hapus Attempt | StatusTes / HapusAttempt (+ `ActiveTest`) |
 | Status Peserta (+ Login ganda) | StatusPeserta |
-| Reset Login | ResetLogin |
+| Reset Login / Lock Peserta (batas login per mapel) | ResetLogin / LockPeserta (+ `KeluarAplikasi`) |
 | Laporan Kehadiran | Kehadiran (+ `Absensi`) |
 | Blokir Siswa | BlokirSiswa (+ `Blokir`) |
 | Daftar Ruang | Ruang (+ `Pengawas`) |
@@ -67,8 +67,8 @@ Library penting: `Moodle` (baca DB Moodle), `MoodleBridge::call(action, payload)
 Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, finish_attempts, delete_attempts,
 add_time, list_sessions, kill_sessions, quiz_password, course_visibility, category_visibility, suspend_users,
 cbtujian_config, purge_caches, create_category, create_categories, rename_categories, update_category, delete_category,
-delete_course, move_courses, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, soal_daftar, soal_baca, soal_ubah, quiz_timelimit, quiz_shuffle,
+delete_course, move_courses, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, soal_daftar, soal_baca, soal_ubah, quiz_timelimit, quiz_shuffle, antinewtab_buka,
 create_course, create_courses, unenrol_users.
 
-Migrasi `Database/Migrations/`: admins (role admin/operator/proktor/demo, + sesi_token: pengawas maks. 2 perangkat, sesi 30 menit), peserta, ruang, sesi, settings, activity_log, absensi, blokir, laporan_siswa, cek_guru + cek_tugas (Cek Soal), pengawas_hadir (nama pengawas wajib diisi setelah login, `PengawasHadir`).
+Migrasi `Database/Migrations/`: admins (role admin/operator/proktor/demo, + sesi_token: pengawas maks. 2 perangkat, sesi 30 menit), peserta, ruang, sesi, settings, activity_log, absensi, blokir, laporan_siswa, cek_guru + cek_tugas (Cek Soal), pengawas_hadir (nama pengawas wajib diisi setelah login, `PengawasHadir`), server_sampel (sampel server tiap menit untuk ringkasan server per sesi, `ServerSampel` + `LaporanSesi`).
 README.md = panduan untuk manusia; `docs/INSTALASI-SERVER.md` = tutorial pasang server.

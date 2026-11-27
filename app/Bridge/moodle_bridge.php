@@ -620,7 +620,7 @@ try {
         case 'cbtujian_config':
             // Aturan ujian di plugin local_cbtujian. Lock login menolak login baru, jadi batas
             // "satu akun satu perangkat" bawaan Moodle (yang menendang sesi lama) dimatikan.
-            foreach (['antisubmit', 'locklogin', 'resumetimer', 'antinewtab'] as $key) {
+            foreach (['antisubmit', 'locklogin', 'resumetimer', 'antinewtab', 'antinewtabmaks', 'loginmaks'] as $key) {
                 if (array_key_exists($key, $in)) {
                     set_config($key, max(0, (int) $in[$key]), 'local_cbtujian');
                 }
@@ -635,6 +635,26 @@ try {
                 set_config('laporkunci', clean_param((string) ($in['laporkunci'] ?? ''), PARAM_ALPHANUM), 'local_cbtujian');
             }
             $result['items'][] = ['status' => 'disimpan', 'plugin' => (bool) core_plugin_manager::instance()->get_plugin_info('local_cbtujian')];
+            break;
+
+        case 'antinewtab_buka':
+            // Buka kunci (pengawas). jenis keluar (Anti Newtab): penghitung diturunkan ke batas, keluar sekali lagi
+            // langsung terkunci lagi. jenis login (batas login per mapel): diturunkan ke batas - 1, jadi siswa bisa
+            // login sekali lagi; login berikutnya terkunci lagi. Kelebihan tetap tercatat (_total).
+            $login = ($in['jenis'] ?? '') === 'login';
+            $maks  = $login ? \local_cbtujian\callbacks::login_maks() : \local_cbtujian\callbacks::keluar_maks();
+            $jadi  = $login ? max(0, $maks - 1) : $maks;
+            foreach ((array) ($in['items'] ?? []) as $it) {
+                $uid  = (int) ($it['userid'] ?? 0);
+                $aid  = (int) ($it['attempt'] ?? 0);
+                $nama = ($login ? \local_cbtujian\callbacks::PREF_LOGIN : \local_cbtujian\callbacks::PREF_KELUAR) . $aid;
+                $n    = (int) get_user_preferences($nama, $login ? 1 : 0, $uid);
+                if ($uid && $aid && $n > $maks) {
+                    set_user_preference($nama . '_total', (int) get_user_preferences($nama . '_total', 0, $uid) + ($n - $jadi), $uid);
+                    set_user_preference($nama, $jadi, $uid);
+                    $result['items'][] = ['userid' => $uid, 'attempt' => $aid, 'status' => 'dibuka'];
+                }
+            }
             break;
 
         case 'purge_caches':

@@ -12,7 +12,7 @@ Dibangun dengan CodeIgniter 4 dan berjalan di server yang sama dengan Moodle.
 | Daftar Peserta (Data CBTAdmin, Data Moodle, import/export Excel, buat user Moodle, reset password) | Selesai |
 | Tools (pengaturan, logo, akun admin/proktor, backup database panel, bersihkan sesi, log aktivitas) | Selesai |
 | Status Test (tes = kategori kursus Moodle, buka/tutup mapel, token bersama dengan release otomatis, Reset Default, buka/tutup/atur waktu quiz), Status Peserta (paksa submit, tambah waktu, hapus attempt) | Selesai |
-| Reset Login Peserta (per peserta, massal, per ruang), No Attempt Check (export Excel) | Selesai |
+| Reset Login Peserta (per peserta, massal, per ruang), Lock Peserta (buka kunci batas login per mapel), No Attempt Check (export Excel) | Selesai |
 | Hasil Ujian (tabel, statistik, Excel, PDF), Dokumen (kartu peserta 8 per A4, daftar hadir, laporan kehadiran, berita acara PDF, Excel) | Selesai |
 
 ## Isi folder ini

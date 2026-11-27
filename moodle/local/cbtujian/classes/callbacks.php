@@ -10,7 +10,10 @@ use core\hook\output\before_standard_top_of_body_html_generation;
  *  - antisubmit  : menit sebelum waktu habis saat tombol selesai mulai aktif (0 = mati)
  *  - locklogin   : tolak login bila akun masih login di perangkat lain (pengawas me-reset login)
  *  - resumetimer : waktu selama siswa keluar ditambahkan kembali saat ia login lagi
- *  - antinewtab  : siswa otomatis keluar bila membuka tab/aplikasi lain saat mengerjakan quiz
+ *  - antinewtab  : tiap kali siswa meninggalkan halaman ujian (tab/aplikasi lain) dicatat dan diperingatkan;
+ *                  lebih dari antinewtabmaks kali (bawaan 3) → ujian dikunci sampai pengawas membukanya di panel
+ *  - loginmaks   : batas login per mapel (per attempt yang berjalan; login untuk memulai = 1). Lebih dari itu
+ *                  login ditolak sampai pengawas membuka kunci di panel (0 = mati)
  */
 class callbacks {
     /** Ambang jeda (detik) sebelum Resume timer menambah waktu; autosave quiz tiap 60 detik. */
@@ -29,9 +32,26 @@ class callbacks {
         if (get_config('local_cbtujian', 'locklogin') && self::sesi_lain($userid)) {
             // Sesi baru ditolak pada permintaan berikutnya (lihat sebelum_header), supaya alur login Moodle
             // selesai dulu dengan rapi. Sesi lama tetap berjalan.
-            $SESSION->local_cbtujian_tolak = true;
+            $SESSION->local_cbtujian_tolak = 'masihlogin';
 
             return;
+        }
+        if (self::login_maks() > 0) {
+            try {
+                $n = self::hitung_login($userid);
+                if ($n > self::login_maks()) {
+                    $SESSION->local_cbtujian_tolak = 'terkuncilogin';
+
+                    return;
+                }
+                if ($n > 0) {
+                    // Peringatan "login n dari maks" di halaman berikutnya (notifikasi Moodle bertahan setelah login).
+                    $a = (object) ['n' => $n, 'maks' => self::login_maks(), 'sisa' => self::login_maks() - $n];
+                    \core\notification::warning(get_string($a->sisa > 0 ? 'peringatanlogin' : 'peringatanloginakhir', 'local_cbtujian', $a));
+                }
+            } catch (\Throwable $e) {
+                debugging('local_cbtujian batas login: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
         }
         if (get_config('local_cbtujian', 'resumetimer')) {
             try {
@@ -113,14 +133,29 @@ class callbacks {
 
         // Lock login: sesi baru ditolak, kembali ke halaman login dengan pesan.
         if (!empty($SESSION->local_cbtujian_tolak)) {
+            $tolak = $SESSION->local_cbtujian_tolak;
             unset($SESSION->local_cbtujian_tolak);
             if (isloggedin() && !isguestuser() && !is_siteadmin()) {
+                $pesan = $tolak === 'terkuncilogin' ? 'terkuncilogin' : 'masihlogin';
+                // require_logout() menutup sesi (write_close), jadi pesan dibawa lewat URL dan dipasang di
+                // permintaan halaman login berikutnya (lihat di bawah).
                 require_logout();
-                $SESSION->loginerrormsg = get_string('masihlogin', 'local_cbtujian');
-                redirect(get_login_url());
+                redirect(new \moodle_url(get_login_url(), ['cbtpesan' => $pesan]));
+            }
+        }
+        if ($SCRIPT === '/login/index.php' && !isloggedin()) {
+            $pesan = optional_param('cbtpesan', '', PARAM_ALPHA);
+            if (in_array($pesan, ['terkuncilogin', 'masihlogin'], true)) {
+                $SESSION->loginerrormsg = get_string($pesan, 'local_cbtujian');
             }
         }
 
+        if (in_array($SCRIPT, ['/mod/quiz/attempt.php', '/mod/quiz/summary.php'], true) && isloggedin() && !isguestuser()) {
+            self::cek_kunci_keluar();
+        }
+        if ($SCRIPT === '/mod/quiz/attempt.php' && isloggedin() && !isguestuser() && !is_siteadmin() && self::login_maks() > 0) {
+            self::info_login_pertama();
+        }
         if ($SCRIPT === '/mod/quiz/summary.php' && isloggedin()) {
             self::anti_submit();
         }
@@ -492,12 +527,146 @@ class callbacks {
                 || !isloggedin() || is_siteadmin()) {
             return;
         }
-        $logout = json_encode((new \moodle_url('/login/logout.php', ['sesskey' => sesskey()]))->out(false));
+        $attempt = optional_param('attempt', 0, PARAM_INT);
+        if (!$attempt) {
+            return;
+        }
+        // Tiap kali siswa meninggalkan halaman (pindah aplikasi/tab) dicatat di server (sendBeacon, tetap terkirim
+        // saat aplikasi masuk latar belakang). Saat kembali: peringatan "Keluar n dari maks"; lebih dari maks →
+        // halaman dimuat ulang dan setelah_config mengunci ujian sampai pengawas membuka kuncinya.
+        $url = json_encode((new \moodle_url('/local/cbtujian/keluar.php', ['sesskey' => sesskey(), 'attempt' => $attempt]))->out(false));
         $hook->add_html(\html_writer::script(
-            "(function(){var keluar=false;function out(){if(keluar)return;keluar=true;try{sessionStorage.setItem('cbtNewtab','1');}catch(e){}"
-            . "window.location.href={$logout};}"
-            . "document.addEventListener('visibilitychange',function(){if(document.hidden)out();});"
-            . "window.addEventListener('blur',function(){setTimeout(function(){if(!document.hasFocus())out();},1500);});})();"
+            // Pindah halaman soal (Next, nomor soal, Selesai) juga menyembunyikan halaman: ditandai `pindah` lewat
+            // klik yang benar-benar berpindah halaman (tautan/submit/nomor soal; bukan tombol peringatan ini),
+            // submit/beforeunload/pagehide supaya tidak terhitung keluar. Bila halaman ternyata tidak berpindah
+            // (`tunda`) lalu terlihat lagi, keluarnya tetap dihitung saat kembali (27 Nov 2026: celah 4 detik).
+            "(function(){var url={$url},pergi=false,pindah=false,tunda=false;"
+            . "function tandai(){pindah=true;setTimeout(function(){pindah=false;},3000);}"
+            . "document.addEventListener('click',function(e){if(e.target.closest('#cbtKeluar'))return;"
+            . "var a=e.target.closest('a[href]');if(a){var h=a.getAttribute('href')||'';if(h.charAt(0)!=='#'&&h.indexOf('javascript:')!==0&&a.target!=='_blank')tandai();return;}"
+            . "if(e.target.closest('.qnbutton,input[type=submit],button[type=submit],form button:not([type])'))tandai();},true);"
+            . "document.addEventListener('submit',tandai,true);window.addEventListener('beforeunload',tandai);"
+            . "window.addEventListener('pagehide',function(){pindah=true;tunda=false;});"
+            . "function kirim(){try{if(navigator.sendBeacon&&navigator.sendBeacon(url+'&catat=1'))return;}catch(e){}"
+            . "try{fetch(url+'&catat=1',{method:'POST',keepalive:true,credentials:'same-origin'});}catch(e){}}"
+            . "function keluar(){if(pergi)return;if(pindah){tunda=true;return;}pergi=true;kirim();}"
+            . "function kembali(){if(tunda){tunda=false;pindah=false;pergi=true;kirim();}if(!pergi)return;pergi=false;setTimeout(function(){fetch(url,{credentials:'same-origin'}).then(function(r){return r.json();})"
+            . ".then(function(d){if(d.kunci){location.reload();return;}if(d.n>0)peringatan(d);}).catch(function(){});},600);}"
+            . "function peringatan(d){var w=document.getElementById('cbtKeluar');if(!w){w=document.createElement('div');w.id='cbtKeluar';"
+            . "w.setAttribute('role','alert');w.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px';"
+            . "document.body.appendChild(w);}var sisa=d.maks-d.n;w.innerHTML='<div style=\"background:#fff;color:#212529;max-width:420px;border-radius:12px;padding:20px;text-align:center;font-size:1.05rem\">'"
+            . "+'<div style=\"font-size:2rem\">⚠️</div><strong>Anda keluar dari aplikasi ujian '+d.n+' dari '+d.maks+' kali.</strong><p style=\"margin:10px 0 16px\">'"
+            . "+(sisa>0?'Sisa '+sisa+' kali. Bila keluar lebih dari '+d.maks+' kali, ujian Anda dikunci dan harus dibuka pengawas.':'Ini kesempatan terakhir. Keluar sekali lagi, ujian Anda dikunci dan harus dibuka pengawas.')"
+            . "+'</p><button type=\"button\" class=\"btn btn-primary\" id=\"cbtKeluarOk\">Saya mengerti</button></div>';"
+            . "document.getElementById('cbtKeluarOk').onclick=function(){w.remove();};}"
+            . "document.addEventListener('visibilitychange',function(){if(document.hidden)keluar();else kembali();});"
+            . "window.addEventListener('blur',function(){setTimeout(function(){if(!document.hasFocus()&&!document.hidden)keluar();},1500);});"
+            . "window.addEventListener('focus',kembali);})();"
         ));
+    }
+
+    // ------------------------------------------------------------------ Batas login per mapel
+
+    /** Nama preferensi user penghitung login per attempt (tidak ada = 1, yaitu login saat memulai). */
+    public const PREF_LOGIN = 'cbtujian_login_';
+
+    /** Batas login per mapel (setelan loginmaks; 0 = mati). */
+    public static function login_maks(): int {
+        return max(0, (int) get_config('local_cbtujian', 'loginmaks'));
+    }
+
+    /**
+     * Login baru: tambah penghitung setiap attempt user ini yang masih berjalan (waktunya belum habis).
+     * Mengembalikan jumlah login terbesar (0 = tidak ada ujian berjalan); lebih dari batas = login ditolak.
+     */
+    private static function hitung_login(int $userid): int {
+        global $DB;
+
+        $terbesar = 0;
+        $rows  = $DB->get_records_sql(
+            "SELECT a.id, a.timestart, q.timelimit
+               FROM {quiz_attempts} a
+               JOIN {quiz} q ON q.id = a.quiz
+              WHERE a.userid = :u AND a.state = 'inprogress' AND a.preview = 0", ['u' => $userid]);
+        foreach ($rows as $a) {
+            if ((int) $a->timelimit > 0 && (int) $a->timestart + (int) $a->timelimit + 600 < time()) {
+                continue; // waktunya sudah lama habis; attempt ditutup cron
+            }
+            $nama = self::PREF_LOGIN . $a->id;
+            $n    = (int) get_user_preferences($nama, 1, $userid) + 1;
+            set_user_preference($nama, $n, $userid);
+            set_user_preference($nama . '_waktu', time(), $userid);
+            $terbesar = max($terbesar, $n);
+        }
+
+        return $terbesar;
+    }
+
+    /** Halaman soal pertama kali dibuka (belum ada login ulang): beri tahu "login 1 dari maks", sekali per attempt. */
+    private static function info_login_pertama(): void {
+        global $SESSION;
+
+        $id = optional_param('attempt', 0, PARAM_INT);
+        if (!$id || !empty($SESSION->local_cbtujian_infologin[$id]) || get_user_preferences(self::PREF_LOGIN . $id, null) !== null) {
+            return;
+        }
+        $SESSION->local_cbtujian_infologin[$id] = 1;
+        $a = (object) ['n' => 1, 'maks' => self::login_maks(), 'sisa' => self::login_maks() - 1];
+        \core\notification::info(get_string($a->sisa > 0 ? 'peringatanlogin' : 'peringatanloginakhir', 'local_cbtujian', $a));
+    }
+
+    // ------------------------------------------------------------------ Anti Newtab: hitung keluar, kunci
+
+    /** Nama preferensi user penghitung keluar per attempt. */
+    public const PREF_KELUAR = 'cbtujian_keluar_';
+
+    /** Batas keluar yang dibolehkan (setelan antinewtabmaks, bawaan 3; 0 = keluar sekali langsung terkunci). */
+    public static function keluar_maks(): int {
+        $maks = get_config('local_cbtujian', 'antinewtabmaks');
+
+        return $maks === false || $maks === '' ? 3 : max(0, (int) $maks);
+    }
+
+    /**
+     * Catat satu kali keluar (bila $catat) untuk attempt milik user ini yang masih berjalan, lalu kembalikan
+     * jumlahnya. kunci = jumlah melebihi batas.
+     */
+    public static function keluar(int $attemptid, bool $catat): array {
+        global $DB, $USER;
+
+        $maks = self::keluar_maks();
+        $a    = $DB->get_record('quiz_attempts', ['id' => $attemptid], 'id, userid, state');
+        if (!$a || (int) $a->userid !== (int) $USER->id || $a->state !== 'inprogress' || !get_config('local_cbtujian', 'antinewtab')) {
+            return ['n' => 0, 'maks' => $maks, 'kunci' => false];
+        }
+        $nama = self::PREF_KELUAR . $attemptid;
+        $n    = (int) get_user_preferences($nama, 0);
+        if ($catat) {
+            $n++;
+            set_user_preference($nama, $n);
+            set_user_preference($nama . '_waktu', time());
+        }
+
+        return ['n' => $n, 'maks' => $maks, 'kunci' => $n > $maks];
+    }
+
+    /** Ujian terkunci: buka attempt/summary dialihkan ke halaman awal quiz dengan pesan. */
+    private static function cek_kunci_keluar(): void {
+        global $CFG, $USER;
+
+        $id = optional_param('attempt', 0, PARAM_INT);
+        if (!$id || !get_config('local_cbtujian', 'antinewtab') || is_siteadmin()) {
+            return;
+        }
+        $n = (int) get_user_preferences(self::PREF_KELUAR . $id, 0);
+        if ($n <= self::keluar_maks()) {
+            return;
+        }
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        $attempt = \mod_quiz\quiz_attempt::create($id);
+        if ((int) $attempt->get_userid() !== (int) $USER->id || $attempt->get_state() !== \mod_quiz\quiz_attempt::IN_PROGRESS) {
+            return;
+        }
+        redirect($attempt->view_url(), get_string('terkuncikeluar', 'local_cbtujian', $n), null, \core\output\notification::NOTIFY_ERROR);
     }
 }

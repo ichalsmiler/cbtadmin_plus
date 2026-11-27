@@ -165,7 +165,7 @@ class Guard implements FilterInterface
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
     // tools/gambar/logo: logo sekolah di bilah atas (gambar tanda tangan tetap khusus admin).
-    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'dashboard/sesi', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout', 'pengawas_nama'];
+    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'dashboard/sesi', 'peserta_ruang', 'status_peserta', 'reset_login', 'lock_peserta', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout', 'pengawas_nama'];
 
     /**
      * Proktor ujian (role `operator`): menjalankan ujian hari-H di semua ruang, tanpa menu persiapan/berbahaya.
@@ -174,7 +174,7 @@ class Guard implements FilterInterface
     private const OPERATOR_PATHS = [
         '', 'logout', 'dashboard/stats', 'tools/gambar/logo',
         'status_tes', 'status_tes/kategori', 'status_tes/sesi', 'status_tes/release', 'status_tes/token', 'status_tes/token_setting', 'token_ujian', 'hapus_attempt*',
-        'status_peserta*', 'reset_login*', 'blokir_siswa*', 'kehadiran*', 'laporan_siswa*',
+        'status_peserta*', 'reset_login*', 'lock_peserta*', 'blokir_siswa*', 'kehadiran*', 'laporan_siswa*',
         'daftar_peserta/cbtadmin', 'daftar_peserta/moodle', 'daftar_peserta/moodle/mapel_pilihan',
         'dokumen*', 'hasil_ujian*',
         'tools/moodle', 'tools/cron', 'tools/cache', 'tools/ujian',

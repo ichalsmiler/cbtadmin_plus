@@ -37,6 +37,13 @@ class TokenCron extends BaseCommand
             log_message('error', 'cbt:token absensi: ' . $e->getMessage());
         }
 
+        // Sampel kondisi server (CPU, RAM, PHP-FPM, DB, nginx, user aktif) untuk ringkasan server per sesi.
+        try {
+            \App\Libraries\ServerSampel::catat();
+        } catch (\Throwable $e) {
+            log_message('error', 'cbt:token sampel server: ' . $e->getMessage());
+        }
+
         // Laporan evaluasi sesi ke Telegram 15 menit setelah sesi dimatikan.
         try {
             LaporanSesi::pantau();

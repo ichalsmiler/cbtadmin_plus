@@ -289,6 +289,17 @@ class Tools extends PanelController
             foreach (array_keys(self::UJIAN) as $key) {
                 Settings::set($key, $this->request->getPost($key) ? '1' : '0');
             }
+            if ($this->request->getPost('login_maks') !== null) {
+                Settings::set('login_maks', (string) max(0, min(20, (int) $this->request->getPost('login_maks'))));
+            }
+            // Batas keluar aplikasi (Anti Newtab) dalam satu isian: 0 = mati, N = keluar lebih dari N kali dikunci.
+            if ($this->request->getPost('batas_keluar') !== null) {
+                $n = max(0, min(20, (int) $this->request->getPost('batas_keluar')));
+                Settings::set('anti_newtab', $n > 0 ? '1' : '0');
+                if ($n > 0) {
+                    Settings::set('anti_newtab_maks', (string) $n);
+                }
+            }
             $back = self::halaman('lockres');
         }
 
@@ -297,7 +308,7 @@ class Tools extends PanelController
         } catch (\Throwable $e) {
             return redirect()->to($back)->with('error', 'Disimpan di panel, tetapi gagal diterapkan di Moodle: ' . $e->getMessage());
         }
-        ActivityLog::add('aturan_ujian', 'anti submit ' . Settings::get('anti_submit', '0') . ' menit; '
+        ActivityLog::add('aturan_ujian', 'anti submit ' . Settings::get('anti_submit', '0') . ' menit; batas login ' . Settings::get('login_maks', '0') . '; '
             . implode(', ', array_map(static fn ($k) => $k . '=' . Settings::get($k, '0'), array_keys(self::UJIAN))));
 
         return redirect()->to($back)->with('success', 'Aturan ujian disimpan dan diterapkan di Moodle.');
@@ -311,6 +322,8 @@ class Tools extends PanelController
         foreach (self::UJIAN as $key => $plugin) {
             $data[$plugin] = Settings::get($key, '0') === '1' ? 1 : 0;
         }
+        $data['antinewtabmaks'] = \App\Libraries\KeluarAplikasi::maks();
+        $data['loginmaks']      = \App\Libraries\KeluarAplikasi::maks('login');
         $hasil = MoodleBridge::call('cbtujian_config', $data)[0] ?? [];
         if (empty($hasil['plugin'])) {
             throw new \RuntimeException('plugin local_cbtujian belum terpasang di Moodle (jalankan deploy/setelan-moodle.sh).');

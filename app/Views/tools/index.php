@@ -36,14 +36,12 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
             . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<button class="btn btn-outline-danger btn-sm" type="submit" name="nonaktif" value="1"><i class="bi bi-x-circle me-1"></i>Nonaktifkan</button>' : '')
             . '</form>'
             . '<p class="small mt-2 mb-0">Status: ' . ($antiSubmit > 0 && $antiSubmit < 1000 ? '<span class="badge text-bg-success">aktif, ' . $antiSubmit . ' menit</span>' : '<span class="badge text-bg-secondary">nonaktif</span>') . '</p>') ?>
-        <?= $item('moodleTools', 'lockres', 'shield-lock', 'Lock login / Resume timer / Anti Newtab',
+        <?= $item('moodleTools', 'lockres', 'shield-lock', 'Batas login / Resume timer',
             '<form method="post" action="' . site_url('tools/ujian') . '">' . $csrf . '<input type="hidden" name="bagian" value="aturan">'
-            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_lock" name="lock_login" value="1"' . ($on('lock_login') ? ' checked' : '') . '>'
-            . '<label class="form-check-label" for="f_lock"><strong>Lock login</strong> — peserta harus meminta reset ke pengawas bila masih berstatus login di perangkat lain. Bila mati, login di perangkat baru otomatis mengeluarkan perangkat lama.</label></div>'
-            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_resume" name="resume_timer" value="1"' . ($on('resume_timer') ? ' checked' : '') . '>'
+            . '<div class="d-flex flex-wrap align-items-center gap-2 mb-3"><label class="form-label mb-0" for="f_login_maks"><strong>Batas login per mapel</strong></label>'
+            . '<input class="form-control form-control-sm" style="width:5rem" type="number" min="0" max="20" id="f_login_maks" name="login_maks" value="' . \App\Libraries\KeluarAplikasi::maks('login') . '">'
+            . '<span class="small text-body-secondary">kali (0 = tidak dibatasi). Login untuk memulai ujian dihitung 1; lebih dari batas selama ujian mapel itu berjalan, akun <strong>terkunci</strong> sampai pengawas menekan Buka kunci di Lock Peserta.</span></div>'            . '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="f_resume" name="resume_timer" value="1"' . ($on('resume_timer') ? ' checked' : '') . '>'
             . '<label class="form-check-label" for="f_resume"><strong>Resume timer</strong> — peserta yang keluar (komputer mati, pindah komputer) dapat melanjutkan ujian dengan sisa waktunya; waktu selama keluar ditambahkan saat ia login lagi, selama waktu ujiannya belum habis.</label></div>'
-            . '<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="f_newtab" name="anti_newtab" value="1"' . ($on('anti_newtab') ? ' checked' : '') . '>'
-            . '<label class="form-check-label" for="f_newtab"><strong>Anti Newtab</strong> — peserta otomatis keluar bila membuka tab baru atau aplikasi lain saat mengerjakan quiz. Jawaban yang sudah tersimpan tetap aman.</label></div>'
             . '<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-save me-1"></i>Simpan</button></form>') ?>
     </div>
 <?php endif ?>

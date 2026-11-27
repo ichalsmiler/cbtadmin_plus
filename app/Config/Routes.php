@@ -132,6 +132,8 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
 
     $routes->get('reset_login', 'ResetLogin::index');
     $routes->post('reset_login/reset', 'ResetLogin::reset');
+    $routes->get('lock_peserta', 'LockPeserta::index');
+    $routes->post('lock_peserta/buka', 'LockPeserta::buka');
 
     $routes->get('dokumen/cetak_doc', 'Dokumen::cetak');
     $routes->get('dokumen/cetak_doc/kartu', 'Dokumen::kartu');
