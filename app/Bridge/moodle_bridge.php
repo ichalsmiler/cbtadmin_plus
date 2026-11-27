@@ -464,6 +464,7 @@ try {
                     }
                     $item['count'] = count(\core\session\manager::get_sessions_by_userid((int) $userid));
                     \core\session\manager::destroy_user_sessions((int) $userid);
+                    unset_user_preference('cbtujian_ditolak', (int) $userid); // tanda "ditolak: perangkat lain" (Lock login)
                     $item['status'] = 'direset';
                 } catch (Throwable $e) {
                     $item['error'] = cbt_clean_error($e->getMessage());

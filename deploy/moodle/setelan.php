@@ -122,9 +122,11 @@ $setel('forcelogin', 1);                 // wajib login
 $setel('guestloginbutton', 0);           // tanpa tombol masuk sebagai tamu
 $setel('auth', implode(',', array_diff(explode(',', (string) $CFG->auth), ['email', ''])));  // tanpa daftar mandiri
 $setel('registerauth', '');
-// Satu akun satu perangkat: login baru menendang sesi lama. Bila Lock login (CBT Admin → Tools) aktif,
-// login baru justru ditolak oleh plugin local_cbtujian, jadi batas bawaan Moodle dimatikan.
-$setel('limitconcurrentlogins', get_config('local_cbtujian', 'locklogin') ? 0 : 1);
+// Satu akun satu perangkat lewat Lock login plugin local_cbtujian (selalu aktif): login dari perangkat LAIN
+// ditolak sampai pengawas me-Reset Login; perangkat yang sama (keluar aplikasi lalu masuk lagi) diterima.
+// Batas bawaan Moodle (menendang sesi lama) dimatikan.
+$setel('locklogin', 1, 'local_cbtujian');
+$setel('limitconcurrentlogins', 0);
 $setel('passwordpolicy', 0);             // Upload users tidak memaksa ganti kata sandi
 $setel('debug', 0);
 $setel('debugdisplay', 0);

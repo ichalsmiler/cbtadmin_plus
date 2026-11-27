@@ -29,12 +29,23 @@ class callbacks {
         if (is_siteadmin($userid)) {
             return;
         }
-        if (get_config('local_cbtujian', 'locklogin') && self::sesi_lain($userid)) {
-            // Sesi baru ditolak pada permintaan berikutnya (lihat sebelum_header), supaya alur login Moodle
-            // selesai dulu dengan rapi. Sesi lama tetap berjalan.
-            $SESSION->local_cbtujian_tolak = 'masihlogin';
+        if (get_config('local_cbtujian', 'locklogin')) {
+            $lain = self::sesi_lain($userid);
+            if ($lain !== [] && !self::perangkat_sama($userid, $lain)) {
+                // Login dari perangkat LAIN: sesi baru ditolak pada permintaan berikutnya (lihat setelah_config),
+                // supaya alur login Moodle selesai dulu dengan rapi. Sesi lama tetap berjalan; percobaan dicatat
+                // untuk menu Reset Login di panel.
+                $SESSION->local_cbtujian_tolak = 'masihlogin';
+                set_user_preference('cbtujian_ditolak', json_encode(['w' => time(), 'ip' => getremoteaddr()]), $userid);
 
-            return;
+                return;
+            }
+            // Perangkat yang sama (keluar aplikasi lalu masuk lagi): sesi lama perangkat ini ditutup, login diterima.
+            foreach ($lain as $sid) {
+                \core\session\manager::kill_session($sid);
+            }
+            set_user_preference('cbtujian_perangkat', json_encode(self::cap_perangkat()), $userid);
+            unset_user_preference('cbtujian_ditolak', $userid);
         }
         if (self::login_maks() > 0) {
             try {
@@ -62,18 +73,83 @@ class callbacks {
         }
     }
 
-    /** Apakah user masih punya sesi aktif lain (selain sesi ini). */
-    private static function sesi_lain(int $userid): bool {
+    /** Sid sesi aktif lain milik user (selain sesi ini). */
+    private static function sesi_lain(int $userid): array {
         global $CFG;
 
         $batas = time() - (int) $CFG->sessiontimeout;
+        $sid   = [];
         foreach (\core\session\manager::get_sessions_by_userid($userid) as $s) {
             if ($s->sid !== session_id() && (int) $s->timemodified > $batas) {
-                return true;
+                $sid[] = $s->sid;
             }
         }
 
-        return false;
+        return $sid;
+    }
+
+    // ------------------------------------------------------------------ Identitas perangkat (Lock login)
+
+    /** Cookie penanda perangkat (acak, bertahan 1 tahun; tidak ikut hilang saat sesi Moodle berakhir). */
+    private const COOKIE_PERANGKAT = 'CBTPERANGKAT';
+
+    /** Nilai cookie perangkat untuk permintaan ini (dibuat di setelah_config bila belum ada). */
+    private static ?string $perangkat = null;
+
+    /** Pasang cookie perangkat bila belum ada (dipanggil sebelum header terkirim). */
+    private static function pasang_cookie_perangkat(): void {
+        $nilai = (string) ($_COOKIE[self::COOKIE_PERANGKAT] ?? '');
+        if (preg_match('/^[a-f0-9]{32}$/', $nilai)) {
+            self::$perangkat = $nilai;
+
+            return;
+        }
+        self::$perangkat = bin2hex(random_bytes(16));
+        if (!headers_sent()) {
+            setcookie(self::COOKIE_PERANGKAT, self::$perangkat, [
+                'expires'  => time() + 365 * DAYSECS,
+                'path'     => '/',
+                'secure'   => is_https(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+    }
+
+    /** Ciri perangkat saat ini: cookie perangkat, IP, dan sidik User-Agent. */
+    private static function cap_perangkat(): array {
+        return [
+            'c'  => self::$perangkat ?? '',
+            'ip' => (string) getremoteaddr(),
+            'ua' => sha1((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')),
+        ];
+    }
+
+    /**
+     * Apakah login ini dari perangkat yang sama dengan sesi yang masih aktif.
+     * Sama bila cookie perangkat cocok, atau (bila cookie ikut terhapus saat aplikasi ditutup) IP dan
+     * User-Agent sama dengan login terakhir yang diterima. Belum ada catatan (sesi dari sebelum fitur ini):
+     * sama bila IP semua sesi aktif lain sama dengan IP sekarang.
+     */
+    private static function perangkat_sama(int $userid, array $sids): bool {
+        global $DB;
+
+        $kini = self::cap_perangkat();
+        $lalu = json_decode((string) get_user_preferences('cbtujian_perangkat', '', $userid), true);
+        if (is_array($lalu)) {
+            if ($kini['c'] !== '' && ($lalu['c'] ?? '') === $kini['c']) {
+                return true;
+            }
+
+            return ($lalu['ip'] ?? '') === $kini['ip'] && ($lalu['ua'] ?? '') === $kini['ua'];
+        }
+        foreach ($DB->get_records_list('sessions', 'sid', $sids, '', 'id, lastip') as $s) {
+            if ((string) $s->lastip !== $kini['ip']) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -129,6 +205,9 @@ class callbacks {
 
         if (CLI_SCRIPT || during_initial_install() || empty($SESSION)) {
             return;
+        }
+        if (get_config('local_cbtujian', 'locklogin')) {
+            self::pasang_cookie_perangkat();
         }
 
         // Lock login: sesi baru ditolak, kembali ke halaman login dengan pesan.

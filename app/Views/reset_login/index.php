@@ -6,6 +6,13 @@
     <div class="alert alert-danger" role="alert">Data login Moodle tidak bisa dibaca. Periksa pengaturan <code>moodle.*</code> di berkas <code>.env</code>.</div>
 <?php endif ?>
 
+<?php $nTolak = count(array_filter($rows, static fn ($r) => $r['tolak'] !== null)); ?>
+<?php if ($nTolak > 0): ?>
+    <div class="alert alert-danger d-flex flex-wrap gap-2 align-items-center" role="status">
+        <i class="bi bi-phone-flip"></i>
+        <span><strong><?= $nTolak ?> peserta</strong> mencoba login di <strong>perangkat lain</strong> dan ditolak (baris merah). Pastikan memang siswa itu, lalu Reset Login supaya ia bisa masuk di perangkat barunya.</span>
+    </div>
+<?php endif ?>
 <?php if ($menit > 0): ?>
     <div class="alert alert-info d-flex flex-wrap gap-2 align-items-center" role="status">
         <span>Menampilkan <strong>user aktif <?= (int) $menit ?> menit terakhir</strong> (sama dengan kartu User Aktif di Dashboard).</span>
@@ -69,17 +76,17 @@
             </button>
         </div>
         <div class="card-body">
-            <table class="table table-hover align-middle w-100 datatable tabel-hp" data-order-col="1">
+            <table class="table table-hover align-middle w-100 datatable tabel-hp" <?= $nTolak > 0 ? 'data-order-col="10" data-order-dir="desc"' : 'data-order-col="1"' ?>>
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
-                    <th>Username</th><th>Nama</th><th>Kelas</th><th>Ruang</th><th>IP terakhir</th><th>Login</th><th>Aktif terakhir</th><th class="text-center">Sesi</th>
+                    <th>Username</th><th>Nama</th><th>Kelas</th><th>Ruang</th><th>IP terakhir</th><th>Login</th><th>Aktif terakhir</th><th class="text-center">Sesi</th><th>Perangkat lain</th>
                     <th data-orderable="false"></th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php foreach ($rows as $r): ?>
-                    <tr>
+                    <tr<?= $r['tolak'] !== null ? ' class="table-danger"' : '' ?>>
                         <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= $r['userid'] ?>" aria-label="Pilih <?= esc($r['username'], 'attr') ?>"></td>
                         <td><code><?= esc($r['username']) ?></code></td>
                         <td><?= esc($r['nama']) ?></td>
@@ -89,6 +96,9 @@
                         <td data-order="<?= $r['login'] ?>"><?= $fmt($r['login']) ?></td>
                         <td data-order="<?= $r['aktif'] ?>"><?= $fmt($r['aktif']) ?></td>
                         <td class="text-center"><?= $r['sesi'] > 0 ? '<span class="badge text-bg-success">' . $r['sesi'] . '</span>' : '<span class="text-muted">0</span>' ?></td>
+                        <td data-order="<?= $r['tolak']['w'] ?? 0 ?>"><?= $r['tolak'] !== null
+                            ? '<span class="badge text-bg-danger">Ditolak ' . esc($fmt($r['tolak']['w'])) . '</span>' . ($r['tolak']['ip'] !== '' ? ' <small class="text-muted">' . esc($r['tolak']['ip']) . '</small>' : '')
+                            : '<span class="text-muted">–</span>' ?></td>
                         <td class="text-end">
                             <button class="btn btn-outline-danger btn-sm text-nowrap" type="button" <?= $r['sesi'] === 0 ? 'disabled' : '' ?>
                                     data-post="<?= site_url('reset_login/reset') ?>" data-fields="<?= esc(json_encode(['ids[]' => $r['userid']]), 'attr') ?>"

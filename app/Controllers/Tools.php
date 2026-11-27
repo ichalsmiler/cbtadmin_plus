@@ -27,7 +27,7 @@ class Tools extends PanelController
     ];
 
     /** Aturan ujian (plugin Moodle local_cbtujian). */
-    private const UJIAN = ['lock_login' => 'locklogin', 'resume_timer' => 'resumetimer', 'anti_newtab' => 'antinewtab'];
+    private const UJIAN = ['resume_timer' => 'resumetimer', 'anti_newtab' => 'antinewtab'];
 
     private const USERNAME_RE = '/^[A-Za-z0-9._-]{3,60}$/';
 
@@ -322,6 +322,7 @@ class Tools extends PanelController
         foreach (self::UJIAN as $key => $plugin) {
             $data[$plugin] = Settings::get($key, '0') === '1' ? 1 : 0;
         }
+        $data['locklogin']      = 1; // selalu aktif: login dari perangkat lain ditolak sampai di-Reset Login
         $data['antinewtabmaks'] = \App\Libraries\KeluarAplikasi::maks();
         $data['loginmaks']      = \App\Libraries\KeluarAplikasi::maks('login');
         $hasil = MoodleBridge::call('cbtujian_config', $data)[0] ?? [];

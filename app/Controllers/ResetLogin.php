@@ -35,6 +35,16 @@ class ResetLogin extends PanelController
                 ->join('ruang r', 'r.id = p.ruang_id', 'left')
                 ->get()->getResultArray(), null, 'username');
 
+            // Percobaan login dari perangkat lain yang ditolak Lock login (plugin cbtujian), hapus saat di-reset.
+            $ditolak = [];
+            foreach (array_chunk(array_keys($users), 1000) as $chunk) {
+                $prefs = Moodle::db()->table(Moodle::t('user_preferences'))->select('userid, value')
+                    ->where('name', 'cbtujian_ditolak')->whereIn('userid', $chunk)->get()->getResultArray();
+                foreach ($prefs as $p) {
+                    $ditolak[(int) $p['userid']] = json_decode((string) $p['value'], true) ?: [];
+                }
+            }
+
             foreach ($users as $id => $u) {
                 $s = $sessions[$id] ?? null;
                 if (! $s && $cari === '' && $menit === 0) {
@@ -57,6 +67,7 @@ class ResetLogin extends PanelController
                     'ip'       => $s['lastip'] ?? '',
                     'login'    => (int) ($s['timecreated'] ?? 0),
                     'aktif'    => (int) ($s['timemodified'] ?? 0),
+                    'tolak'    => isset($ditolak[$id]) ? ['w' => (int) ($ditolak[$id]['w'] ?? 0), 'ip' => (string) ($ditolak[$id]['ip'] ?? '')] : null,
                 ];
             }
         } catch (\Throwable $e) {
