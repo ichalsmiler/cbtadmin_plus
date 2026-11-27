@@ -27,7 +27,7 @@
             <label class="form-label" for="nama">Nama lengkap pengawas (beserta gelar)</label>
             <input class="form-control" type="text" id="nama" name="nama" value="<?= esc($nama) ?>" minlength="3" maxlength="100" required autofocus>
         </div>
-        <div class="form-text mb-4">Nama ini dicatat sebagai pengawas ruang ini untuk hari dan sesi sekarang, dan tampil di laporan kehadiran.</div>
+        <div class="form-text mb-4">Nama ini dicatat sebagai pengawas ruang ini untuk hari dan sesi sekarang, dan tampil di Rekap Kehadiran.</div>
         <button class="btn btn-primary w-100 py-2" type="submit">Lanjut</button>
     </form>
     <div class="text-center mt-3"><a class="small" href="<?= site_url('logout') ?>">Keluar</a></div>

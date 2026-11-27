@@ -9,7 +9,7 @@ use App\Libraries\ActiveTest;
 use App\Libraries\Tingkat;
 
 /**
- * Laporan Kehadiran: pengawas mengabsen siswa ruangnya hari ini (siswa tidak hadir
+ * Isi Kehadiran (dulu Laporan Kehadiran): pengawas mengabsen siswa ruangnya hari ini (siswa tidak hadir
  * diblokir di Moodle); administrator melihat rekap semua ruang dan membuka blokir.
  */
 class Kehadiran extends PanelController
@@ -27,7 +27,7 @@ class Kehadiran extends PanelController
                 return redirect()->to(site_url('dokumen/laporan_kehadiran') . '?tab=pengawas');
             }
 
-            return $this->render('kehadiran/index', ['title' => 'Laporan Kehadiran', 'ruang' => null, 'rows' => [], 'tanggal' => $tanggal, 'isAdmin' => false]);
+            return $this->render('kehadiran/index', ['title' => 'Isi Kehadiran', 'ruang' => null, 'rows' => [], 'tanggal' => $tanggal, 'isAdmin' => false]);
         }
 
         $ruang = db_connect()->table('ruang')->where('id', $ruangId)->get()->getRowArray();
@@ -46,7 +46,7 @@ class Kehadiran extends PanelController
         }
 
         return $this->render('kehadiran/index', [
-            'title'   => 'Laporan Kehadiran',
+            'title'   => 'Isi Kehadiran',
             'ruang'   => $ruang,
             'rows'    => $rows,
             'tanggal' => $tanggal,
@@ -116,7 +116,7 @@ class Kehadiran extends PanelController
 
     // ------------------------------------------------------------------ Rekap admin
 
-    /** Alamat lama "Absensi Ruang": kini tab Absensi Pengawas di Laporan Kehadiran. */
+    /** Alamat lama "Absensi Ruang": kini tab Absensi Pengawas di Isi Kehadiran. */
     public function rekap()
     {
         return redirect()->to(site_url('dokumen/laporan_kehadiran') . '?' . http_build_query(['tab' => 'pengawas', 'tanggal' => $this->tanggal()]));

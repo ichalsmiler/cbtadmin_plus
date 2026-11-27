@@ -37,7 +37,7 @@
         <?php elseif ($token['kunci']): ?>
             <div class="token-display text-muted"><i class="bi bi-lock-fill"></i></div>
             <p class="mt-2 mb-3">Token muncul setelah absensi siswa ruang ini hari ini disimpan.</p>
-            <a class="btn btn-primary" href="<?= site_url('kehadiran') ?>"><i class="bi bi-clipboard-check me-1"></i>Isi Laporan Kehadiran</a>
+            <a class="btn btn-primary" href="<?= site_url('kehadiran') ?>"><i class="bi bi-clipboard-check me-1"></i>Isi Kehadiran</a>
         <?php else: ?>
             <div class="token-display font-monospace fw-semibold" id="tokenValue">
                 <?= esc(! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–'))) ?>

@@ -52,7 +52,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 | Status Ujian: Setting Ujian / Token / Hapus Attempt | StatusTes / HapusAttempt (+ `ActiveTest`) |
 | Status Peserta (+ Login ganda) | StatusPeserta |
 | Reset Login / Lock Peserta (batas login per mapel) | ResetLogin / LockPeserta (+ `KeluarAplikasi`) |
-| Laporan Kehadiran | Kehadiran (+ `Absensi`) |
+| Isi Kehadiran | Kehadiran (+ `Absensi`) |
 | Blokir Siswa | BlokirSiswa (+ `Blokir`) |
 | Daftar Ruang | Ruang (+ `Pengawas`) |
 | Dokumen (+ Rekap Simulasi) | Dokumen / RekapSimulasi |

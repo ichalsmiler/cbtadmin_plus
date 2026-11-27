@@ -7,7 +7,7 @@ $menu = [
     // Soal: masukkan (RTF), edit/review naskah & kunci di Moodle (juga saat ujian berjalan), cek soal oleh guru, acak soal/opsi (admin).
     ['Soal', 'pencil-square', null, [['Masukkan Soal', 'soal'], ['Review & Edit Soal', 'soal/edit'], ['Acak Soal', 'acak_soal'], ['Cek Soal', 'cek_soal']]],
     ['Status Peserta', 'people', 'status_peserta'],
-    ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
+    ['Isi Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
@@ -83,7 +83,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
     <ul class="nav flex-column">
         <?php foreach ($menu as $i => $item): ?>
             <?php
-            // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Laporan Kehadiran
+            // Administrator: semua menu kecuali Token (ada di Setting Ujian) dan Isi Kehadiran
             // (rekapnya di Dokumen → Rekap Kehadiran). Pengawas: hanya menu yang boleh dibukanya.
             // Proktor (operator): menu/submenu yang diizinkan Guard; Token cukup lewat Status Ujian → Token.
             // Kurikulum: sama seperti proktor (menu/submenu yang diizinkan Guard). Masukkan Soal (soal) khusus admin.
