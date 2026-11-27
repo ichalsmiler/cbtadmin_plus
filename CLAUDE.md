@@ -57,7 +57,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 | Daftar Ruang | Ruang (+ `Pengawas`) |
 | Dokumen (+ Rekap Simulasi) | Dokumen / RekapSimulasi |
 | Hasil Ujian | HasilUjian (+ `AnalisisSoal`) |
-| Soal (grup): Masukkan Soal `soal` / Review & Edit Soal `soal/edit` / Cek Soal `cek_soal` | Soal (+ `SoalRtf`) / CekSoalPanel + CekGuru (+ `CekSoal`, `Telegram`) |
+| Soal (grup): Masukkan Soal `soal` / Review & Edit Soal `soal/edit` / Acak Soal `acak_soal` / Cek Soal `cek_soal` | Soal (+ `SoalRtf`) / AcakSoal / CekSoalPanel + CekGuru (+ `CekSoal`, `Telegram`) |
 | Admin Tools: Sesi / Jadwal / Kategori Mapel / Konvert User / Server Cadangan | SesiTingkat / Konvert / Tools::testManage / Konvert / ServerCadanganPanel (+ `ServerCadangan`) |
 | Tools: Moodle Tools / Info Sekolah / Panel | Tools (+ `LogUjian`) |
 
@@ -67,8 +67,8 @@ Library penting: `Moodle` (baca DB Moodle), `MoodleBridge::call(action, payload)
 Jembatan `Bridge/moodle_bridge.php` (aksi): create_users, reset_passwords, finish_attempts, delete_attempts,
 add_time, list_sessions, kill_sessions, quiz_password, course_visibility, category_visibility, suspend_users,
 cbtujian_config, purge_caches, create_category, create_categories, rename_categories, update_category, delete_category,
-delete_course, move_courses, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, soal_daftar, soal_baca, soal_ubah, quiz_timelimit,
+delete_course, move_courses, kategori_nonaktif, login_logo, favicon, sort_courses, reset_moodle, enrol_users, import_soal, soal_daftar, soal_baca, soal_ubah, quiz_timelimit, quiz_shuffle,
 create_course, create_courses, unenrol_users.
 
-Migrasi `Database/Migrations/`: admins (role admin/operator/proktor/demo, + sesi_token: pengawas maks. 2 perangkat, sesi 30 menit), peserta, ruang, sesi, settings, activity_log, absensi, blokir, laporan_siswa, cek_guru + cek_tugas (Cek Soal).
+Migrasi `Database/Migrations/`: admins (role admin/operator/proktor/demo, + sesi_token: pengawas maks. 2 perangkat, sesi 30 menit), peserta, ruang, sesi, settings, activity_log, absensi, blokir, laporan_siswa, cek_guru + cek_tugas (Cek Soal), pengawas_hadir (nama pengawas wajib diisi setelah login, `PengawasHadir`).
 README.md = panduan untuk manusia; `docs/INSTALASI-SERVER.md` = tutorial pasang server.

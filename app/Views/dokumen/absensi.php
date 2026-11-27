@@ -46,7 +46,8 @@ $q     = http_build_query(array_filter(['tanggal' => $tanggal, 'tingkat' => $tin
                     <?php $belum = (int) $r['total'] - (int) $r['hadir'] - (int) $r['tidak_hadir']; ?>
                     <tr>
                         <td data-order="<?= esc(str_pad($r['nama'], 10, '0', STR_PAD_LEFT)) ?>"><?= esc($r['nama']) ?></td>
-                        <td><?= esc($r['pengawas'] ?: '–') ?></td>
+                        <?php // Nama yang diisi pengawas setelah login hari itu; bila belum ada, nama pengawas di Daftar Ruang. ?>
+                        <td><?= esc(($namaPengawas[(int) $r['id']] ?? '') ?: ($r['pengawas'] ?: '–')) ?></td>
                         <td class="text-center"><?= (int) $r['total'] ?></td>
                         <td class="text-center text-success"><?= (int) $r['hadir'] ?></td>
                         <td class="text-center text-danger"><?= (int) $r['tidak_hadir'] ?></td>

@@ -6,6 +6,7 @@ use App\Libraries\ActiveTest;
 use App\Libraries\ActivityLog;
 use App\Libraries\CekSoal;
 use App\Libraries\Moodle;
+use App\Libraries\NilaiUjian;
 use App\Libraries\Settings;
 use App\Libraries\SysInfo;
 use App\Libraries\Telegram;
@@ -22,7 +23,7 @@ class TelegramBot extends BaseCommand
 {
     protected $group       = 'CBT';
     protected $name        = 'cbt:telegram';
-    protected $description = 'Jawab perintah Telegram admin (/status, /token, /absensi, /bantuan).';
+    protected $description = 'Jawab perintah Telegram admin (/status, /token, /absensi, /nilai, /bantuan).';
 
     private const DURASI = 55;
 
@@ -82,9 +83,13 @@ class TelegramBot extends BaseCommand
                     continue;
                 }
                 $perintah = strtolower(preg_replace('/@\S+$/', '', strtok($teks, ' ')));
-                if ($perintah === '/ceksoal' || $perintah === '/cekstatus') {
+                if (in_array($perintah, ['/ceksoal', '/cekstatus', '/nilai'], true)) {
                     try {
-                        $perintah === '/ceksoal' ? $this->cekMulai($token, $chat) : $this->cekStatus($token, $chat);
+                        match ($perintah) {
+                            '/ceksoal'   => $this->cekMulai($token, $chat),
+                            '/cekstatus' => $this->cekStatus($token, $chat),
+                            '/nilai'     => $this->nilaiMulai($token, $chat),
+                        };
                     } catch (\Throwable $e) {
                         log_message('error', 'cbt:telegram: ' . $e->getMessage());
                         self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => '⚠️ Gagal: ' . $e->getMessage()], 15);
@@ -123,6 +128,7 @@ class TelegramBot extends BaseCommand
         'absensi'   => 'ruang yang belum lengkap absensinya',
         'ceksoal'   => 'buat tautan cek soal untuk guru',
         'cekstatus' => 'tautan cek soal yang belum selesai',
+        'nilai'     => 'unduh nilai per hari ujian (Excel per mapel)',
         'bantuan'   => 'daftar perintah ini',
     ];
 
@@ -278,6 +284,11 @@ class TelegramBot extends BaseCommand
         $ubah  = static fn (string $teks, array $tombol = []) => self::api($token, 'editMessageText', ['chat_id' => $chat, 'message_id' => $msgId, 'text' => $teks, 'disable_web_page_preview' => 'true']
             + ($tombol !== [] ? ['reply_markup' => json_encode(['inline_keyboard' => $tombol])] : []), 15);
         $parts = explode(':', $data, 3);
+        if (($parts[0] ?? '') === 'nl') {
+            $this->nilaiTombol($token, $chat, $msgId, (int) ($parts[1] ?? 0), $jawab, $ubah);
+
+            return;
+        }
         if (($parts[0] ?? '') !== 'cs') {
             $jawab();
 
@@ -451,6 +462,78 @@ class TelegramBot extends BaseCommand
         $tombol = array_map(static fn ($t) => [['text' => 'Cabut: ' . $t['guru_nama'] . ' · ' . $t['mapel'], 'callback_data' => 'cs:c:' . $t['id']]], array_slice($aktif, 0, 10));
 
         return [mb_substr($teks, 0, 4000), $tombol];
+    }
+
+    // ---------- Nilai per hari ujian (/nilai; tombol "nl:<id kategori>") ----------
+
+    /**
+     * Hari ujian = kategori Moodle tingkat atas (H1, H2, … dari Kategori Mapel) yang punya quiz bernilai; kategori
+     * simulasi dan SESI NONAKTIF tidak ikut (quiz simulasi juga dibuang NilaiUjian::rekap).
+     *
+     * @return list<array{id: int, name: string, mapel: int}>
+     */
+    private static function hariUjian(): array
+    {
+        $kat   = Moodle::categories();
+        $atas  = [];
+        foreach ($kat as $c) {
+            $atas[(int) $c['id']] = (int) (explode('/', trim((string) $c['path'], '/'))[0] ?? 0);
+        }
+        $catCourse = array_column(Moodle::allCourses(), 'category', 'id');
+        $jumlah    = [];
+        foreach (NilaiUjian::rekap('', '')['quiz'] as $q) {
+            $top = $atas[(int) ($catCourse[$q['course']] ?? 0)] ?? 0;
+            $jumlah[$top] = ($jumlah[$top] ?? 0) + 1;
+        }
+        $hari = [];
+        foreach ($kat as $c) {
+            $nama = (string) $c['name'];
+            if ((int) $c['parent'] === 0 && isset($jumlah[(int) $c['id']]) && stripos($nama, 'simulasi') === false && strcasecmp($nama, ActiveTest::NAMA_NONAKTIF) !== 0) {
+                $hari[] = ['id' => (int) $c['id'], 'name' => $nama, 'mapel' => $jumlah[(int) $c['id']]];
+            }
+        }
+
+        return $hari;
+    }
+
+    private function nilaiMulai(string $token, string $chat): void
+    {
+        $hari = self::hariUjian();
+        if ($hari === []) {
+            self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => '📊 Belum ada nilai ujian (quiz simulasi tidak dihitung).'], 15);
+
+            return;
+        }
+        $btn = array_map(static fn ($h) => ['text' => $h['name'] . ' (' . $h['mapel'] . ' mapel)', 'callback_data' => 'nl:' . $h['id']], $hari);
+        self::api($token, 'sendMessage', ['chat_id' => $chat, 'text' => '📊 Unduh nilai – pilih hari ujian:', 'reply_markup' => json_encode(['inline_keyboard' => array_chunk($btn, 2)])], 15);
+    }
+
+    /** Kirim ZIP berisi Excel nilai per mapel hari itu, dalam folder per tingkatan (X/, XI/, XII/). */
+    private function nilaiTombol(string $token, string $chat, int $msgId, int $katId, callable $jawab, callable $ubah): void
+    {
+        $hari = array_values(array_filter(self::hariUjian(), static fn ($h) => $h['id'] === $katId))[0] ?? null;
+        if ($hari === null) {
+            $jawab('Hari ujian tidak ditemukan atau belum ada nilai.', true);
+
+            return;
+        }
+        $quiz = NilaiUjian::rekap('', '', $katId)['quiz'];
+        if ($quiz === []) {
+            $jawab('Belum ada nilai di ' . $hari['name'] . '.', true);
+
+            return;
+        }
+        $jawab('Menyiapkan berkas…');
+        $ubah('⏳ Menyiapkan nilai ' . $hari['name'] . ' (' . count($quiz) . ' mapel)…');
+
+        $zip = NilaiUjian::zip($quiz, '', '', true);
+        $r   = Telegram::kirimBerkas($token, $chat, 'nilai_' . preg_replace('/[^A-Za-z0-9]+/', '_', $hari['name']) . '_' . date('Ymd_His') . '.zip', $zip['isi'],
+            '🗂 Nilai ' . $hari['name'] . ': Excel ' . $zip['jumlah'] . ' mapel, per tingkatan');
+        ActivityLog::add('export_hasil', 'Telegram nilai ' . $hari['name'] . ' (' . $zip['jumlah'] . ' mapel)', 'telegram');
+
+        $ubah(($r['ok'] ?? false)
+            ? '✅ Nilai ' . $hari['name'] . ' terkirim: ' . $zip['jumlah'] . ' mapel.'
+            : '⚠️ Nilai ' . $hari['name'] . ' gagal dikirim: ' . ($r['description'] ?? 'tidak terkirim'));
     }
 
     private static function api(string $token, string $metode, array $isi, int $batas): array

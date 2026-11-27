@@ -284,6 +284,28 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
         }
         document.execCommand('insertText', false, teks);
     });
+    // Tab di editor = jarak tab (4 spasi tetap, tidak menyusut di HTML) seperti di Word, bukan pindah ke kolom lain.
+    // Shift+Tab menghapus jarak tab tepat sebelum kursor.
+    modal.addEventListener('keydown', function (event) {
+        if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey || !event.target.closest('.editor-soal')) { return; }
+        event.preventDefault();
+        if (!event.shiftKey) {
+            document.execCommand('insertText', false, '    ');
+            return;
+        }
+        var sel = window.getSelection();
+        if (!sel.rangeCount || !sel.isCollapsed) { return; }
+        var node = sel.anchorNode, pos = sel.anchorOffset;
+        if (node.nodeType !== 3) { return; }
+        var awal = pos;
+        while (awal > 0 && pos - awal < 4 && /[  ]/.test(node.data.charAt(awal - 1))) { awal--; }
+        if (awal < pos) {
+            var r = document.createRange();
+            r.setStart(node, awal); r.setEnd(node, pos);
+            sel.removeAllRanges(); sel.addRange(r);
+            document.execCommand('delete');
+        }
+    });
     document.querySelectorAll('[data-perintah]').forEach(function (b) {
         b.addEventListener('mousedown', function (event) { event.preventDefault(); });
         b.addEventListener('click', function () { document.execCommand(b.dataset.perintah); });

@@ -5,6 +5,7 @@ namespace App\Commands;
 use App\Libraries\Absensi;
 use App\Libraries\ActiveTest;
 use App\Libraries\ActivityLog;
+use App\Libraries\LaporanSesi;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 
@@ -34,6 +35,13 @@ class TokenCron extends BaseCommand
             }
         } catch (\Throwable $e) {
             log_message('error', 'cbt:token absensi: ' . $e->getMessage());
+        }
+
+        // Laporan evaluasi sesi ke Telegram 15 menit setelah sesi dimatikan.
+        try {
+            LaporanSesi::pantau();
+        } catch (\Throwable $e) {
+            log_message('error', 'cbt:token laporan sesi: ' . $e->getMessage());
         }
 
         try {

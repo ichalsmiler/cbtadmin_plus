@@ -4,8 +4,8 @@ $menu = [
     ['Dashboard', 'house', ''],
     ['Daftar Peserta', 'person', null, [['Data CBTAdmin', 'daftar_peserta/cbtadmin'], ['Data Moodle', 'daftar_peserta/moodle']]],
     ['Status Ujian', 'check-square', null, [['Setting Ujian', 'status_tes'], ['Token', 'token_ujian'], ['Hapus Attempt', 'hapus_attempt']]],
-    // Soal: masukkan (RTF), edit/review naskah & kunci di Moodle (juga saat ujian berjalan), cek soal oleh guru.
-    ['Soal', 'pencil-square', null, [['Masukkan Soal', 'soal'], ['Review & Edit Soal', 'soal/edit'], ['Cek Soal', 'cek_soal']]],
+    // Soal: masukkan (RTF), edit/review naskah & kunci di Moodle (juga saat ujian berjalan), cek soal oleh guru, acak soal/opsi (admin).
+    ['Soal', 'pencil-square', null, [['Masukkan Soal', 'soal'], ['Review & Edit Soal', 'soal/edit'], ['Acak Soal', 'acak_soal'], ['Cek Soal', 'cek_soal']]],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Laporan Kehadiran', 'clipboard-check', 'kehadiran'],
     ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],

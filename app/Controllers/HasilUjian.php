@@ -6,8 +6,8 @@ use App\Libraries\ActivityLog;
 use App\Libraries\AnalisisSoal;
 use App\Libraries\Excel;
 use App\Libraries\Moodle;
+use App\Libraries\NilaiUjian;
 use App\Libraries\Pdf;
-use App\Libraries\QuizStatus;
 use App\Libraries\Tingkat;
 
 class HasilUjian extends PanelController
@@ -51,23 +51,8 @@ class HasilUjian extends PanelController
 
         return $this->response->download(
             'hasil_' . preg_replace('/[^A-Za-z0-9]+/', '_', $data['quiz']['name']) . '_' . date('Ymd_His') . '.xlsx',
-            self::excel($data['rows'])
+            NilaiUjian::excel($data['rows'], (int) $data['quiz']['id']) // + lembar Analisis Soal (tingkat kesukaran)
         );
-    }
-
-    private static function excel(array $list)
-    {
-        $rows = [];
-        foreach ($list as $i => $r) {
-            $rows[] = [
-                $i + 1, $r['nomor_peserta'], $r['username'], $r['nama'], $r['kelas'], $r['ruang'] ?? '',
-                self::label($r['status']), $r['nilai'] === null ? '' : number_format($r['nilai'], 2, ',', ''),
-                $r['timestart'] ? date('d/m/Y H:i', $r['timestart']) : '', $r['timefinish'] ? date('d/m/Y H:i', $r['timefinish']) : '',
-                $r['durasi'] !== null ? self::durasi($r['durasi']) : '',
-            ];
-        }
-
-        return Excel::build(['no', 'nomor_peserta', 'username', 'nama', 'kelas', 'ruang', 'status', 'nilai', 'mulai', 'selesai', 'durasi'], $rows);
     }
 
     /**
@@ -82,27 +67,13 @@ class HasilUjian extends PanelController
             return redirect()->to(site_url('hasil_ujian'))->with('error', 'Belum ada nilai untuk diunduh (sesuai filter).');
         }
 
-        @set_time_limit(0);
-        $tmp = tempnam(WRITEPATH . 'cache', 'nilai');
-        $zip = new \ZipArchive();
-        if ($zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+        try {
+            ['isi' => $isi, 'jumlah' => $jumlah] = NilaiUjian::zip($quiz, $filter['kelas'], $filter['tingkat']);
+        } catch (\Throwable $e) {
+            log_message('error', 'ZIP nilai: ' . $e->getMessage());
+
             return redirect()->to(site_url('hasil_ujian'))->with('error', 'Berkas ZIP tidak bisa dibuat.');
         }
-        $school = \App\Libraries\School::info();
-        $jumlah = 0;
-        foreach ($quiz as $q) {
-            $d = $this->collect((int) $q['id']);
-            if (! $d['quiz'] || $d['rows'] === []) {
-                continue;
-            }
-            $nama = trim(preg_replace('/[^A-Za-z0-9]+/', '_', $q['course_short'] . ' ' . $q['name']), '_');
-            $zip->addFromString($nama . '.pdf', Pdf::render('pdf/hasil', $d + ['school' => $school]));
-            $zip->addFromString($nama . '.xlsx', self::excel($d['rows']));
-            $jumlah++;
-        }
-        $zip->close();
-        $isi = (string) file_get_contents($tmp);
-        @unlink($tmp);
         ActivityLog::add('export_hasil', 'ZIP ' . $jumlah . ' mapel');
 
         $label = $filter['kelas'] !== '' ? $filter['kelas'] : ($filter['tingkat'] !== '' ? 'kelas_' . $filter['tingkat'] : 'semua_kelas');
@@ -179,59 +150,18 @@ class HasilUjian extends PanelController
 
     public static function label(string $status): string
     {
-        return ['finished' => 'Selesai', 'inprogress' => 'Mengerjakan', 'notstarted' => 'Belum mulai'][$status];
+        return NilaiUjian::label($status);
     }
 
     public static function durasi(int $seconds): string
     {
-        return sprintf('%d:%02d', intdiv($seconds, 60), $seconds % 60);
+        return NilaiUjian::durasi($seconds);
     }
 
-    /**
-     * Rekap nilai semua mapel: siswa panel (sesuai Tingkatan/Kelas) × quiz yang sudah punya nilai untuk siswa itu
-     * (tabel di layar dan daftar quiz untuk ZIP per mapel).
-     *
-     * @return array{quiz: list<array>, rows: list<array>, siswa: int}
-     */
+    /** @return array{quiz: list<array>, rows: list<array>, siswa: int} */
     private function rekap(string $kelas, string $tingkat): array
     {
-        $peserta = array_values(array_filter(
-            db_connect()->table('peserta')->select('nomor_peserta, nama, kelas, username')->orderBy('kelas')->orderBy('nama')->get()->getResultArray(),
-            static fn ($p) => ($kelas === '' || $p['kelas'] === $kelas) && Tingkat::cocok($p['kelas'], $tingkat)
-        ));
-        if ($peserta === []) {
-            return ['quiz' => [], 'rows' => [], 'siswa' => 0];
-        }
-
-        $mdb = Moodle::db();
-        $ids = array_column($mdb->table(Moodle::t('user'))->select('id, username')->where('deleted', 0)
-            ->whereIn('username', array_column($peserta, 'username'))->get()->getResultArray(), 'id', 'username');
-        $nilai = [];
-        if ($ids !== []) {
-            foreach ($mdb->table(Moodle::t('quiz_grades'))->select('quiz, userid, grade')->whereIn('userid', array_values($ids))->get()->getResultArray() as $g) {
-                $nilai[(int) $g['userid']][(int) $g['quiz']] = (float) $g['grade'];
-            }
-        }
-        $adaNilai = [];
-        foreach ($nilai as $per) {
-            $adaNilai += array_fill_keys(array_keys($per), true);
-        }
-        // Quiz simulasi (kategori/kursus/quiz bernama "SIMULASI") tidak ikut rekap.
-        $quiz = array_values(array_filter(Moodle::quizzes(), static fn ($q) => isset($adaNilai[(int) $q['id']])
-            && stripos($q['name'] . ' ' . $q['course_short'] . ' ' . $q['course_name'] . ' ' . $q['category_name'], 'simulasi') === false));
-        usort($quiz, static fn ($a, $b) => [$a['course_short'], $a['name']] <=> [$b['course_short'], $b['name']]);
-        $ikut = array_fill_keys(array_map('intval', array_column($quiz, 'id')), true);
-
-        $rows = [];
-        foreach ($peserta as $p) {
-            $per        = $nilai[(int) ($ids[$p['username']] ?? 0)] ?? [];
-            $ujian      = array_intersect_key($per, $ikut);
-            $p['nilai'] = $ujian;
-            $p['rata']  = $ujian ? array_sum($ujian) / count($ujian) : null;
-            $rows[]     = $p;
-        }
-
-        return ['quiz' => $quiz, 'rows' => $rows, 'siswa' => count($peserta)];
+        return NilaiUjian::rekap($kelas, $tingkat);
     }
 
     private function collect(?int $quizId = null): array
@@ -253,59 +183,7 @@ class HasilUjian extends PanelController
 
         try {
             $data['quizzes'] = Moodle::quizzes();
-            $data['quiz']    = $quizId > 0 ? QuizStatus::findQuiz($quizId) : null;
-            if (! $data['quiz']) {
-                return $data;
-            }
-
-            // Nilai akhir menurut metode penilaian quiz (tertinggi/rata-rata/dst.) dari gradebook quiz.
-            $grades = array_column(Moodle::db()->table(Moodle::t('quiz_grades'))
-                ->select('userid, grade')->where('quiz', $quizId)->get()->getResultArray(), 'grade', 'userid');
-
-            $semua = QuizStatus::forQuiz($data['quiz']);
-            // Median durasi dihitung dari semua peserta quiz ini yang sudah selesai (tidak terpengaruh filter).
-            $durasiSemua = [];
-            foreach ($semua as $s) {
-                if ($s['status'] === 'finished' && $s['timefinish'] > $s['timestart']) {
-                    $durasiSemua[] = $s['timefinish'] - $s['timestart'];
-                }
-            }
-            sort($durasiSemua);
-            $n      = count($durasiSemua);
-            $median = $n ? ($n % 2 ? $durasiSemua[intdiv($n, 2)] : intdiv($durasiSemua[$n / 2 - 1] + $durasiSemua[$n / 2], 2)) : null;
-            $data['median'] = $median;
-            $limit = (int) $data['quiz']['timelimit'];
-            $skala = (float) $data['quiz']['grade'];
-
-            $rows = QuizStatus::filter($semua, $ruangId, $kelas, Tingkat::dariRequest());
-            foreach ($rows as &$r) {
-                $r['nilai']  = isset($grades[$r['userid']]) ? (float) $grades[$r['userid']] : null;
-                $r['durasi'] = $r['status'] === 'finished' && $r['timefinish'] > 0 ? $r['timefinish'] - $r['timestart'] : null;
-                // Tanda curiga: durasi pendek (dibanding batas waktu atau median) dan/atau nilai tinggi.
-                $r['curiga'] = null;
-                if ($r['durasi'] !== null) {
-                    $cepat = ($limit > 0 && $r['durasi'] < $limit * $param['pw'] / 100)
-                        || ($median && $n >= 5 && $r['durasi'] < $median * $param['pm'] / 100);
-                    $tinggi = $r['nilai'] !== null && $skala > 0 && $r['nilai'] >= $skala * $param['pn'] / 100;
-                    $r['curiga'] = $cepat ? ($tinggi ? 'tinggi' : 'sedang') : null;
-                }
-            }
-            unset($r);
-            $data['cepat'] = array_values(array_filter($rows, static fn ($r) => $r['curiga'] !== null));
-            usort($data['cepat'], static fn ($a, $b) => [$a['curiga'] === 'tinggi' ? 0 : 1, $a['durasi']] <=> [$b['curiga'] === 'tinggi' ? 0 : 1, $b['durasi']]);
-            usort($rows, static fn ($a, $b) => [$a['kelas'], $a['nama']] <=> [$b['kelas'], $b['nama']]);
-            $data['rows'] = $rows;
-
-            $nilai = array_values(array_filter(array_column($rows, 'nilai'), static fn ($v) => $v !== null));
-            $data['stats'] = [
-                'peserta' => count($rows),
-                'selesai' => count(array_filter($rows, static fn ($r) => $r['status'] === 'finished')),
-                'dinilai' => count($nilai),
-                'rata'    => $nilai ? array_sum($nilai) / count($nilai) : null,
-                'min'     => $nilai ? min($nilai) : null,
-                'maks'    => $nilai ? max($nilai) : null,
-                'skala'   => (float) $data['quiz']['grade'],
-            ];
+            $data = NilaiUjian::hasil($quizId, $kelas, $data['tingkat'], $ruangId, $param) + $data;
         } catch (\Throwable $e) {
             $data['error'] = true;
             log_message('error', 'Hasil Ujian: ' . $e->getMessage());

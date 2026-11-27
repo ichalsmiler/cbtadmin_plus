@@ -74,6 +74,10 @@ $routes->group('', ['filter' => Guard::class], static function ($routes) {
     $routes->post('soal/kirim', 'Soal::kirim');
     $routes->get('soal/baca', 'Soal::baca');
     $routes->post('soal/ubah', 'Soal::ubah');
+    $routes->get('pengawas_nama', 'PengawasNama::index');
+    $routes->post('pengawas_nama', 'PengawasNama::simpan');
+    $routes->get('acak_soal', 'AcakSoal::index');
+    $routes->post('acak_soal/simpan', 'AcakSoal::simpan');
     // Cek Soal: menu admin/kurikulum + halaman guru /cek/<token> (tanpa login, lihat Guard).
     $routes->get('cek_soal', 'CekSoalPanel::index');
     $routes->post('cek_soal/buat', 'CekSoalPanel::buat');

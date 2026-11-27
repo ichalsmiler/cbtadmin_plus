@@ -371,6 +371,32 @@ class callbacks {
             ));
         }
 
+        // Navigasi soal macet karena jaringan: setelah kiriman pertama, core_question/question_engine
+        // (preventRepeatSubmission) menolak kiriman berikutnya + men-disable semua tombol submit, dan nav_to_page
+        // mod_quiz mengosongkan name tombol "next". Bila permintaan macet/gagal, halaman tidak berpindah dan semua
+        // nomor soal "tidak bisa diklik" sampai dimuat ulang. Di sini: keterangan "Menyimpan jawaban…" saat dikirim,
+        // dan bila 10 detik belum berpindah, kunci itu dilepas supaya siswa bisa menekan lagi (27 Nov 2026).
+        if ($PAGE->pagetype === 'mod-quiz-attempt') {
+            $simpan = json_encode('Menyimpan jawaban…', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $lambat = json_encode('Koneksi lambat. Bila soal belum berpindah, tekan lagi nomor soal atau tombol soal berikutnya.', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $hook->add_html(\html_writer::script(
+                "document.addEventListener('DOMContentLoaded',function(){var f=document.getElementById('responseform');if(!f)return;"
+                . "var nx=document.getElementById('mod_quiz-next-nav'),t=null,k=document.createElement('div');k.id='cbt-kirim';"
+                . "k.setAttribute('role','status');k.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2000;"
+                . "max-width:92vw;padding:8px 14px;border-radius:6px;background:#333;color:#fff;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3);display:none';"
+                . "document.body.appendChild(k);var tampil=function(s,warna){k.textContent=s;k.style.background=warna||'#333';k.style.display='block';};"
+                . "var jalan=false,lepas=function(){jalan=false;f.dataset.formSubmitted='0';f.querySelectorAll('input[type=submit]').forEach(function(i){i.removeAttribute('disabled');});"
+                . "if(nx&&!nx.name)nx.name='next';};"
+                . "f.addEventListener('submit',function(e){if(jalan||e.defaultPrevented)return;jalan=true;tampil({$simpan});clearTimeout(t);"
+                . "t=setTimeout(function(){lepas();tampil({$lambat},'#b45309');},10000);});"
+                // Tombol next yang namanya sudah dikosongkan nav_to_page membuat klik nomor berikutnya error: pulihkan
+                // namanya sebelum handler mod_quiz (delegasi di body) berjalan, selama tidak ada kiriman yang berjalan.
+                . "document.addEventListener('click',function(e){var q=e.target.closest&&e.target.closest('.qnbutton');"
+                . "if(q&&nx&&!nx.name&&f.dataset.formSubmitted!=='1')nx.name='next';},true);"
+                . "window.addEventListener('pageshow',function(e){if(e.persisted){clearTimeout(t);lepas();k.style.display='none';}});});"
+            ));
+        }
+
         // Anti Submit: tombol "Selesaikan ujian" (halaman soal terakhir) tidak bisa diklik sampai waktunya,
         // lalu aktif sendiri. Penjaga sebenarnya tetap anti_submit() di summary.php.
         if ($PAGE->pagetype === 'mod-quiz-attempt') {

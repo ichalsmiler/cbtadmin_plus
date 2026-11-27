@@ -44,6 +44,23 @@ class Telegram
         return self::api(self::token(), 'sendMessage', $isi, 15);
     }
 
+    /**
+     * Kirim berkas (isi di memori) sebagai dokumen. Batas Telegram 50 MB per berkas.
+     *
+     * @return array<string, mixed>
+     */
+    public static function kirimBerkas(string $token, string $chat, string $nama, string $isi, string $keterangan = ''): array
+    {
+        if (strlen($isi) > 49 * 1024 * 1024) {
+            return ['ok' => false, 'description' => 'Berkas ' . $nama . ' lebih dari 49 MB, unduh lewat panel.'];
+        }
+
+        return self::api($token, 'sendDocument', [
+            'chat_id' => $chat, 'caption' => mb_substr($keterangan, 0, 1000),
+            'document' => new \CURLStringFile($isi, $nama, 'application/octet-stream'),
+        ], 180);
+    }
+
     /** @return array<string, mixed> */
     public static function api(string $token, string $metode, array $isi, int $batas): array
     {

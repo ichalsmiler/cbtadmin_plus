@@ -143,11 +143,54 @@ class Moodle
      */
     public static function activeUsers(int $minutes): int
     {
-        return self::db()->table(self::t('user'))
+        return count(self::activeUserIds($minutes));
+    }
+
+    /**
+     * ID user yang aktif dalam $minutes menit terakhir (user.lastaccess). User yang login-nya direset panel
+     * (Reset Login) tidak dihitung aktif sampai login lagi: lastaccess-nya harus lebih baru dari waktu reset.
+     *
+     * @return list<int>
+     */
+    public static function activeUserIds(int $minutes): array
+    {
+        $reset = self::waktuReset();
+        $ids   = [];
+        foreach (self::db()->table(self::t('user'))->select('id, lastaccess')
             ->where('deleted', 0)
             ->where('lastaccess >', time() - $minutes * 60)
             ->whereNotIn('id', self::nonParticipantIds())
-            ->countAllResults();
+            ->get()->getResultArray() as $u) {
+            if ((int) $u['lastaccess'] > ($reset[(int) $u['id']] ?? 0)) {
+                $ids[] = (int) $u['id'];
+            }
+        }
+
+        return $ids;
+    }
+
+    private const KUNCI_RESET = 'reset_login_waktu';
+
+    /** Catat waktu Reset Login per user (disimpan sehari di cache panel). */
+    public static function catatReset(array $userIds): void
+    {
+        if ($userIds === []) {
+            return;
+        }
+        $kini  = time();
+        $data  = array_filter(self::waktuReset(), static fn ($t) => $t > $kini - 86400);
+        foreach ($userIds as $id) {
+            $data[(int) $id] = $kini;
+        }
+        cache()->save(self::KUNCI_RESET, $data, 86400);
+    }
+
+    /** @return array<int, int> userid => waktu reset terakhir */
+    public static function waktuReset(): array
+    {
+        $data = cache()->get(self::KUNCI_RESET);
+
+        return is_array($data) ? $data : [];
     }
 
     /**

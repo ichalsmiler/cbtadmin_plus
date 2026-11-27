@@ -126,6 +126,13 @@ class Guard implements FilterInterface
             }
         }
 
+        // Pengawas wajib mengisi namanya setelah login dan setiap hari/sesi berganti (akun ruang dipakai bergantian);
+        // nama tampil di kolom Pengawas Rekap Kehadiran. Permintaan AJAX (pantauan berkala) tidak dialihkan.
+        if ($pengawas && ! $request->isAJAX() && ! in_array($path, ['pengawas_nama', 'logout', 'tools/gambar/logo'], true)
+            && \App\Libraries\PengawasHadir::perlu()) {
+            return redirect()->to(site_url('pengawas_nama'));
+        }
+
         // Kurikulum hanya punya menu Hasil Ujian: beranda (dashboard) langsung ke sana.
         if ($session->get('admin_role') === 'kurikulum' && $path === '') {
             return redirect()->to(site_url('hasil_ujian'));
@@ -158,7 +165,7 @@ class Guard implements FilterInterface
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
     // tools/gambar/logo: logo sekolah di bilah atas (gambar tanda tangan tetap khusus admin).
-    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'dashboard/sesi', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout'];
+    private const PROKTOR_PATHS = ['', 'tools/gambar/logo', 'dashboard/stats', 'dashboard/sesi', 'peserta_ruang', 'status_peserta', 'reset_login', 'kehadiran', 'blokir_siswa', 'token', 'status_tes/token', 'daftar_ruang/kembali', 'logout', 'pengawas_nama'];
 
     /**
      * Proktor ujian (role `operator`): menjalankan ujian hari-H di semua ruang, tanpa menu persiapan/berbahaya.

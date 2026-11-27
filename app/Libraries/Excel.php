@@ -16,20 +16,33 @@ class Excel
      */
     public static function build(array $headers, array $rows): string
     {
-        $book  = new Spreadsheet();
-        $sheet = $book->getActiveSheet();
+        return self::buildSheets([['', $headers, $rows]]);
+    }
 
-        foreach (array_merge([$headers], $rows) as $r => $row) {
-            foreach (array_values($row) as $c => $value) {
-                $cell = Coordinate::stringFromColumnIndex($c + 1) . ($r + 1);
-                $sheet->setCellValueExplicit($cell, (string) ($value ?? ''), DataType::TYPE_STRING);
+    /**
+     * Seperti build(), tetapi beberapa lembar: daftar [judul lembar ('' = bawaan), headers, rows].
+     */
+    public static function buildSheets(array $sheets): string
+    {
+        $book = new Spreadsheet();
+        foreach (array_values($sheets) as $i => [$judul, $headers, $rows]) {
+            $sheet = $i === 0 ? $book->getActiveSheet() : $book->createSheet();
+            if ($judul !== '') {
+                $sheet->setTitle(mb_substr($judul, 0, 31));
+            }
+            foreach (array_merge([$headers], $rows) as $r => $row) {
+                foreach (array_values($row) as $c => $value) {
+                    $cell = Coordinate::stringFromColumnIndex($c + 1) . ($r + 1);
+                    $sheet->setCellValueExplicit($cell, (string) ($value ?? ''), DataType::TYPE_STRING);
+                }
+            }
+            $last = Coordinate::stringFromColumnIndex(max(1, count($headers)));
+            $sheet->getStyle("A1:{$last}1")->getFont()->setBold(true);
+            for ($c = 1; $c <= count($headers); $c++) {
+                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
             }
         }
-        $last = Coordinate::stringFromColumnIndex(max(1, count($headers)));
-        $sheet->getStyle("A1:{$last}1")->getFont()->setBold(true);
-        for ($c = 1; $c <= count($headers); $c++) {
-            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
-        }
+        $book->setActiveSheetIndex(0);
 
         ob_start();
         (new Xlsx($book))->save('php://output');

@@ -251,6 +251,7 @@ class Dokumen extends PanelController
             'tanggal' => $tanggal,
             'tingkat' => $tingkat,
             'rows'    => \App\Libraries\Absensi::rekap($tanggal, $tingkat),
+            'namaPengawas' => \App\Libraries\PengawasHadir::perRuang($tanggal), // nama yang diisi pengawas setelah login
         ]);
     }
 

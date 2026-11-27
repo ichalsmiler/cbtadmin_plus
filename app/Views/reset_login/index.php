@@ -6,9 +6,16 @@
     <div class="alert alert-danger" role="alert">Data login Moodle tidak bisa dibaca. Periksa pengaturan <code>moodle.*</code> di berkas <code>.env</code>.</div>
 <?php endif ?>
 
+<?php if ($menit > 0): ?>
+    <div class="alert alert-info d-flex flex-wrap gap-2 align-items-center" role="status">
+        <span>Menampilkan <strong>user aktif <?= (int) $menit ?> menit terakhir</strong> (sama dengan kartu User Aktif di Dashboard).</span>
+        <a class="alert-link ms-auto" href="<?= site_url('reset_login') ?>">Tampilkan semua yang masih login</a>
+    </div>
+<?php endif ?>
 <div class="card mb-3">
     <div class="card-body d-flex flex-wrap gap-3 align-items-end">
         <form class="d-flex flex-wrap gap-2 align-items-end" method="get" action="<?= site_url('reset_login') ?>">
+            <?php if ($menit > 0): ?><input type="hidden" name="aktif" value="1"><?php endif ?>
             <div>
                 <label class="form-label small mb-1" for="fCari">Cari peserta</label>
                 <input class="form-control form-control-sm" id="fCari" name="cari" value="<?= esc($cari) ?>" placeholder="username atau nama, lalu Enter">

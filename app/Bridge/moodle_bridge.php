@@ -330,6 +330,40 @@ try {
             $result['items'][] = ['diubah' => $diubah, 'sama' => $sama, 'berjalan' => $berjalan];
             break;
 
+        case 'quiz_shuffle':
+            // Acak urutan soal (quiz_sections.shufflequestions, semua bagian) dan/atau acak opsi (quiz.shuffleanswers)
+            // untuk quiz terpilih. soal/opsi: 1 = acak, 0 = urut, null = tidak diubah. Hanya berlaku untuk attempt
+            // baru: susunan attempt yang sudah dimulai tersimpan di attempt itu sendiri.
+            $soal   = isset($in['soal']) ? (int) (bool) $in['soal'] : null;
+            $opsi   = isset($in['opsi']) ? (int) (bool) $in['opsi'] : null;
+            $diubah = 0;
+            $kursus = [];
+            foreach (array_unique(array_map('intval', (array) ($in['quizids'] ?? []))) as $qid) {
+                $quiz = $DB->get_record('quiz', ['id' => $qid], 'id, course, shuffleanswers');
+                if (! $quiz) {
+                    continue;
+                }
+                $ubah = false;
+                if ($soal !== null && $DB->record_exists_select('quiz_sections', 'quizid = ? AND shufflequestions <> ?', [$qid, $soal])) {
+                    $DB->set_field('quiz_sections', 'shufflequestions', $soal, ['quizid' => $qid]);
+                    $ubah = true;
+                }
+                if ($opsi !== null && (int) $quiz->shuffleanswers !== $opsi) {
+                    $DB->set_field('quiz', 'shuffleanswers', $opsi, ['id' => $qid]);
+                    $ubah = true;
+                }
+                if ($ubah) {
+                    $DB->set_field('quiz', 'timemodified', time(), ['id' => $qid]);
+                    $kursus[(int) $quiz->course] = true;
+                    $diubah++;
+                }
+            }
+            foreach (array_keys($kursus) as $cid) {
+                rebuild_course_cache($cid, true);
+            }
+            $result['items'][] = ['diubah' => $diubah];
+            break;
+
         case 'finish_attempts':
             foreach ($in['attemptids'] as $attemptid) {
                 $item = ['id' => (int) $attemptid];

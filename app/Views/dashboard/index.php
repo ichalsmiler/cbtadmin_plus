@@ -7,7 +7,7 @@
 $cards = $isAdmin ? [
     ['ruang', 'Total Ruang', 'netral', 'door-open', 'daftar_ruang'],
     ['users', 'Total User', 'netral', 'people', 'daftar_peserta/moodle'],
-    ['aktif', 'User Aktif', 'netral', 'person-check', 'reset_login'],
+    ['aktif', 'User Aktif', 'netral', 'person-check', 'reset_login?aktif=1&tingkat=semua'], // daftar = dasar hitungan yang sama
     ['belum', 'Belum Submit', 'proses', 'hourglass-split', 'status_peserta/inprogress'],
     ['sudah', 'Sudah Submit', 'ok', 'check2-circle', 'status_peserta/finished'],
 ] : [

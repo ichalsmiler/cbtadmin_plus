@@ -17,9 +17,12 @@ class ResetLogin extends PanelController
         $tingkat = Tingkat::dariRequest();
         $rows    = [];
         $error   = false;
+        // ?aktif=1 (tombol Lihat kartu User Aktif di Dashboard): hanya user yang aktif dalam N menit terakhir
+        // (Moodle user.lastaccess, setelan active_minutes), sama persis dengan angka di kartu itu.
+        $menit = $this->request->getGet('aktif') ? max(1, (int) \App\Libraries\Settings::get('active_minutes', '5')) : 0;
 
         try {
-            $users    = $this->candidates($cari);
+            $users    = $this->candidates($cari, $menit);
             $sessions = [];
             foreach (array_chunk(array_keys($users), 500) as $chunk) {
                 foreach (MoodleBridge::call('list_sessions', ['userids' => $chunk]) as $s) {
@@ -34,7 +37,7 @@ class ResetLogin extends PanelController
 
             foreach ($users as $id => $u) {
                 $s = $sessions[$id] ?? null;
-                if (! $s && $cari === '') {
+                if (! $s && $cari === '' && $menit === 0) {
                     continue;
                 }
                 $info = $panel[$u['username']] ?? null;
@@ -71,6 +74,7 @@ class ResetLogin extends PanelController
             'ruangList' => $this->ruangList(),
             'lockRuang' => $this->myRuang() !== null,
             'error'     => $error,
+            'menit'     => $menit,
         ]);
     }
 
@@ -115,6 +119,7 @@ class ResetLogin extends PanelController
         $users  = 0;
         $killed = 0;
         $errors = [];
+        Moodle::catatReset(array_column(array_filter($items, static fn ($i) => ! isset($i['error'])), 'userid'));
         foreach ($items as $item) {
             if (isset($item['error'])) {
                 $errors[] = $item['error'];
@@ -134,18 +139,21 @@ class ResetLogin extends PanelController
     }
 
     /** User Moodle yang mungkin sedang login, atau yang cocok dengan pencarian. */
-    private function candidates(string $cari): array
+    private function candidates(string $cari, int $menit = 0): array
     {
         $builder = Moodle::db()->table(Moodle::t('user'))
             ->select('id, username, firstname, lastname')
             ->where('deleted', 0)
             ->whereNotIn('id', Moodle::nonParticipantIds());
 
+        if ($menit > 0) {
+            $builder->whereIn('id', Moodle::activeUserIds($menit) ?: [0]); // sama dengan Moodle::activeUsers()
+        }
         if ($cari !== '') {
             $builder->groupStart()
                 ->like('username', $cari)->orLike('firstname', $cari)->orLike('lastname', $cari)
                 ->groupEnd()->limit(200);
-        } else {
+        } elseif ($menit === 0) {
             $row     = Moodle::db()->table(Moodle::t('config'))->select('value')->where('name', 'sessiontimeout')->get()->getRowArray();
             $timeout = max(600, (int) ($row['value'] ?? 28800));
             $since   = time() - $timeout;

@@ -56,6 +56,10 @@ if ($t !== null) {
         <div class="small text-muted">Batas: <?= esc(\App\Libraries\CekSoal::tanggal((string) $t['batas'])) ?> · <?= count($isi) ?> soal · kunci ditandai hijau</div>
         <div class="small mt-2"><i class="bi bi-shield-lock"></i> Halaman ini rahasia dan diberi tanda nama Anda. Mohon tidak difoto atau disebarkan.</div>
     </div>
+    <div class="alert alert-warning d-flex gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div><strong>Penting:</strong> setelah semua soal diperiksa, gulir ke <strong>akhir halaman</strong>, centang pernyataan <strong>setuju</strong>, lalu tekan <strong>Kirim pernyataan</strong>. Pemeriksaan Anda belum tercatat sebelum tombol itu ditekan.</div>
+    </div>
     <?php if ($galat): ?><div class="alert alert-danger" role="alert"><?= esc($galat) ?></div><?php endif ?>
 
     <form method="post" action="<?= site_url('cek/' . $t['token'] . '/kirim') ?>">
@@ -77,8 +81,9 @@ if ($t !== null) {
                 </div>
             </div>
         <?php endforeach ?>
-        <div class="card mb-3 border-primary">
+        <div class="card mb-3 border-primary" id="kartuSetuju">
             <div class="card-body">
+                <div class="alert alert-warning small py-2 mb-3"><i class="bi bi-hand-index-thumb"></i> Centang pernyataan di bawah, lalu tekan <strong>Kirim pernyataan</strong> supaya pemeriksaan tercatat.</div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" name="setuju" value="1" id="setuju" required>
                     <label class="form-check-label fw-semibold" for="setuju"><?= esc(\App\Libraries\CekSoal::pernyataan($t)) ?></label>
@@ -90,6 +95,25 @@ if ($t !== null) {
         <button class="btn btn-primary w-100 mb-2" type="submit" onclick="return confirm('Kirim pernyataan? Setelah dikirim, tautan ini ditutup.')"><i class="bi bi-send"></i> Kirim pernyataan</button>
         <div class="form-text text-center mb-4">Setelah dikirim, tautan ini tidak bisa dibuka lagi.</div>
     </form>
+    <?php // Pengingat melayang di bawah layar sampai kartu setuju terlihat; tombolnya menggulir ke kartu itu. ?>
+    <button type="button" id="ingatSetuju" class="btn btn-warning shadow position-fixed bottom-0 start-50 translate-middle-x mb-3 fw-semibold" style="z-index:1090">
+        <i class="bi bi-arrow-down-circle"></i> Jangan lupa centang setuju &amp; kirim di akhir soal
+    </button>
+    <script>
+        (function () {
+            var kartu = document.getElementById('kartuSetuju');
+            var ingat = document.getElementById('ingatSetuju');
+            var form = kartu.closest('form');
+            var terkirim = false;
+            ingat.addEventListener('click', function () { kartu.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+            if ('IntersectionObserver' in window) {
+                new IntersectionObserver(function (e) { ingat.classList.toggle('d-none', e[0].isIntersecting); }).observe(kartu);
+            }
+            form.addEventListener('submit', function () { terkirim = true; });
+            // Menutup/meninggalkan halaman sebelum mengirim: browser menampilkan peringatan bawaannya.
+            window.addEventListener('beforeunload', function (e) { if (!terkirim) { e.preventDefault(); e.returnValue = ''; } });
+        })();
+    </script>
     <script>
         document.addEventListener('contextmenu', function (e) { if (!e.target.closest('textarea')) e.preventDefault(); });
         document.addEventListener('copy', function (e) { if (!e.target.closest || !e.target.closest('textarea')) e.preventDefault(); });
