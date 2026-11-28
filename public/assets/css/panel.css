@@ -432,6 +432,11 @@ input, textarea { caret-color: var(--brand-fill); }
     color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px;
 }
 .kolom-cek { width: 1%; }
+.kolom-nama { min-width: 12rem; }
+/* Hasil Ujian → rekap nilai: kolom Nama tetap terlihat saat tabel digeser ke samping; judul mapel boleh 2 baris. */
+.tabel-rekap .kolom-beku { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 13rem; box-shadow: 1px 0 0 var(--line); }
+.tabel-rekap tr:hover .kolom-beku { background: var(--surface-2); }
+.tabel-rekap > thead th.judul-mapel { white-space: normal; min-width: 5.5rem; max-width: 9rem; vertical-align: bottom; }
 
 /* Menu Soal → Edit Soal: ringkasan soal 2 baris, editor teks (contenteditable) dan baris opsi berkunci. */
 .soal-ringkas { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 60rem; }

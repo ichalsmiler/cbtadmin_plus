@@ -21,11 +21,11 @@ $input = static fn (string $name, string $label, string $value, string $ph = '',
     <div id="moodleTools">
         <?= $item('moodleTools', 'cron', 'gear', 'Cron Task',
             '<p class="small text-muted">Menjalankan cron task Moodle sekarang (mis. menutup attempt yang lewat waktu, mengirim pekerjaan tertunda). Cron juga berjalan otomatis tiap menit.</p>'
-            . '<button class="btn btn-info btn-sm" type="button" data-post="' . site_url('tools/cron') . '" data-confirm-text="Jalankan cron task Moodle sekarang? Bisa memakan waktu hingga beberapa menit."><i class="bi bi-rocket-takeoff me-1"></i>Cron</button>') ?>
+            . '<button class="btn btn-primary btn-sm" type="button" data-post="' . site_url('tools/cron') . '" data-confirm-text="Jalankan cron task Moodle sekarang? Bisa memakan waktu hingga beberapa menit."><i class="bi bi-rocket-takeoff me-1"></i>Cron</button>') ?>
         <?= $item('moodleTools', 'cache', 'layers', 'Bersihkan / Hapus Cache',
             '<p class="small text-muted">Membersihkan berkas cache Moodle di server. <strong>Bersihkan</strong> = cara biasa (Purge Moodle); <strong>Hapus</strong> = hapus seluruh folder cache lalu dibangun ulang (dipakai bila tampilan Moodle bermasalah). Halaman pertama sesudahnya akan lebih lambat.</p>'
-            . '<button class="btn btn-warning btn-sm me-1" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"purge"}\' data-confirm-text="Bersihkan cache Moodle sekarang?"><i class="bi bi-arrow-repeat me-1"></i>Bersihkan</button>'
-            . '<button class="btn btn-danger btn-sm" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"delete"}\' data-confirm-text="Hapus semua cache Moodle? Jangan dilakukan saat ujian berlangsung."><i class="bi bi-trash3 me-1"></i>Hapus</button>') ?>
+            . '<button class="btn btn-primary btn-sm me-1" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"purge"}\' data-confirm-text="Bersihkan cache Moodle sekarang?"><i class="bi bi-arrow-repeat me-1"></i>Bersihkan</button>'
+            . '<button class="btn btn-outline-danger btn-sm" type="button" data-post="' . site_url('tools/cache') . '" data-fields=\'{"jenis":"delete"}\' data-confirm-text="Hapus semua cache Moodle? Jangan dilakukan saat ujian berlangsung."><i class="bi bi-trash3 me-1"></i>Hapus</button>') ?>
         <?= $item('moodleTools', 'antisubmit', 'hourglass-split', 'Anti Submit',
             '<p class="small text-muted">Mencegah peserta menyelesaikan ujian sebelum waktunya. Contoh: anti submit 10 menit dan durasi ujian 120 menit, peserta baru bisa submit setelah mengerjakan 110 menit. Isi <strong>0</strong> untuk menonaktifkan.</p>'
             . '<form method="post" action="' . site_url('tools/ujian') . '" class="d-flex flex-wrap align-items-center gap-2">' . $csrf

@@ -11,7 +11,7 @@
         <div class="me-auto">
             <div class="small text-muted"><?= $token['mapel'] !== '' ? 'Token tes ' . esc($token['mapel']) : 'Belum ada tes aktif' ?></div>
             <div>
-                <span class="font-monospace fw-semibold fs-4 token-ringkas" id="tokenValue" style="letter-spacing:.2em"><?= esc(! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–'))) ?></span>
+                <span class="font-monospace fw-semibold fs-4 token-ringkas" id="tokenValue" style="letter-spacing:.2em"><?= esc($token['mapel'] === '' ? '–' : (! $token['enabled'] ? 'TANPA TOKEN' : ($token['token'] !== '' ? $token['token'] : (! empty($token['sesiNonaktif']) ? 'SESI NONAKTIF' : '–')))) ?></span>
                 <?php if ($token['enabled'] && $token['next'] > 0): ?>
                     <span class="small text-muted ms-2">ganti pukul <strong id="tokenNext"><?= date('H:i', $token['next']) ?></strong> (<span id="tokenLeft">–</span>)</span>
                 <?php endif ?>

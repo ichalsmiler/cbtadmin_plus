@@ -11,9 +11,6 @@ $indent   = static fn ($c) => str_repeat('— ', max(0, (int) $c['depth'] - 1));
 <?php endif ?>
 
 <div class="card">
-    <div class="card-header d-flex align-items-center">
-        <span class="fw-semibold"><i class="bi bi-check-square me-1"></i>Setting Ujian</span>
-    </div>
     <div class="card-body">
         <form method="post" data-no-dirty action="<?= site_url('status_tes/kategori') ?>">
             <?= csrf_field() ?>

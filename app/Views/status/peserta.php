@@ -107,7 +107,7 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                 <thead>
                 <tr>
                     <th data-orderable="false" style="width:1%"><input class="form-check-input" type="checkbox" data-check-all aria-label="Centang semua"></th>
-                    <th>Nama</th><th>Kelas</th><th>Ruang</th>
+                    <th class="kolom-nama">Nama</th><th>Kelas</th><th>Ruang</th>
                     <?php if (! $quiz): ?><th>Mapel</th><?php endif ?>
                     <th>Status</th><th>Mulai</th><th>Selesai</th><th title="Lama mengerjakan mapel ini (Selesai − Mulai); yang masih mengerjakan terus berjalan">Waktu Pengerjaan</th>
                 </tr>
@@ -118,21 +118,21 @@ $fmt = static fn ($ts) => $ts > 0 ? date('d/m H:i', $ts) : '–';
                     <tr>
                         <td><input class="form-check-input" type="checkbox" name="ids[]" value="<?= esc($r['key'], 'attr') ?>" aria-label="Pilih <?= esc($r['nama'], 'attr') ?>"></td>
                         <td><?= esc($r['nama']) ?></td>
-                        <td><?= esc($r['kelas']) ?></td>
-                        <td><?= esc($r['ruang'] ?? '-') ?></td>
-                        <?php if (! $quiz): ?><td><?= esc($r['quiz_name']) ?></td><?php endif ?>
+                        <td class="text-nowrap"><?= esc($r['kelas']) ?></td>
+                        <td class="text-nowrap"><?= esc($r['ruang'] ?? '-') ?></td>
+                        <?php if (! $quiz): ?><td class="text-nowrap small"><?= esc($r['quiz_name']) ?></td><?php endif ?>
                         <td>
                             <span class="badge text-bg-<?= $cls ?>"><?= $label ?></span>
                             <?php if ($r['overdue']): ?><span class="badge text-bg-warning">Lewat waktu</span><?php endif ?>
                             <?php if ($r['attempt_no'] > 1): ?><small class="text-muted">ke-<?= $r['attempt_no'] ?></small><?php endif ?>
                         </td>
-                        <td data-order="<?= $r['timestart'] ?>"><?= $fmt($r['timestart']) ?></td>
-                        <td data-order="<?= $r['timefinish'] ?>"><?= $fmt($r['timefinish']) ?></td>
+                        <td class="text-nowrap" data-order="<?= $r['timestart'] ?>"><?= $fmt($r['timestart']) ?></td>
+                        <td class="text-nowrap" data-order="<?= $r['timefinish'] ?>"><?= $fmt($r['timefinish']) ?></td>
                         <?php
                         // Lama pengerjaan: selesai − mulai; yang masih mengerjakan dihitung berjalan oleh panel.js (data-mulai).
                         $lama = $r['timestart'] > 0 ? ($r['timefinish'] > 0 ? $r['timefinish'] : time()) - $r['timestart'] : -1;
                         ?>
-                        <td data-order="<?= $lama ?>">
+                        <td class="text-nowrap" data-order="<?= $lama ?>">
                             <?php if ($r['timestart'] <= 0): ?>–
                             <?php elseif ($r['status'] === 'inprogress'): ?>
                                 <span data-mulai="<?= (int) $r['timestart'] ?>"><?= $durasi($lama) ?></span>

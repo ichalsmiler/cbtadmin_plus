@@ -112,6 +112,33 @@
         });
     });
 
+    // ---------------------------------------------------------------- Rahasia (password)
+    // <span data-rahasia="nilai">••••</span> tersembunyi sampai tombol [data-intip] (dalam sel yang sama)
+    // atau [data-intip-semua] diklik; aman bila layar admin terlihat orang lain / proyektor.
+    var tutupRahasia = '••••••';
+    function intip(el, buka) {
+        el.textContent = buka ? el.dataset.rahasia : tutupRahasia;
+        el.dataset.terbuka = buka ? '1' : '';
+        var tombol = el.parentElement.querySelector('[data-intip] i');
+        if (tombol) { tombol.className = buka ? 'bi bi-eye-slash' : 'bi bi-eye'; }
+    }
+    document.querySelectorAll('[data-rahasia]').forEach(function (el) { intip(el, false); });
+    document.addEventListener('click', function (event) {
+        var satu = event.target.closest('[data-intip]');
+        if (satu) {
+            var el = satu.parentElement.querySelector('[data-rahasia]');
+            if (el) { intip(el, !el.dataset.terbuka); }
+            return;
+        }
+        var semua = event.target.closest('[data-intip-semua]');
+        if (semua) {
+            var daftar = document.querySelectorAll('[data-rahasia]');
+            var buka = !Array.prototype.some.call(daftar, function (el) { return el.dataset.terbuka; });
+            daftar.forEach(function (el) { intip(el, buka); });
+            semua.querySelector('i').className = buka ? 'bi bi-eye-slash' : 'bi bi-eye';
+        }
+    });
+
     // ---------------------------------------------------------------- Modal isian
     // Tombol data-fill-modal="#id" data-fill='{"nama":"..."}' mengisi input bernama sama.
     document.addEventListener('click', function (event) {

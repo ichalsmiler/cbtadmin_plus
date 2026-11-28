@@ -31,7 +31,7 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
                     <tr>
                         <th class="text-center" style="width:3rem">No</th>
                         <th>Kode Login</th>
-                        <th>Password</th>
+                        <th class="text-nowrap">Password <button class="btn btn-sm btn-link p-0 ms-1 align-baseline" type="button" data-intip-semua title="Tampilkan / sembunyikan semua password"><i class="bi bi-eye"></i></button></th>
                         <th style="min-width:14rem">Nama Ruang</th>
                         <th class="text-center">Peserta</th>
                         <th class="text-center">Tukar</th>
@@ -48,7 +48,8 @@ $waktu = static fn (?string $d): string => $d ? date('d/m H:i', strtotime($d)) :
                                     <div class="fw-semibold text-nowrap"><?= esc($r['username'] ?? '–') ?></div>
                                 </div>
                             </td>
-                            <td><code><?= esc((string) $r['password_plain']) ?></code></td>
+                            <td class="text-nowrap"><code data-rahasia="<?= esc((string) $r['password_plain'], 'attr') ?>">••••••</code>
+                                <button class="btn btn-sm btn-link p-0 ms-1 text-body-secondary" type="button" data-intip title="Tampilkan password"><i class="bi bi-eye"></i></button></td>
                             <td>
                                 <input form="lokasiForm" class="form-control form-control-sm" name="lokasi[<?= (int) $r['id'] ?>]"
                                        value="<?= esc(trim((string) $r['lokasi']) !== '' ? $r['lokasi'] : 'Ruang ' . $r['nama'], 'attr') ?>" maxlength="120" placeholder="Masukkan nama ruang / lab"

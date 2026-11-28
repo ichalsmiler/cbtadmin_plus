@@ -54,7 +54,8 @@ $bars = $isAdmin ? [
     </div>
 <?php endif ?>
 
-<?php if ($token !== null): ?>
+<?php // Tanpa sesi aktif, kartu token ringkas (admin) tidak ditampilkan: pesan di atas sudah cukup. ?>
+<?php if ($token !== null && ($sesiAktif !== null || empty($token['ringkas']))): ?>
     <?= view('partials/token_card', ['token' => $token]) ?>
 <?php endif ?>
 

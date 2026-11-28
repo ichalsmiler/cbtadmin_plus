@@ -196,18 +196,28 @@ $badge = ['finished' => 'success', 'inprogress' => 'primary', 'notstarted' => 's
                 <p class="text-muted mb-0">Belum ada nilai untuk siswa ini (sesuai filter).</p>
             <?php else: ?>
                 <div class="table-responsive">
-                <table class="table table-hover table-sm align-middle w-100 datatable" data-order-col="1">
-                    <thead><tr><th>No. Peserta</th><th>Nama</th><th>Kelas</th>
+                <?php
+                // Judul kolom mapel dipendekkan: awalan yang sama di semua mapel (mis. "USBK-X-") dibuang; nama lengkap di tooltip.
+                $singkat = array_column($rekap['quiz'], 'course_short');
+                $awalan  = count($singkat) > 1 ? (string) array_reduce($singkat, static function ($a, $s) {
+                    $n = 0;
+                    while ($n < strlen($a) && $n < strlen($s) && $a[$n] === $s[$n]) { $n++; }
+                    return substr($a, 0, $n);
+                }, $singkat[0]) : '';
+                $p      = strrpos($awalan, '-');  // potong sampai tanda "-" terakhir supaya tidak memotong di tengah kata
+                $awalan = $p === false ? '' : substr($awalan, 0, $p + 1);
+                ?>
+                <table class="table table-hover table-sm align-middle w-100 datatable tabel-rekap" data-order-col="0">
+                    <thead><tr><th class="kolom-beku">Nama</th><th>Kelas</th>
                         <?php foreach ($rekap['quiz'] as $q): ?>
-                            <th class="text-end" title="<?= esc($q['course_name'] . ' · ' . $q['name'], 'attr') ?>"><?= esc($q['course_short']) ?></th>
+                            <th class="text-end judul-mapel" title="<?= esc($q['course_name'] . ' · ' . $q['name'], 'attr') ?>"><?= esc($awalan !== '' ? substr($q['course_short'], strlen($awalan)) : $q['course_short']) ?></th>
                         <?php endforeach ?>
                         <th class="text-end">Rata-rata</th></tr></thead>
                     <tbody>
                     <?php foreach ($rekap['rows'] as $r): ?>
                         <tr>
-                            <td><?= esc($r['nomor_peserta']) ?></td>
-                            <td><?= esc($r['nama']) ?></td>
-                            <td><?= esc($r['kelas']) ?></td>
+                            <td class="kolom-beku" data-order="<?= esc($r['nama'], 'attr') ?>"><?= esc($r['nama']) ?><div class="small text-muted"><?= esc($r['nomor_peserta']) ?></div></td>
+                            <td class="text-nowrap"><?= esc($r['kelas']) ?></td>
                             <?php foreach ($rekap['quiz'] as $q): $v = $r['nilai'][(int) $q['id']] ?? null; ?>
                                 <td class="text-end" data-order="<?= $v ?? -1 ?>"><?= $num($v) ?></td>
                             <?php endforeach ?>
