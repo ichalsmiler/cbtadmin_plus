@@ -8,7 +8,6 @@ $menu = [
     ['Soal', 'pencil-square', null, [['Kiriman Soal', 'kiriman_soal'], ['Masukkan Soal', 'soal'], ['Review & Edit Soal', 'soal/edit'], ['Acak Soal', 'acak_soal'], ['Cek Soal', 'cek_soal']]],
     ['Status Peserta', 'people', 'status_peserta'],
     ['Isi Kehadiran', 'clipboard-check', 'kehadiran'],
-    ['Blokir Siswa', 'slash-circle', 'blokir_siswa'],
     ['Daftar Ruang', 'door-open', 'daftar_ruang'],
     // Persiapan ujian di Moodle: konversi data user/jadwal dan pembuatan kategori (tes) + course (mapel).
     ['Admin Tools', 'mortarboard', null, [['Kategori Mapel', 'tools/test_manage'], ['Jadwal', 'jadwal_mapel'], ['Konvert User', 'konvert'], ['Sesi', 'sesi_tingkat'], ['Server Cadangan', 'server_cadangan']]],
@@ -21,16 +20,18 @@ $menu = [
 if ($adminRole === 'proktor' || $adminRole === 'demo') {
     $menu[1] =['Daftar Peserta', 'person', 'peserta_ruang'];
 }
-// Reset Login (selalu) dan Lock Peserta (bila Batas login per mapel / Anti Newtab aktif) = dua menu terpisah.
-$menuLogin = [['Reset Login', 'person-x', 'reset_login']];
+// Akses Peserta (setelah Status Peserta): Reset Login (selalu), Lock Peserta (bila Batas login per mapel / Anti Newtab aktif), Blokir Siswa.
+$subAkses = [['Reset Login', 'reset_login']];
 if ((int) \App\Libraries\Settings::get('login_maks', '0') > 0 || \App\Libraries\Settings::get('anti_newtab', '0') === '1') {
-    $menuLogin[] = ['Lock Peserta', 'lock', 'lock_peserta'];
+    $subAkses[] = ['Lock Peserta', 'lock_peserta'];
 }
-array_splice($menu, array_search('status_peserta', array_column($menu, 2), true) + 1, 0, $menuLogin);
+$subAkses[] = ['Blokir Siswa', 'blokir_siswa'];
+$posAkses   = array_search('status_peserta', array_column($menu, 2), true) + 1;
+array_splice($menu, $posAkses, 0, [['Akses Peserta', 'shield-lock', null, $subAkses]]);
 // Laporan Siswa (Proktor + admin, bukan pengawas ruang): disembunyikan selama LaporanSiswa::TAMPIL = false.
 if (\App\Libraries\LaporanSiswa::TAMPIL && in_array($adminRole, ['admin', 'operator'], true)) {
     $nBaru = \App\Libraries\LaporanSiswa::jumlahBaru();
-    array_splice($menu, array_search('blokir_siswa', array_column($menu, 2), true) + 1, 0,
+    array_splice($menu, $posAkses + 1, 0,
         [['Laporan Siswa' . ($nBaru > 0 ? ' (' . $nBaru . ')' : ''), 'flag', 'laporan_siswa']]);
 }
 // Kategori Mapel (tools/test_manage) punya menunya sendiri, jadi menu Tools tidak ikut disorot di sana.
@@ -87,7 +88,8 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
             // (rekapnya di Dokumen → Rekap Kehadiran). Pengawas: hanya menu yang boleh dibukanya.
             // Proktor (operator): menu/submenu yang diizinkan Guard; Token cukup lewat Status Ujian → Token.
             // Kurikulum: sama seperti proktor (menu/submenu yang diizinkan Guard). Masukkan Soal (soal) khusus admin.
-            if ($adminRole === 'operator' || $adminRole === 'kurikulum') {
+            // Pengawas: menu/submenu yang diizinkan Guard (mis. Akses Peserta); grup tanpa submenu boleh = hilang.
+            if ($adminRole !== 'admin') {
                 if (isset($item[3])) {
                     $item[3] = array_values(array_filter($item[3], static fn ($sub) => $sub[1] !== 'soal' && \App\Filters\Guard::allowed($adminRole, $sub[1])));
                     // Tools → Panel untuk proktor hanya berisi Log aktivitas.
@@ -98,7 +100,7 @@ $asset    = static fn (string $file): string => base_url('assets/' . $file);
                 } elseif ($item[2] === 'token' || ! \App\Filters\Guard::allowed($adminRole, $item[2])) {
                     continue;
                 }
-            } elseif ($adminRole === 'admin' ? in_array($item[2], ['token', 'kehadiran'], true) : ($item[2] === null || ! \App\Filters\Guard::allowed($adminRole, $item[2]))) {
+            } elseif (in_array($item[2], ['token', 'kehadiran'], true)) {
                 continue;
             }
             ?>

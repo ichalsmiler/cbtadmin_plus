@@ -17,8 +17,7 @@ class SysInfo
             }
         }
 
-        $load       = function_exists('sys_getloadavg') ? (sys_getloadavg()[0] ?? 0) : 0;
-        $cpuPercent = (int) min(100, round($load / $cores * 100));
+        $cpuPercent = self::cpuPersen();
 
         $memTotal = $memAvail = 0;
         $meminfo  = @file_get_contents('/proc/meminfo');
@@ -40,6 +39,50 @@ class SysInfo
             'mem'  => self::usage($memUsed, $memTotal),
             'disk' => self::usage($diskUsed, $diskTotal),
         ];
+    }
+
+    /**
+     * Pemakaian CPU nyata (%) dari selisih /proc/stat (bukan load average, yang di kontainer bisa
+     * menempel di ~1 walau CPU diam). Selisih dihitung terhadap bacaan sebelumnya di cache; bila tidak
+     * ada atau terlalu dekat/lama, dua bacaan berjarak 250 ms.
+     */
+    private static function cpuPersen(): int
+    {
+        $kini = self::bacaStat();
+        if ($kini === null) {
+            return 0;
+        }
+        $lalu = cache()->get('sysinfo_cpu');
+        cache()->save('sysinfo_cpu', $kini, 600);
+        $umur = is_array($lalu) ? microtime(true) - $lalu[2] : 0;
+        if (! is_array($lalu) || $umur < 1 || $umur > 300 || $kini[0] <= $lalu[0]) {
+            $lalu = $kini;
+            usleep(250000);
+            $kini = self::bacaStat() ?? $lalu;
+            cache()->save('sysinfo_cpu', $kini, 600);
+        }
+        $total = $kini[0] - $lalu[0];
+        if ($total <= 0) {
+            return 0;
+        }
+
+        return (int) max(0, min(100, round(100 * (1 - ($kini[1] - $lalu[1]) / $total))));
+    }
+
+    /** [total jiffies, jiffies diam (idle+iowait), waktu baca] atau null. */
+    private static function bacaStat(): ?array
+    {
+        $f = @fopen('/proc/stat', 'r');
+        $b = $f ? fgets($f) : false;
+        if ($f) {
+            fclose($f);
+        }
+        if (! $b || ! preg_match('/^cpu\s+(.+)$/', trim($b), $m)) {
+            return null;
+        }
+        $v = array_map('intval', preg_split('/\s+/', trim($m[1])));
+
+        return [array_sum(array_slice($v, 0, 8)), ($v[3] ?? 0) + ($v[4] ?? 0), microtime(true)];
     }
 
     private static function usage(float $used, float $total): array
