@@ -58,8 +58,13 @@
                     <td><span class="fw-semibold d-block"><?= esc($r['course_name']) ?></span><span class="small text-body-secondary"><?= esc($r['course_short']) ?></span></td>
                     <td><?= esc($r['category_name']) ?></td>
                     <td class="text-center"><?= (int) $r['jml_soal'] ?></td>
-                    <td class="text-center"><span class="badge <?= $r['acak_soal'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $r['acak_soal'] ? 'Acak' : 'Urut' ?></span></td>
-                    <td class="text-center"><span class="badge <?= $r['acak_opsi'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $r['acak_opsi'] ? 'Acak' : 'Urut' ?></span></td>
+                    <?php foreach (['soal' => ['acak_soal', 'urutan soal'], 'opsi' => ['acak_opsi', 'opsi jawaban']] as $f => [$k, $lbl]): $on = $r[$k]; ?>
+                    <td class="text-center"><button type="button" class="badge border-0 <?= $on ? 'text-bg-success' : 'text-bg-secondary' ?>"
+                        title="Klik untuk mengubah jadi <?= $on ? 'Urut' : 'Acak' ?>"
+                        data-post="<?= site_url('acak_soal/simpan') ?>"
+                        data-fields='<?= esc(json_encode(['quiz[]' => (int) $r['id'], $f => $on ? '0' : '1', 'kat' => $katId]), 'attr') ?>'
+                        data-confirm-text="<?= esc('Ubah ' . $lbl . ' ' . $r['course_name'] . ' jadi ' . ($on ? 'Urut' : 'Acak') . '? Berlaku untuk siswa yang mulai mengerjakan sesudah ini.', 'attr') ?>"><?= $on ? 'Acak' : 'Urut' ?></button></td>
+                    <?php endforeach ?>
                     <td class="text-center"><?= $r['berjalan'] > 0 ? '<span class="badge text-bg-warning">' . (int) $r['berjalan'] . ' siswa</span>' : '<span class="text-body-secondary">–</span>' ?></td>
                 </tr>
             <?php endforeach ?>
@@ -67,6 +72,7 @@
         </table>
     </div>
 </form>
+<form method="post" id="postForm" class="d-none"><?= csrf_field() ?></form>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>

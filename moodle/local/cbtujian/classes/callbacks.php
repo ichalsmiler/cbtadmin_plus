@@ -349,6 +349,9 @@ class callbacks {
         if ((int) $attempt->get_userid() !== (int) $USER->id || $attempt->get_state() !== \mod_quiz\quiz_attempt::IN_PROGRESS) {
             return 0;
         }
+        if ($attempt->is_preview() || is_siteadmin()) {
+            return 0;  // pratinjau guru/admin dan admin situs tidak dibatasi Anti Submit
+        }
         $due = (int) $attempt->get_due_date();
 
         return $due ? max(0, $due - $menit * 60 - time()) : 0;
@@ -367,6 +370,9 @@ class callbacks {
         $attempt = \mod_quiz\quiz_attempt::create($id);
         if ((int) $attempt->get_userid() !== (int) $USER->id || $attempt->get_state() !== \mod_quiz\quiz_attempt::IN_PROGRESS) {
             return;
+        }
+        if ($attempt->is_preview() || is_siteadmin()) {
+            return;  // pratinjau guru/admin dan admin situs tidak dibatasi Anti Submit
         }
         $due = $attempt->get_due_date();
         if (!$due) {

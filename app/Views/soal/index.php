@@ -29,10 +29,26 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
             <?= csrf_field() ?>
             <div class="card-header fw-semibold"><i class="bi bi-file-earmark-arrow-up me-1"></i>Masukkan soal ke Moodle</div>
             <div class="card-body">
+                <?php if ($kiriman): ?>
+                    <label class="form-label" for="s_kiriman">Soal kiriman guru</label>
+                    <select class="form-select" id="s_kiriman" name="kiriman">
+                        <option value="">— unggah berkas sendiri —</option>
+                        <?php foreach (\App\Libraries\KirimSoal::TINGKAT as $t): ?>
+                            <optgroup label="Kelas <?= $t ?>">
+                                <?php foreach ($kiriman as $k): if ($k['tingkat'] !== $t) { continue; } ?>
+                                    <option value="<?= (int) $k['id'] ?>" data-mapel="<?= (int) $k['course'] ?>" <?= (int) $k['id'] === $kirimanId ? 'selected' : '' ?>><?= esc($k['mapel'] . ' – ' . $k['guru'] . ' (' . (int) $k['jumlah_soal'] . ' soal)') ?><?= $k['masuk_at'] ? ' ✓ sudah di Moodle' : '' ?><?= ! $k['pasti'] ? ' · mapel tebakan' : '' ?></option>
+                                <?php endforeach ?>
+                            </optgroup>
+                        <?php endforeach ?>
+                    </select>
+                    <div class="form-text mb-3">Mapel tujuan dipilih otomatis dari nama mapel kiriman; periksa lagi sebelum lanjut.</div>
+                <?php endif ?>
                 <label class="form-label" for="s_mapel">Mapel tujuan</label>
                 <select class="form-select" id="s_mapel" name="mapel" required><?= $pilihMapel($mapel, $dipilih) ?></select>
-                <label class="form-label mt-3" for="s_berkas">Berkas soal (.rtf)</label>
-                <input class="form-control" type="file" id="s_berkas" name="berkas" accept=".rtf,.doc" required>
+                <div id="s_berkasGrup">
+                    <label class="form-label mt-3" for="s_berkas">Berkas soal (.rtf)</label>
+                    <input class="form-control" type="file" id="s_berkas" name="berkas" accept=".rtf,.doc" required>
+                </div>
                 <p class="small text-body-secondary mt-2 mb-0">Berkas belum dikirim ke Moodle: langkah berikutnya menampilkan pratinjau soal dan kuncinya untuk diperiksa dulu.</p>
             </div>
             <div class="card-footer text-end"><button class="btn btn-primary" type="submit">Periksa soal</button></div>
@@ -51,6 +67,68 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
                 <p class="mb-0 text-body-secondary">Soal masuk ke quiz mapel itu (quiz dibuat otomatis bila belum ada), opsi diacak, setiap soal bernilai sama, nilai maksimal 100.</p>
             </div>
         </div>
+        <?php if ($admin && \App\Libraries\Ai::tampil()): $aiAda =\App\Libraries\Ai::siap(); $aiProv = \App\Libraries\Ai::provider(); ?>
+        <form class="card mt-3" method="post" action="<?= site_url('soal/ai_setelan') ?>" autocomplete="off">
+            <?= csrf_field() ?>
+            <div class="card-header fw-semibold d-flex align-items-center gap-2"><i class="bi bi-stars"></i>Cek soal dengan AI
+                <span class="badge ms-auto <?= $aiAda ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $aiAda ? 'Aktif' : 'Belum aktif' ?></span></div>
+            <div class="card-body small">
+                <?php if (! \App\Libraries\Ai::tersedia()): ?>
+                    <div class="alert alert-warning py-2">Pustaka HTTP/AI belum terpasang di server: deploy ulang panel.</div>
+                <?php endif ?>
+                <p class="text-body-secondary">Di halaman Periksa muncul tombol <b>Cek dengan AI</b>: kunci salah, opsi ganda/kembar, soal ambigu, salah ketik. Isi soal dikirim ke provider AI saat tombol itu ditekan.</p>
+                <label class="form-label" for="aiProv">Provider</label>
+                <select class="form-select form-select-sm" id="aiProv" name="provider">
+                    <?php foreach (\App\Libraries\Ai::PROVIDER as $id => $p): ?>
+                        <option value="<?= esc($id, 'attr') ?>" data-url="<?= esc($p[1], 'attr') ?>" data-contoh="<?= esc($p[2], 'attr') ?>" <?= $aiProv === $id ? 'selected' : '' ?>><?= esc($p[0]) ?></option>
+                    <?php endforeach ?>
+                </select>
+                <div data-ai="lain">
+                    <label class="form-label mt-2" for="aiUrl">Alamat API</label>
+                    <input class="form-control form-control-sm" id="aiUrl" name="url" value="<?= esc(\App\Libraries\Ai::alamat(), 'attr') ?>" placeholder="https://…/v1">
+                    <label class="form-label mt-2" for="aiModelBebas">Nama model</label>
+                    <input class="form-control form-control-sm" id="aiModelBebas" name="model_bebas" value="<?= esc(\App\Libraries\Ai::model() !== '' && $aiProv !== 'anthropic' ? \App\Libraries\Ai::model() : '', 'attr') ?>" placeholder="<?= esc(\App\Libraries\Ai::PROVIDER[$aiProv][2], 'attr') ?>">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="aiGambar" name="gambar" value="1" <?= \App\Libraries\Settings::get('ai_gambar') === '1' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="aiGambar">Kirim gambar soal (hanya bila model mendukung gambar/vision)</label>
+                    </div>
+                </div>
+                <div data-ai="anthropic">
+                    <label class="form-label mt-2" for="aiModel">Model</label>
+                    <select class="form-select form-select-sm" id="aiModel" name="model">
+                        <?php foreach (\App\Libraries\Ai::MODEL as $id => $nama): ?>
+                            <option value="<?= esc($id, 'attr') ?>" <?= \App\Libraries\Settings::get('ai_model') === $id ? 'selected' : '' ?>><?= esc($nama) ?></option>
+                        <?php endforeach ?>
+                    </select>
+                </div>
+                <label class="form-label mt-2" for="aiKey">API key</label>
+                <input class="form-control form-control-sm" type="password" id="aiKey" name="key" placeholder="<?= \App\Libraries\Ai::ada() ? 'Tersimpan ••••' . esc(\App\Libraries\Ai::ekor(), 'attr') . ' (kosongkan bila tidak diganti)' : 'tempel API key' ?>">
+                <div class="form-text">Key disimpan terenkripsi di server dan tidak pernah ditampilkan lagi.</div>
+            </div>
+            <div class="card-footer d-flex gap-2">
+                <button class="btn btn-primary btn-sm" name="aksi" value="simpan">Simpan &amp; tes</button>
+                <?php if (\App\Libraries\Ai::ada()): ?>
+                    <button class="btn btn-outline-danger btn-sm ms-auto" name="aksi" value="hapus" formnovalidate>Hapus key</button>
+                <?php endif ?>
+            </div>
+        </form>
+        <script>
+        // Provider dipilih → tampilkan isian yang sesuai, isi alamat API bawaan dan contoh model.
+        (function () {
+            var prov = document.getElementById('aiProv'), url = document.getElementById('aiUrl'), model = document.getElementById('aiModelBebas');
+            var bawaan = [].map.call(prov.options, function (o) { return o.dataset.url; });
+            var atur = function (ubah) {
+                var o = prov.selectedOptions[0], anth = prov.value === 'anthropic';
+                document.querySelectorAll('[data-ai="lain"]').forEach(function (el) { el.hidden = anth; });
+                document.querySelectorAll('[data-ai="anthropic"]').forEach(function (el) { el.hidden = !anth; });
+                model.placeholder = o.dataset.contoh || 'nama model dari provider';
+                if (ubah && (url.value === '' || bawaan.indexOf(url.value) !== -1)) { url.value = o.dataset.url; }
+            };
+            prov.addEventListener('change', function () { atur(true); });
+            atur(false);
+        })();
+        </script>
+        <?php endif ?>
     </div>
 </div>
 <?php else: ?>
@@ -159,6 +237,27 @@ $pilihMapel = static function (array $mapel, int $dipilih): string {
 <?php endif ?>
 <?php endif ?>
 <?= $this->endSection() ?>
+
+<?php if ($tab === 'masuk' && $kiriman): ?>
+<?= $this->section('scripts') ?>
+<script>
+// Kiriman guru dipilih → berkas tidak perlu diunggah, mapel tujuan diisi tebakan (bila ketemu).
+(function () {
+    var pilih = document.getElementById('s_kiriman'), grup = document.getElementById('s_berkasGrup'),
+        berkas = document.getElementById('s_berkas'), mapel = document.getElementById('s_mapel');
+    var atur = function (ubahMapel) {
+        var opt = pilih.options[pilih.selectedIndex], ada = pilih.value !== '';
+        grup.hidden = ada;
+        berkas.required = !ada;
+        if (ada) { berkas.value = ''; }
+        if (ada && ubahMapel && opt.dataset.mapel !== '0') { mapel.value = opt.dataset.mapel; }
+    };
+    pilih.addEventListener('change', function () { atur(true); });
+    atur(false);
+})();
+</script>
+<?= $this->endSection() ?>
+<?php endif ?>
 
 <?php if ($tab === 'edit' && ! empty($daftar['quiz'])): ?>
 <?= $this->section('scripts') ?>

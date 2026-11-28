@@ -57,7 +57,7 @@ Menu → controller (rincian tiap baris di PETA-RINCI):
 | Daftar Ruang | Ruang (+ `Pengawas`) |
 | Dokumen (+ Rekap Simulasi) | Dokumen / RekapSimulasi |
 | Hasil Ujian | HasilUjian (+ `AnalisisSoal`) |
-| Soal (grup): Masukkan Soal `soal` / Review & Edit Soal `soal/edit` / Acak Soal `acak_soal` / Cek Soal `cek_soal` | Soal (+ `SoalRtf`) / AcakSoal / CekSoalPanel + CekGuru (+ `CekSoal`, `Telegram`) |
+| Soal (grup): Kiriman Soal `kiriman_soal` (+ halaman guru tanpa login `kirim_soal`) / Masukkan Soal `soal` / Review & Edit Soal `soal/edit` / Acak Soal `acak_soal` / Cek Soal `cek_soal` | KirimanSoal + KirimSoal (+ `KirimSoal`, app `app/KonverSoal/` dari `deploy/salin-konver-soal.sh`) / Soal (+ `SoalRtf`) / AcakSoal / CekSoalPanel + CekGuru (+ `CekSoal`, `Telegram`) |
 | Admin Tools: Sesi / Jadwal / Kategori Mapel / Konvert User / Server Cadangan | SesiTingkat / Konvert / Tools::testManage / Konvert / ServerCadanganPanel (+ `ServerCadangan`) |
 | Tools: Moodle Tools / Info Sekolah / Panel | Tools (+ `LogUjian`) |
 

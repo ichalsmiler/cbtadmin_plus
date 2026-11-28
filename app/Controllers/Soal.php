@@ -3,6 +3,10 @@
 namespace App\Controllers;
 
 use App\Libraries\ActivityLog;
+use App\Libraries\Ai;
+use App\Libraries\CekSoal;
+use App\Libraries\KirimSoal;
+use App\Libraries\Settings;
 use App\Libraries\Moodle;
 use App\Libraries\MoodleBridge;
 use App\Libraries\SoalRtf;
@@ -43,6 +47,14 @@ class Soal extends PanelController
         }
         $tab     = $bagian !== '' ? $bagian : 'masuk';
         $dipilih = (int) $this->request->getGet('mapel');
+        // Kiriman guru (Kirim Soal) periode aktif: pilihan pengganti unggah berkas; ?kiriman=ID dari Kiriman Soal.
+        $kiriman   = $tab === 'masuk' ? KirimSoal::untukMasukkan() : [];
+        $kirimanId = (int) $this->request->getGet('kiriman');
+        foreach ($kiriman as $k) {
+            if ((int) $k['id'] === $kirimanId && $dipilih <= 1) {
+                $dipilih = (int) $k['course'];
+            }
+        }
         $daftar  = null;
         $gagal   = null;
         if ($tab !== 'masuk' && $dipilih > 1) {
@@ -61,6 +73,8 @@ class Soal extends PanelController
             'mapel'   => $mapel,
             'error'   => $error,
             'dipilih' => $dipilih,
+            'kiriman' => $kiriman,
+            'kirimanId' => $kirimanId,
             'daftar'  => $daftar,
             'gagal'   => $gagal,
         ]);
@@ -147,14 +161,26 @@ class Soal extends PanelController
         $back     = site_url('soal');
         $courseId = (int) $this->request->getPost('mapel');
         $file     = $this->request->getFile('berkas');
+        $kirimId  = (int) $this->request->getPost('kiriman');
         if ($courseId <= 1) {
-            return redirect()->to($back)->with('error', 'Pilih mapel tujuan.');
+            return redirect()->to($back . ($kirimId ? '?kiriman=' . $kirimId : ''))->with('error', 'Pilih mapel tujuan.');
         }
-        if (! $file || ! $file->isValid() || ! in_array(strtolower($file->getClientExtension()), ['rtf', 'doc'], true)) {
-            return redirect()->to($back . '?mapel=' . $courseId)->with('error', 'Pilih berkas soal .rtf (atau .rtf.doc) yang valid.');
+        if ($kirimId > 0) {
+            // Soal kiriman guru (Kirim Soal): RTF diambil dari folder kiriman.
+            $k   = db_connect()->table('kirim_soal')->where('id', $kirimId)->get()->getRowArray();
+            $rtf = $k ? KirimSoal::bacaRtf($k) : null;
+            if ($rtf === null) {
+                return redirect()->to($back . '?mapel=' . $courseId)->with('error', 'Berkas kiriman guru tidak ditemukan.');
+            }
+            $namaBerkas = $k['berkas'] . ' (kiriman ' . $k['guru'] . ')';
+        } elseif (! $file || ! $file->isValid() || ! in_array(strtolower($file->getClientExtension()), ['rtf', 'doc'], true)) {
+            return redirect()->to($back . '?mapel=' . $courseId)->with('error', 'Pilih kiriman guru atau berkas soal .rtf (atau .rtf.doc) yang valid.');
+        } else {
+            $rtf        = (string) file_get_contents($file->getTempName());
+            $namaBerkas = $file->getClientName();
         }
         try {
-            $hasil = SoalRtf::urai((string) file_get_contents($file->getTempName()));
+            $hasil = SoalRtf::urai($rtf);
             $info  = $this->infoMapel($courseId);
         } catch (\Throwable $e) {
             return redirect()->to($back . '?mapel=' . $courseId)->with('error', 'Berkas tidak bisa dibaca: ' . $e->getMessage());
@@ -162,13 +188,36 @@ class Soal extends PanelController
         if ($info === null) {
             return redirect()->to($back)->with('error', 'Mapel tidak ditemukan di Moodle.');
         }
+        // Pengaman kiriman guru: kelas harus sama; pasangan mapel yang belum pernah dipastikan wajib dikonfirmasi.
+        $cek = null;
+        if ($kirimId > 0) {
+            $tc = CekSoal::tingkatCourse((string) $info['shortname'], (string) $info['fullname']);
+            if ($tc !== '' && $tc !== $k['tingkat']) {
+                return redirect()->to($back . '?kiriman=' . $kirimId)->with('error', 'Kiriman ' . $k['mapel'] . ' kelas ' . $k['tingkat']
+                    . ' tidak boleh masuk ke ' . $info['fullname'] . ' (kelas ' . $tc . '). Pilih mapel kelas ' . $k['tingkat'] . '.');
+            }
+            $kunciPeta = KirimSoal::kunciPeta($k['tingkat'], $k['mapel']);
+            $petaLama  = KirimSoal::peta()[$kunciPeta] ?? null;
+            $cek       = [
+                'guru'      => $k['guru'],
+                'mapel'     => $k['mapel'],
+                'tingkat'   => $k['tingkat'],
+                'pasti'     => $petaLama === $info['shortname'],
+                'petaLama'  => $petaLama,
+                'tanpaKls'  => $tc === '',
+                'bedaJml'   => (int) $k['jumlah_soal'] > 0 && (int) $k['jumlah_soal'] !== count($hasil['soal']) ? (int) $k['jumlah_soal'] : 0,
+                'kunciPeta' => $kunciPeta,
+            ];
+        }
 
         $this->bersihkan();
         $token = bin2hex(random_bytes(16));
         $simpan = [
-            'mapel'  => $courseId,
-            'berkas' => $file->getClientName(),
-            'oleh'   => (int) session()->get('admin_id'),
+            'mapel'   => $courseId,
+            'berkas'  => $namaBerkas,
+            'kiriman' => $kirimId,
+            'cek'     => $cek === null ? null : ['wajib' => ! $cek['pasti'], 'kunciPeta' => $cek['kunciPeta'], 'shortname' => $info['shortname']],
+            'oleh'    => (int) session()->get('admin_id'),
             'soal'   => array_map(static fn ($s) => ['gambar' => array_map(static fn ($g) => ['nama' => $g['nama'], 'data' => base64_encode($g['data'])], $s['gambar'])] + $s, $hasil['soal']),
         ];
         if (file_put_contents(self::DIR . $token . '.json', json_encode($simpan)) === false) {
@@ -179,11 +228,90 @@ class Soal extends PanelController
             'title'      => 'Soal · Periksa',
             'token'      => $token,
             'info'       => $info,
-            'berkas'     => $file->getClientName(),
+            'berkas'     => $namaBerkas,
             'soal'       => $simpan['soal'],
             'peringatan' => $hasil['peringatan'],
             'gambar'     => $hasil['gambar'],
+            'cek'        => $cek,
+            'aiSiap'     => Ai::siap(),
         ]);
+    }
+
+    /** Kartu "Cek soal dengan AI": simpan/hapus API key, pilih model, tes koneksi (admin). */
+    public function aiSetelan()
+    {
+        if (! Ai::tampil()) {
+            return redirect()->to(site_url('soal'))->with('error', 'Fitur cek soal dengan AI sedang disembunyikan.');
+        }
+        $aksi = (string) $this->request->getPost('aksi');
+        if ($aksi === 'hapus') {
+            Ai::simpanKey(null);
+            ActivityLog::add('ai', 'Hapus API key AI');
+
+            return redirect()->to(site_url('soal'))->with('success', 'API key AI dihapus.');
+        }
+        $provider = (string) $this->request->getPost('provider');
+        if (isset(Ai::PROVIDER[$provider])) {
+            Settings::set('ai_provider', $provider);
+        }
+        $url = trim((string) $this->request->getPost('url'));
+        if ($url !== '' && ! preg_match('~^https?://[^\s]+$~i', $url)) {
+            return redirect()->to(site_url('soal'))->with('error', 'Alamat API harus diawali http:// atau https://.');
+        }
+        Settings::set('ai_url', rtrim($url, '/'));
+        Settings::set('ai_model_bebas', mb_substr(trim((string) $this->request->getPost('model_bebas')), 0, 120));
+        Settings::set('ai_gambar', $this->request->getPost('gambar') === '1' ? '1' : '0');
+        $model = (string) $this->request->getPost('model');
+        if (isset(Ai::MODEL[$model])) {
+            Settings::set('ai_model', $model);
+        }
+        $key = trim((string) $this->request->getPost('key'));
+        if ($key !== '') {
+            if (! preg_match('/^\S{16,300}$/', $key)) {
+                return redirect()->to(site_url('soal'))->with('error', 'API key tidak valid (minimal 16 karakter, tanpa spasi).');
+            }
+            Ai::simpanKey($key);
+            ActivityLog::add('ai', 'Simpan API key AI');
+        }
+        if (Ai::ada() && Ai::model() !== '') {
+            try {
+                $balas = Ai::tes();
+
+                return redirect()->to(site_url('soal'))->with('success', 'Koneksi AI berhasil (' . Ai::namaModel() . ' membalas: "' . mb_substr(trim($balas), 0, 30) . '").');
+            } catch (\Throwable $e) {
+                return redirect()->to(site_url('soal'))->with('error', 'Tes AI gagal: ' . $e->getMessage());
+            }
+        }
+
+        return redirect()->to(site_url('soal'))->with('success', 'Setelan AI disimpan.');
+    }
+
+    /** Halaman Periksa → tombol "Cek dengan AI": telaah soal hasil periksa (JSON, dipanggil fetch). */
+    public function aiCek()
+    {
+        $token = (string) $this->request->getPost('token');
+        $path  = self::DIR . $token . '.json';
+        $balas = fn (array $d, int $kode = 200) => $this->response->setStatusCode($kode)
+            ->setJSON($d + ['csrf' => csrf_hash()]);
+        if (! Ai::siap()) {
+            return $balas(['ok' => false, 'pesan' => 'Fitur cek soal dengan AI tidak aktif.'], 403);
+        }
+        if (! preg_match('/^[0-9a-f]{32}$/', $token) || ! is_file($path)) {
+            return $balas(['ok' => false, 'pesan' => 'Data periksa sudah kedaluwarsa. Ulangi Periksa.'], 404);
+        }
+        $data = json_decode((string) file_get_contents($path), true);
+        if (! is_array($data) || (int) ($data['oleh'] ?? 0) !== (int) session()->get('admin_id')) {
+            return $balas(['ok' => false, 'pesan' => 'Data periksa tidak valid.'], 403);
+        }
+        $info = $this->infoMapel((int) $data['mapel']);
+        try {
+            $hasil = Ai::cekSoal($data['soal'], (string) ($info['fullname'] ?? ''));
+        } catch (\Throwable $e) {
+            return $balas(['ok' => false, 'pesan' => $e->getMessage()], 502);
+        }
+        ActivityLog::add('ai', 'Cek soal ' . ($data['berkas'] ?? '') . ': ' . count($hasil['temuan']) . ' temuan');
+
+        return $balas(['ok' => true, 'model' => Ai::namaModel()] + $hasil);
     }
 
     /** Langkah 2: masukkan soal yang sudah diperiksa ke quiz mapel. */
@@ -201,6 +329,9 @@ class Soal extends PanelController
         }
         $soal = array_map(static fn ($s) => ['gambar' => array_map(static fn ($g) => ['nama' => $g['nama'], 'data' => (string) base64_decode($g['data'], true)], $s['gambar'])] + $s, $data['soal']);
         $ganti = $this->request->getPost('mode') === 'ganti';
+        if (! empty($data['cek']['wajib']) && $this->request->getPost('yakin') !== '1') {
+            return redirect()->to($back . '?kiriman=' . (int) $data['kiriman'])->with('error', 'Centang "Mapel tujuan sudah benar" sebelum memasukkan soal kiriman. Ulangi Periksa.');
+        }
         try {
             $item = MoodleBridge::call('import_soal', [
                 'courseid' => (int) $data['mapel'],
@@ -212,6 +343,14 @@ class Soal extends PanelController
             return redirect()->to($back . '?mapel=' . (int) $data['mapel'])->with('error', 'Gagal memasukkan soal: ' . $e->getMessage());
         }
         @unlink($path);
+        if ((int) ($data['kiriman'] ?? 0) > 0) {
+            db_connect()->table('kirim_soal')->where('id', (int) $data['kiriman'])
+                ->update(['masuk_at' => date('Y-m-d H:i:s'), 'courseid' => (int) $data['mapel']]);
+            if (! empty($data['cek']['kunciPeta'])) {
+                // Pasangan mapel ini sudah dipastikan: kiriman berikutnya (juga semester lain) memakainya.
+                KirimSoal::simpanPeta($data['cek']['kunciPeta'], (string) $data['cek']['shortname']);
+            }
+        }
         ActivityLog::add('masukkan_soal', ($data['berkas'] ?? '') . ' → ' . ($item['quiz'] ?? '?') . ': ' . (int) ($item['ditambah'] ?? 0) . ' soal' . ($ganti ? ' (ganti)' : ''));
 
         $pesan = (int) ($item['ditambah'] ?? 0) . ' soal masuk ke quiz "' . ($item['quiz'] ?? '') . '"'

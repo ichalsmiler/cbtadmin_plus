@@ -74,6 +74,11 @@ if [ ! -d "$APP_DIR/vendor/phpoffice/phpspreadsheet" ]; then
     log "    Memasang PhpSpreadsheet (import/export Excel)"
     (cd "$APP_DIR" && COMPOSER_ALLOW_SUPERUSER=1 composer require phpoffice/phpspreadsheet --update-no-dev --no-interaction)
 fi
+if [ ! -d "$APP_DIR/vendor/anthropic-ai/sdk" ] || [ ! -d "$APP_DIR/vendor/guzzlehttp/guzzle" ]; then
+    log "    Memasang Anthropic SDK (Cek soal dengan AI)"
+    (cd "$APP_DIR" && COMPOSER_ALLOW_SUPERUSER=1 composer require anthropic-ai/sdk guzzlehttp/guzzle --update-no-dev --no-interaction) \
+        || log "    (Anthropic SDK gagal dipasang: fitur Cek soal dengan AI nonaktif)"
+fi
 if [ ! -d "$APP_DIR/vendor/dompdf/dompdf" ]; then
     log "    Memasang dompdf (cetak PDF)"
     (cd "$APP_DIR" && COMPOSER_ALLOW_SUPERUSER=1 composer require dompdf/dompdf --update-no-dev --no-interaction)

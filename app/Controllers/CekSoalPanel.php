@@ -219,6 +219,7 @@ class CekSoalPanel extends PanelController
             $db->table('cek_guru')->truncate();
         }
         $db->table('cek_guru')->insertBatch($data);
+        Settings::set('cek_guru_diubah', date('Y-m-d H:i:s'));
         ActivityLog::add('cek_soal_guru', count($data) . ' baris data guru diunggah' . ($this->request->getPost('ganti') === '1' ? ' (ganti)' : ''));
 
         return redirect()->to($back)->with('success', count($data) . ' baris data guru disimpan.'
@@ -310,6 +311,7 @@ class CekSoalPanel extends PanelController
         } else {
             $db->table('cek_guru')->insert($row + ['created_at' => date('Y-m-d H:i:s')]);
         }
+        Settings::set('cek_guru_diubah', date('Y-m-d H:i:s'));
 
         return redirect()->to($back)->with('success', 'Data guru disimpan.');
     }
@@ -317,6 +319,7 @@ class CekSoalPanel extends PanelController
     public function hapusGuru(int $id)
     {
         db_connect()->table('cek_guru')->where('id', $id)->delete();
+        Settings::set('cek_guru_diubah', date('Y-m-d H:i:s'));
 
         return redirect()->to(site_url('cek_soal') . '?tab=guru')->with('success', 'Baris data guru dihapus.');
     }

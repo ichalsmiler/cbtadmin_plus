@@ -39,7 +39,8 @@ class Guard implements FilterInterface
 
         $session = session();
 
-        if ($request->is('post')) {
+        // kirim_soal/api/*: JSON dari halaman guru tanpa sesi (tidak ada yang bisa dipalsukan atas nama akun).
+        if ($request->is('post') && ! str_starts_with($path, 'kirim_soal/api/')) {
             try {
                 service('security')->verify($request);
             } catch (SecurityException $e) {
@@ -51,7 +52,7 @@ class Guard implements FilterInterface
         // (identitas dari tautan bertanda tangan Moodle, lihat Controllers/Lapor), dan halaman cek soal guru (tautan
         // acak terkunci perangkat, lihat Controllers/CekGuru) terbuka tanpa sesi.
         if ($path === 'login' || $path === 'tools/gambar/favicon' || ($path === 'simulasi' && $request->is('get')) || $path === 'lapor' || $path === 'lapor/kirim'
-            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path)) {
+            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path) || self::kirimSoal($path)) {
             return null;
         }
 
@@ -160,7 +161,13 @@ class Guard implements FilterInterface
     {
         // cek/<token>: halaman cek soal guru (tautan acak, terkunci perangkat) boleh lewat domain perantara.
         return in_array($path, ['login', 'simulasi', 'tools/gambar/favicon'], true) || self::allowed('proktor', $path)
-            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path) === 1;
+            || preg_match('#^cek/[0-9a-f]{32}(/kirim|/buka)?$#', $path) === 1 || self::kirimSoal($path);
+    }
+
+    /** Halaman guru Kirim Soal (tanpa login): aplikasi Konver Soal + api-nya (Controllers/KirimSoal). */
+    private static function kirimSoal(string $path): bool
+    {
+        return preg_match('#^kirim_soal(/(status|styles\.css|(js|lib)/[A-Za-z0-9._-]+\.js|api/(guru|pengaturan|kirim(/status)?)))?$#', $path) === 1;
     }
 
     /** Halaman yang boleh dibuka pengawas (proktor); administrator boleh semua. */
@@ -183,7 +190,7 @@ class Guard implements FilterInterface
     ];
 
     /** Kurikulum (role `kurikulum`): Hasil Ujian (nilai, analisis soal) dan Cek Soal oleh guru. */
-    private const KURIKULUM_PATHS = ['logout', 'tools/gambar/logo', 'hasil_ujian*', 'cek_soal*'];
+    private const KURIKULUM_PATHS = ['logout', 'tools/gambar/logo', 'hasil_ujian*', 'cek_soal*', 'kiriman_soal*'];
 
     /** Nama peran untuk ditampilkan. */
     public static function namaPeran(string $role): string

@@ -111,6 +111,13 @@ server {
         proxy_cache_valid 200 10m;
     }
 
+    # Kirim Soal guru: berkas RTF bergambar + Word asli (gzip) bisa puluhan MB.
+    location = /cbtadmin/kirim_soal/api/kirim {
+        limit_except POST { deny all; }
+        client_max_body_size 64m;
+        include snippets/cbt-perantara.conf;
+    }
+
     # Panel: diteruskan apa adanya (sesi/POST, tanpa cache); panel sendiri yang menolak menu non-pengawas (404).
     location /cbtadmin/ {
         include snippets/cbt-perantara.conf;
